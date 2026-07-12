@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -7,5 +8,5 @@ export default defineConfig({
   // /mnt/d project (DrvFS blocks a local node_modules there). Keep symlink
   // paths so Vite resolves everything within this root instead of /mnt/d.
   resolve: { preserveSymlinks: true },
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
 })
