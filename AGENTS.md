@@ -53,4 +53,7 @@ Typecheck is part of `build` (`tsc -b`); there is no separate `typecheck` script
 If `/tmp` is wiped, recreate the workspace: copy `package.json`+`package-lock.json` there, `npm ci`, then re-create the symlinks above (don't reinstall package by package). Do NOT try `npm install` inside `/mnt/d`.
 
 ## Node version note
-Environment is Node 20.18.0. The toolchain is pinned to a Node-20.18-compatible set (Vite 6, React 19.1, TypeScript 5.8). Do not upgrade to Vite 8 / TS 6 (they require Node ≥20.19).
+Environment is Node 20.18.0. The toolchain is pinned to a Node-20.18-compatible set (Vite 6, React 19.1, TypeScript 5.8). Do not upgrade to Vite 8 / TS 6 (they require Node ≥20.19). `jsdom` is pinned to `^25.0.1` — v27 pulls an ESM-only CSS parser that breaks under Node 20.18.
+
+## CI
+`.github/workflows/ci.yml` runs `npm ci` → `lint` → `build` → `test` on push/PR (GitHub-hosted Linux, no DrvFS quirks). Tests run with `npm run test` (Vitest, jsdom). Per spec §9.3, WebGL/`<Canvas>` and SVG `d` attributes are intentionally not tested.

@@ -37,10 +37,37 @@ describe('ControlPanel', () => {
     expect(useAppStore.getState().family).toBe('azimuthal');
   });
 
+  it('updates store.distortion when a distortion radio is selected', () => {
+    render(<ControlPanel />);
+    fireEvent.click(screen.getByRole('radio', { name: 'Равновеликая' }));
+    expect(useAppStore.getState().distortion).toBe('equalArea');
+  });
+
+  it('toggles store.showTissot via the checkbox', () => {
+    render(<ControlPanel />);
+    const checkbox = screen.getByRole('checkbox', { name: /Индикатрисы Тиссо/ }) as HTMLInputElement;
+    fireEvent.click(checkbox);
+    expect(useAppStore.getState().showTissot).toBe(true);
+  });
+
+  it('applies an EPSG preset via the dropdown', () => {
+    render(<ControlPanel />);
+    const select = screen.getByRole('combobox') as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: '1' } }); // Gall-Peters
+    const s = useAppStore.getState();
+    expect(s.family).toBe('cylindrical');
+    expect(s.distortion).toBe('equalArea');
+    expect(s.phi1).toBe(45);
+  });
+
   it('shows the parallel sliders only for the conic family', () => {
     useAppStore.setState({ family: 'conic' });
     render(<ControlPanel />);
     expect(screen.getByText('Стандартная параллель 1')).toBeTruthy();
     expect(screen.getByText('Стандартная параллель 2')).toBeTruthy();
+
+    const sliders = screen.getAllByRole('slider') as HTMLInputElement[];
+    fireEvent.change(sliders[1], { target: { value: '30' } });
+    expect(useAppStore.getState().phi1).toBe(30);
   });
 });

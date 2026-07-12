@@ -1,0 +1,39 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import { render, waitFor } from '@testing-library/react';
+import Map2D from './Map2D';
+import { useAppStore } from '../store/useAppStore';
+import type { FeatureCollection } from 'geojson';
+
+const sampleFc: FeatureCollection = {
+  type: 'FeatureCollection',
+  features: [
+    {
+      type: 'Feature',
+      properties: {},
+      geometry: { type: 'Polygon', coordinates: [[[0, 0], [10, 0], [10, 10], [0, 0]]] },
+    },
+  ],
+};
+
+describe('Map2D', () => {
+  beforeEach(() => {
+    useAppStore.setState({ showTissot: false, geoJsonData: sampleFc });
+  });
+
+  it('renders an svg with coastline paths once geo data is loaded', async () => {
+    const { container } = render(<Map2D />);
+    await waitFor(() => {
+      expect(container.querySelector('svg')).not.toBeNull();
+    });
+    // graticule + at least one coastline path (do not assert exact `d`).
+    expect(container.querySelectorAll('path').length).toBeGreaterThan(0);
+  });
+
+  it('renders extra Tissot indicatrix paths when enabled', async () => {
+    useAppStore.setState({ showTissot: true });
+    const { container } = render(<Map2D />);
+    await waitFor(() => {
+      expect(container.querySelectorAll('path').length).toBeGreaterThan(1);
+    });
+  });
+});
