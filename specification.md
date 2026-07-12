@@ -1,139 +1,200 @@
-# Архитектура и Техническое Задание (ТЗ) на разработку
+# Техническое задание (ТЗ) для разработчика: Интерактивный симулятор картографических проекций
 
-## 1. Технологический стек
+## 1. Стек технологий и инициализация проекта
 
-Для обеспечения высокой производительности рендеринга 3D и 2D в браузере, а также жесткой синхронизации состояний, выбран следующий стек:
+* **Сборщик:** Vite (шаблон React + TypeScript).
+* **UI/Стилизация:** Tailwind CSS. Допустимо использование Radix UI (или shadcn/ui) для доступных слайдеров и селекторов, чтобы не писать их с нуля.
+* **Стейт-менеджер:** Zustand (идеален для связи React и Three.js без лишних ререндеров).
+* **3D-графика:** `three` и `@react-three/fiber` (R3F) + `@react-three/drei` (полезные хелперы).
+* **2D-карта и математика:** `d3-geo`, `d3-geo-projection`, `d3-scale`.
+* **Геоданные:** `topojson-client` (для конвертации TopoJSON в GeoJSON на лету).
 
-* **Ядро приложения:** React 18+ (на базе сборщика Vite) + TypeScript.
-* **Управление состоянием:** Zustand (минималистичный, позволяет легко синхронизировать UI, D3 и 3D-сцену без лишних ререндеров).
-* **3D-движок:** Three.js с оберткой `@react-three/fiber` (R3F) и утилитами `@react-three/drei`.
-* **Математика проекций и 2D-рендеринг:** D3.js (`d3-geo`, `d3-geo-projection`).
-* **Геоданные:** `topojson-client` для распаковки TopoJSON на клиенте.
-* **UI-компоненты и стилизация:** Tailwind CSS + Radix UI (или shadcn/ui) для доступных слайдеров, модальных окон и вкладок.
+## 2. Глобальное состояние (Zustand Store)
 
-## 2. Модель данных и Глобальное состояние (Zustand Store)
-
-Логика приложения строится вокруг единого источника истины. Любое изменение в Store мгновенно подхватывается компонентами 3D, 2D и UI.
-
-**Структура `useAppStore`:**
-
-* `projectionFamily`: 'cylindrical' | 'conic' | 'azimuthal'
-* `params`:
-* `lambda0` (Центральный меридиан): `number`
-* `phi0` (Центральная широта / Широта начала отсчета): `number`
-* `phi1` (Стандартная параллель 1): `number`
-* `phi2` (Стандартная параллель 2): `number`
-
-
-* `uiState`:
-* `showTissot`: `boolean`
-* `activeEpsg`: `string | null`
-
-
-* `geoData`:
-* `landTopology`: `FeatureCollection | null` (распакованный TopoJSON)
-
-
-
-## 3. Архитектура модулей
-
-### 3.1. Модуль загрузки геоданных (Data Layer)
-
-* **Источник:** Статический файл `world-110m.topojson` (в папке `public`).
-* **Процесс:** При монтировании приложения (в `App.tsx`) происходит `fetch` файла, распаковка через `topojson.feature()` и сохранение массива полигонов в глобальный Store.
-* **Оптимизация:** Данные грузятся один раз. До окончания загрузки отображается глобальный Loader.
-
-### 3.2. Математическое ядро (D3-GEO Proxy)
-
-Вместо того чтобы компоненты сами считали проекции, создается хук `useProjection`, который слушает Store и возвращает сконфигурированную функцию проекции из D3.
-
-**Мэппинг семейств на функции D3:**
-
-* `cylindrical` -> `d3.geoCylindricalEqualArea()` или `d3.geoEquirectangular()` (в зависимости от настроек)
-* `conic` -> `d3.geoConicConformal()` или `d3.geoConicEqualArea()`
-* `azimuthal` -> `d3.geoAzimuthalEquidistant()` или `d3.geoStereographic()`
-
-**Логика конфигурации хука:**
+Создай файл `src/store/useAppStore.ts`. Это сердце приложения. Все компоненты (UI, 3D, 2D) только читают отсюда данные или вызывают методы `set`.
 
 ```typescript
-const proj = d3.geoConicEqualArea()
-  .rotate([-params.lambda0, 0])
-  .center([0, params.phi0])
-  .parallels([params.phi1, params.phi2]);
+import { create } from 'zustand';
 
-```
+// Доступные комбинации математики и геометрии
+export type ProjectionFamily = 'cylindrical' | 'conic' | 'azimuthal';
+export type DistortionModel = 'conformal' | 'equalArea' | 'equidistant';
 
-### 3.3. Модуль 3D-сцены (`@react-three/fiber`)
-
-Отвечает за визуализацию глобуса и вспомогательной поверхности. Левая часть экрана.
-
-**Компоненты 3D-сцены:**
-
-1. **Глобус (`<Sphere>`)**:
-* Радиус фиксированный (например, `R=10`).
-* **Материк:** Геометрия материков генерируется динамически. Для оптимизации TopoJSON конвертируется в линии (LineSegments) с помощью `d3.geoPath()` с проекцией `d3.geoOrthographic()`, либо материки отрисовываются на 2D Canvas-текстуре, которая затем натягивается на `MeshStandardMaterial` сферы. Текстурный метод производительнее.
-* **Гратула (Сетка):** Отрисовывается либо на текстуре глобуса, либо отдельными `LineBasicMaterial` (каждые 15°).
-
-
-2. **Вспомогательная поверхность (`<AuxiliarySurface>`)**:
-* Динамически монтируется в зависимости от `projectionFamily`.
-* **Цилиндр (`<CylinderGeometry>`):** Радиус `R`. Высота пересчитывается так, чтобы охватывать глобус.
-* **Конус (`<ConeGeometry>`):** Это самая сложная часть. Угол при вершине и высота конуса должны математически вычисляться исходя из значений `phi1` и `phi2` (стандартных параллелей), чтобы конус визуально "касался" или "пересекал" глобус на заданных широтах.
-* **Плоскость (`<PlaneGeometry>`):** Располагается касательно к глобусу в точке `(lambda0, phi0)`. Вычисляется через матрицу поворотов (Quaternions).
-* **Материал:** `MeshPhysicalMaterial` (полупрозрачный, оранжевый, `opacity={0.3}`, `side={THREE.DoubleSide}`).
-
-
-
-### 3.4. Модуль 2D-карты (Canvas/SVG Rendering)
-
-Отвечает за плоскую развертку. Правая часть экрана.
-
-* Используется **SVG** (через React-компоненты) для идеальной четкости при масштабировании, так как 110m геоданные легковесны.
-* **Слой материков:** `<path d={geoPathGenerator(geoData)} fill="#e2e8f0" stroke="#94a3b8" />`.
-* **Слой гратулы:** Генерация сетки через `d3.geoGraticule10()` и прогон через `geoPathGenerator`.
-* **Слой Индикатрис Тиссо:**
-* Генерируется массив точек (каждые 30° по широте и долготе).
-* Для каждой точки создается круг радиуса ~500 км с помощью `d3.geoCircle()`.
-* Эти круги (как GeoJSON-полигоны) прогоняются через общую функцию `geoPathGenerator`. D3 автоматически растянет и сплющит их согласно математике проекции, идеально визуализируя искажения.
-
-
-
-### 3.5. Панель UI и Каталог EPSG
-
-* **Контролы (Слайдеры):** Компоненты-слайдеры подписываются на Zustand Store и при `onChange` обновляют значения в реальном времени (`requestAnimationFrame` для плавности не нужен, React 18 справится с батчингом).
-* **EPSG Каталог (JSON-объект):**
-```typescript
-const epsgCatalog = {
-  "EPSG:3395": { name: "WGS 84 / World Mercator", family: "cylindrical", params: { lambda0: 0, phi1: 0 } },
-  "EPSG:3006": { name: "SWEREF99 TM", family: "cylindrical", params: { lambda0: 15, phi1: 0 } },
-  "EPSG:3031": { name: "Antarctic Polar Stereographic", family: "azimuthal", params: { lambda0: 0, phi0: -90 } }
+interface AppState {
+  // 1. Текущие параметры проекции
+  family: ProjectionFamily;
+  distortion: DistortionModel;
+  lambda0: number; // Центральный меридиан (-180 to 180)
+  phi1: number;    // Стандартная параллель 1 (-90 to 90)
+  phi2: number;    // Стандартная параллель 2 (-90 to 90)
+  
+  // 2. Настройки UI
+  showTissot: boolean;
+  
+  // 3. Геоданные
+  geoJsonData: any | null; // Сюда положим распакованный FeatureCollection материков
+  
+  // 4. Методы (Actions)
+  setParam: (key: keyof AppState, value: any) => void;
+  loadGeoData: () => Promise<void>;
+  applyEpsgPreset: (preset: Omit<AppState, 'geoJsonData' | 'showTissot' | 'setParam' | 'loadGeoData' | 'applyEpsgPreset'>) => void;
 }
 
+export const useAppStore = create<AppState>((set) => ({
+  family: 'cylindrical',
+  distortion: 'conformal',
+  lambda0: 0,
+  phi1: 0,
+  phi2: 45,
+  showTissot: false,
+  geoJsonData: null,
+
+  setParam: (key, value) => set({ [key]: value }),
+  applyEpsgPreset: (preset) => set({ ...preset }),
+  loadGeoData: async () => {
+    // 1. Скачай файл 'world-110m.v1.topojson' (из пакета world-atlas или d3)
+    // 2. Положи в папку public
+    const response = await fetch('/world-110m.topojson');
+    const topology = await response.json();
+    const geojson = topojson.feature(topology, topology.objects.land);
+    set({ geoJsonData: geojson });
+  }
+}));
+
 ```
 
+## 3. Маппинг D3 Проекций (Математическое ядро)
 
-При клике на элемент списка, объект `params` и `family` целиком отправляется в метод магазина `store.setEpsgProfile(...)`.
+Создай утилиту `src/utils/projectionMapper.ts`. Джуны часто путаются, какую функцию D3 вызвать. Вот жесткая таблица зависимости.
 
-## 4. Поток данных (Data Flow)
+```typescript
+import * as d3Geo from 'd3-geo';
+import * as d3GeoProj from 'd3-geo-projection'; // Нужно установить этот пакет дополнительно
 
-1. Пользователь двигает слайдер "Центральный меридиан".
-2. UI-компонент вызывает `store.setParam('lambda0', value)`.
-3. Zustand Store обновляет состояние и уведомляет подписчиков.
-4. **Подписчик 1 (Хук D3):** Пересоздает функцию `d3.geoProjection` с новыми параметрами ротации.
-5. **Подписчик 2 (2D Карта):** Получает новую функцию проекции, пересчитывает атрибуты `d` для SVG `<path>` береговых линий, сетки и Тиссо. Карта перерисовывается.
-6. **Подписчик 3 (3D Карта):** Читает новый `lambda0`. Глобус поворачивается (через обновление `rotation.y` у Mesh), либо плоскость/конус смещается на нужную позицию относительно сферы.
+export const getD3Projection = (family: string, distortion: string, lambda0: number, phi1: number, phi2: number) => {
+  let projFn;
 
-## 5. Требования к UI/UX
+  // Комбинации
+  if (family === 'cylindrical') {
+    if (distortion === 'conformal') projFn = d3Geo.geoMercator();
+    else if (distortion === 'equalArea') projFn = d3Geo.geoCylindricalEqualArea().parallel(phi1);
+    else projFn = d3Geo.geoEquirectangular();
+  } 
+  else if (family === 'conic') {
+    if (distortion === 'conformal') projFn = d3Geo.geoConicConformal();
+    else if (distortion === 'equalArea') projFn = d3Geo.geoConicEqualArea();
+    else projFn = d3Geo.geoConicEquidistant();
+    projFn = projFn.parallels([phi1, phi2]);
+  } 
+  else if (family === 'azimuthal') {
+    if (distortion === 'conformal') projFn = d3Geo.geoStereographic();
+    else if (distortion === 'equalArea') projFn = d3Geo.geoAzimuthalEqualArea();
+    else projFn = d3Geo.geoAzimuthalEquidistant();
+  }
 
-* **Синхронизация без лагов:** Обновление параметров не должно вызывать блокировку UI-потока. Использовать `useMemo` для мемоизации расчетов D3, чтобы не пересчитывать базовую топологию на каждый чих.
-* **Адаптивность:** Правая часть (карта) должна автоматически вписываться в свой контейнер (ресайз через `ResizeObserver` или хук `useMeasure`), обновляя масштаб и трансляцию D3-проекции (`projection.fitSize()`).
-* **Визуальные акценты:** На 3D-глобусе параллели, выбранные в слайдерах (например, Standard Parallels), должны подсвечиваться красными/желтыми неоновыми линиями, чтобы пользователь видел физическое место касания или сечения.
+  // Общие параметры для всех (вращение по долготе)
+  // Примечание: D3 принимает вращение с обратным знаком для lambda
+  if (projFn) {
+     projFn.rotate([-lambda0, 0, 0]).center([0, 0]).translate([0, 0]); // translate установим позже под размер Canvas/SVG
+  }
+  
+  return projFn;
+};
 
-## 6. Порядок реализации (Milestones)
+```
 
-1. **Шаг 1: Инициализация и Базовый UI.** Настройка Vite + TS, роутинг не нужен. Верстка сетки 1/3 на 2/3. Подключение Zustand, создание болванок для слайдеров.
-2. **Шаг 2: Интеграция Геоданных и 2D-карты.** Загрузка TopoJSON. Настройка D3, рендеринг SVG-карты для цилиндрической проекции.
-3. **Шаг 3: 3D База.** Настройка сцены `react-three-fiber`, добавление освещения (`ambientLight`, `directionalLight`), создание сферы глобуса и натяжка текстуры/линий.
-4. **Шаг 4: Связывание логики (Синхронизация).** Подключение слайдеров к D3. Реализация пересчета геометрии конуса и плоскости в 3D в зависимости от параметров в Store.
-5. **Шаг 5: Аналитика и фичи.** Добавление генерации индикатрис Тиссо в D3. Интеграция каталога EPSG (поиск по массиву, применение пресетов).
-6. **Шаг 6: Полировка.** Добавление подсветки линий касания в 3D. Настройка теней. Обработка edge-cases (например, когда конус вырождается в плоскость).
+## 4. Визуальный стиль (Дизайн-система "Космос")
+
+Используй Tailwind конфигурацию или CSS переменные:
+
+* **Фон приложения:** `#05050A` (очень темный синий/черный).
+* **Стиль панелей:** Полупрозрачные подложки `bg-white/5` с размытием фона `backdrop-blur-md` и тонкой рамкой `border-white/10`.
+* **Неоновый синий (Глобус, Материки, Тексты):** `#00e5ff`. Эффект свечения достигается через CSS `drop-shadow(0 0 5px #00e5ff)`.
+* **Неоновый оранжевый (Вспомогательная фигура, Лучи):** `#ff6a00`.
+
+## 5. Блок 2D-Карты (Правая панель)
+
+Компонент `<Map2D/>`. Используй `<svg>` для рендеринга (он проще для джуна, чем Canvas).
+
+**Логика отрисовки:**
+
+1. Подпишись на изменения стейта через `useAppStore`.
+2. Получи генератор проекции через `getD3Projection`.
+3. Установи масштаб (`scale`) и смещение (`translate`), чтобы карта вписывалась в размер SVG-контейнера (используй хук `useMeasure` или `react-use` для получения width/height родительского div'а).
+4. Создай генератор путей: `const pathGenerator = d3Geo.geoPath().projection(projFn)`.
+
+**Слои SVG (строго в таком порядке):**
+
+1. `<path class="graticule" d={pathGenerator(d3Geo.geoGraticule10())} fill="none" stroke="#334155" strokeWidth={0.5} />`
+2. Обход `geoJsonData.features` через `.map()` -> `<path fill="#05050A" stroke="#00e5ff" strokeWidth={1} d={pathGenerator(feature)} />`
+3. **Индикатрисы Тиссо (если включены):**
+* Создай массив точек сетки: цикл от -180 до +180 по долготе и от -60 до +60 по широте с шагом 30.
+* Для каждой точки создай круг: `const circle = d3Geo.geoCircle().center([lon, lat]).radius(5)();`
+* Отрисуй каждый круг: `<path d={pathGenerator(circle)} fill="rgba(255, 106, 0, 0.4)" stroke="#ff6a00" />`.
+
+
+
+## 6. Блок 3D-Сцены (Левая нижняя панель)
+
+Используй `<Canvas>` из `@react-three/fiber`.
+
+### 6.1. Глобус (Земля)
+
+* `<Sphere 64, 64]} args="{[10,">` (радиус 10).
+* **Материал:** `<meshBasicMaterial color="#05050A" />` (черный шар).
+* **Как нанести неоновые материки на 3D шар?** *Важное указание для джуна!* Самый простой и производительный способ — нарисовать D3-карту в проекции `geoEquirectangular` на невидимом HTML5 `<canvas>` (2048x1024 px) неоновым синим цветом, а затем использовать этот Canvas как текстуру для глобуса через `new THREE.CanvasTexture(canvas)`.
+
+### 6.2. Вспомогательная поверхность (Полупрозрачная оранжевая)
+
+Свитч (switch) по параметру `family` из Zustand. Материал везде: `<meshPhysicalMaterial color="#ff6a00" transparent opacity={0.2} side={THREE.DoubleSide} />`.
+
+* **Cylindrical:** `<Cylinder 1, 10, 30, 64, args="{[10," true]}>` (радиус 10, открытые концы). Вращение: `rotation={[0, lambda0 * Math.PI/180, 0]}`.
+* **Azimuthal:** `<Plane 30]} args="{[30,">`. Позиция: поднята над Северным полюсом `position={[0, 10, 0]}`, повернута лицом к экрану `rotation={[-Math.PI/2, 0, 0]}`.
+* **Conic:** `<Cone 1, 20, 64, args="{[10," true]}>`. Центрировать над полюсом. (Для MVP не требуем точного совпадения угла конуса с `phi1/phi2`, достаточно схематичного конуса, накрывающего Северное полушарие).
+
+### 6.3. Лучи проецирования (Самая важная фича)
+
+Лучи рисуются для нулевого меридиана (центрального) от Северного до Южного полюса.
+
+* **Логика:**
+1. В компоненте `Rays` используй `useMemo`. Создай массив широт от -80 до 80 с шагом 10 градусов. Долгота = `lambda0`.
+2. Для каждой широты вычисли две 3D-точки: Старт и Финиш.
+3. **Старт (на глобусе):** Переведи `(lat, lon)` в 3D координаты сферы радиуса 10. Формула: `x = 10 * cos(lat) * cos(lon)`, `y = 10 * sin(lat)`, `z = -10 * cos(lat) * sin(lon)`.
+4. **Финиш (на поверхности):** Пропусти `(lat, lon)` через функцию D3 `getD3Projection(...)`. Она вернет экранные `[x, y]`. Тебе нужно нормализовать их и превратить в 3D координаты цилиндра/конуса. *(Подсказка джуну: для MVP на цилиндре финиш будет равен: `x = 10 * cos(lon)`, `y = D3_Y * scaleFactor`, `z = -10 * sin(lon)`).*
+5. Отрисуй линии: Используй компонент `<Line>` из `@react-three/drei` от точки Старт до точки Финиш. Цвет `"#ff6a00"`.
+
+
+
+## 7. Блок UI и Управления (Левая верхняя панель)
+
+* **Селектор Семейства:** Вкладки (Tabs) — «Цилиндрическая», «Коническая», «Азимутальная».
+* **Селектор Искажения:** Радиокнопки — «Равноугольная», «Равновеликая», «Равнопромежуточная».
+* **Слайдер Центрального меридиана:** От -180 до 180, шаг 1. Вызывает `setParam('lambda0', value)`.
+* **Слайдеры Параллелей (рендерить только если выбрана Коническая проекция):** `phi1` и `phi2` от -90 до 90.
+* **Чекбокс:** «Индикатрисы Тиссо».
+
+### Каталог EPSG (Пресеты)
+
+Сделай выпадающий список (Dropdown) со статичным массивом:
+
+```json
+[
+  { "name": "Mercator (EPSG:3395)", "preset": { "family": "cylindrical", "distortion": "conformal", "lambda0": 0, "phi1": 0, "phi2": 0 } },
+  { "name": "Gall-Peters (Равновеликая)", "preset": { "family": "cylindrical", "distortion": "equalArea", "lambda0": 0, "phi1": 45, "phi2": 0 } },
+  { "name": "Stereographic (Северный полюс)", "preset": { "family": "azimuthal", "distortion": "conformal", "lambda0": 0, "phi1": 0, "phi2": 0 } }
+]
+
+```
+
+При клике вызывай `applyEpsgPreset(item.preset)`.
+
+## 8. Ограничения для разработчика (Strict Rules)
+
+1. **Никаких дополнительных библиотек** для UI компонентов, если это раздует бандл (Material UI запрещен из-за веса, Tailwind — стандарт).
+2. **Никакого бэкенда.** Данные грузятся из `public/world-110m.topojson`.
+3. **Оптимизация D3:** Оборачивай расчет генератора путей (`pathGenerator`) в `useMemo`, чтобы не пересчитывать математику проекции на каждый фрейм React, если параметры не менялись.
+4. **Строгий TypeScript:** Никаких `any` в пропсах компонентов. Опиши интерфейсы для `FeatureCollection` из TopoJSON.
+
+---
+
+**Совет наставника разработчику:** Начни разработку с шагов 1 и 2 (Store и Геоданные). Затем выведи 2D-карту (Шаг 5). Убедись, что ползунки и D3-проекции работают. Только после того, как 2D-карта будет плавно реагировать на слайдеры, приступай к 3D-модулю.
