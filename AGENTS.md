@@ -38,6 +38,7 @@ Run from the **native-FS dev workspace** `/tmp/opencode/mpb-deps` (see below), n
 - `npm run dev` — Vite dev server
 - `npm run build` — `tsc -b && vite build` (typecheck + production build)
 - `npm run lint` — ESLint
+- `npm run test` — Vitest (`vitest run`)
 - `npm run preview` — preview the built app
 
 Typecheck is part of `build` (`tsc -b`); there is no separate `typecheck` script.
