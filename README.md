@@ -1,54 +1,100 @@
-# React + TypeScript + Vite
+# Интерактивный симулятор картографических проекций
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Веб-приложение, наглядно показывающее связь между 3D-глобусом Земли и плоской 2D-картой.
+Главная фича — визуализация того, как математика проекции переносит точки с поверхности
+Земли на вспомогательную фигуру (цилиндр, конус или плоскость) и как при этом искажаются
+формы, площади и расстояния.
 
-Currently, two official plugins are available:
+Поддерживаются только **нормальные (прямые)** проекции без поперечных/косых смещений.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Технологии
 
-## Expanding the ESLint configuration
+- **Vite 6** + **React 19** + **TypeScript 5.8** (строгий режим, без `any` в пропсах)
+- **Tailwind CSS v4** — стилизация (тёмная «космическая» тема)
+- **Zustand** — глобальное состояние
+- **three** + **@react-three/fiber** + **@react-three/drei** — 3D-сцена
+- **d3-geo**, **d3-geo-projection**, **d3-scale**, **topojson-client** — 2D-карта и проекционная математика
+- **Vitest** + **React Testing Library** + **jsdom** — тесты
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Приложение полностью клиентское (SPA), без бэкенда и внешних API.
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+## Быстрый старт
+
+```bash
+npm install      # установка зависимостей
+npm run dev      # дев-сервер (http://localhost:5173)
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Откройте http://localhost:5173. Слева сверху — панель управления, слева снизу — 3D-глобус
+с лучами проекции, справа (2/3 экрана) — плоская 2D-карта.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Команды
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
+| Команда           | Назначение                                          |
+| ----------------- | --------------------------------------------------- |
+| `npm run dev`     | Дев-сервер Vite с HMR                               |
+| `npm run build`   | `tsc -b` (проверка типов) + сборка продакшн-бандла  |
+| `npm run lint`    | ESLint                                              |
+| `npm run test`    | Vitest (`vitest run`)                               |
+| `npm run preview` | Предпросмотр собранного приложения                  |
+
+## Архитектура
+
+Всё состояние хранится в одном сторе; UI, 2D- и 3D-компоненты только читают из него
+и вызывают его экшены.
+
+| Модуль                       | Роль                                                                 |
+| ---------------------------- | -------------------------------------------------------------------- |
+| `src/store/useAppStore.ts`   | Единый источник правды: параметры проекции, геоданные, экшены        |
+| `src/utils/projectionMapper.ts` | Маппинг `(family × distortion)` → конкретная D3-проекция          |
+| `src/components/Map2D.tsx`   | SVG-карта: гратула, берега, индикатрисы Тиссо                       |
+| `src/components/ControlPanel.tsx` | Панель управления: семейство, искажения, слайдеры, пресеты EPSG |
+| `src/components/GlobeScene.tsx` | 3D-сцена: текстура-глобус, вспомогательная поверхность, лучи    |
+| `src/App.tsx`                | Компоновка из трёх панелей + загрузка геоданных при монтировании   |
+
+### Математическое ядро
+
+`getD3Projection(family, distortion, lambda0, phi1, phi2)` возвращает D3-проекцию по
+жёсткой таблице:
+
+| Семейство (`family`) | Conformal (равноугольная) | EqualArea (равновеликая) | Equidistant (равнопромежуточная) |
+| -------------------- | ------------------------- | ------------------------- | --------------------------------- |
+| `cylindrical`        | Mercator                  | CylindricalEqualArea      | Equirectangular                   |
+| `conic`              | ConicConformal            | ConicEqualArea            | ConicEquidistant                  |
+| `azimuthal`          | Stereographic             | AzimuthalEqualArea        | AzimuthalEquidistant              |
+
+Вращение по долготе использует **отрицательный** лямбда: `.rotate([-lambda0, 0, 0])`.
+
+### Геоданные
+
+Берега материков грузятся из `public/world-110m.topojson` (land, `objects.land`) и
+преобразуются из TopoJSON в GeoJSON на лету через `topojson-client`.
+
+### Дизайн-токены
+
+- Фон приложения: `#05050A`
+- Неоновый синий `#00e5ff` — глобус, берега, текст
+- Неоновый оранжевый `#ff6a00` — вспомогательная поверхность, лучи проекции
+- Стеклянные панели: `bg-white/5 backdrop-blur-md border-white/10`
+
+## Тестирование
+
+```bash
+npm run test
 ```
+
+Покрываются (по `specification.md` §9): стор, маппер проекций, панель управления и
+монтирование `App`. Намеренно **не** тестируются WebGL/`<Canvas>` и атрибуты `d` SVG-путей
+(хрупко и зависит от размеров экрана) — это проверяется только вручную.
+
+При push/PR выполняется CI (`.github/workflows/ci.yml`): `npm ci` → lint → build → test.
+
+## Примечание по окружению разработки (DrvFS)
+
+Если вы работаете в смонтированном Windows-диске (`/mnt/d`, 9P/DrvFS), `npm install`
+там падает с `ENOTDIR` при создании `node_modules`, а испорченный dentry не удаляется
+изнутри контейнера. В этом окружении зависимости устанавливаются на нативную ФС
+(`/tmp/opencode/mbp-deps/node_modules`), а из `/mnt/d` в рабочую директорию ведут
+симлинки на исходники; `vite.config.ts` и `vitest.config.ts` используют
+`resolve.preserveSymlinks`. На обычных Linux/macOS/CI это не нужно — достаточно
+`npm install` в корне проекта.
