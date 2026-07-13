@@ -5,7 +5,6 @@ import {
   RAY_COUNT,
   MAP_SCALE,
   AUX_LENGTH,
-  AUX_PLANE_GAP_FACTOR,
   CONE_Y_BASE,
   RING_RADIUS,
   RING_SEGMENTS,
@@ -16,7 +15,7 @@ import {
 export type Vec3 = [number, number, number];
 
 // Re-exported for 3D components that previously imported these from here.
-export { RADIUS, RAY_COUNT, AUX_PLANE_GAP_FACTOR } from '../constants/geometry';
+export { RADIUS, RAY_COUNT } from '../constants/geometry';
 
 export function lonLatToVec3(lon: number, lat: number, radius = RADIUS): Vec3 {
   const lonRad = (lon * Math.PI) / 180;
@@ -161,13 +160,7 @@ export function computeAuxSurfaceParams(
 
   if (family === 'azimuthal') {
     const { center, normal } = computeTangentBasis(lambda0, phiOrigin, radius);
-    // Offset the projection plane outward along its normal so it floats as a
-    // clearly separated 3D plane instead of a flat sheet glued to the globe
-    // (which, at a front-facing tangent, would just cover the globe and read
-    // as 2D). The white intersection disk stays at the true tangent point.
-    const gap = AUX_PLANE_GAP_FACTOR * radius;
-    const planeCenter: Vec3 = [center[0] + normal[0] * gap, center[1] + normal[1] * gap, center[2] + normal[2] * gap];
-    return { kind: 'plane', center: planeCenter, normal, size: AUX_LENGTH * radius * scaleFactor };
+    return { kind: 'plane', center, normal, size: AUX_LENGTH * radius * scaleFactor };
   }
 
   // conic: cone tangent to the sphere at the standard parallel
@@ -221,6 +214,67 @@ export function computeTangencyRing(
   // cylindrical
   const latRad = (phiOrigin * Math.PI) / 180;
   return { kind: 'cylinder', points: circlePoints(radius * scaleFactor, radius * Math.sin(latRad)), rotateY: lonRad };
+}
+
+// Real intersection of the auxiliary (developable) surface with the globe.
+// Returns the world-space point loops of every circle where the surface meets
+// the sphere. A cylinder of radius r = R·scaleFactor against a sphere of radius
+// R yields two circles (r < R), one tangent circle (r = R) or none (r > R).
+// A cone yields 0/1/2 circles from a quadratic in the axial height. An azimuthal
+// tangent plane touches the sphere at exactly one point, marked by a small ring.
+// Empty result ⇒ the surface does not touch the globe ⇒ no highlight.
+export function computeAuxSphereIntersections(
+  family: ProjectionParams['family'],
+  lambda0: number,
+  phiOrigin: number,
+  scaleFactor: number,
+  radius = RADIUS,
+): Vec3[][] {
+  if (family === 'azimuthal') {
+    const { center, east, north } = computeTangentBasis(lambda0, phiOrigin, radius);
+    const r = RING_RADIUS * radius * scaleFactor;
+    const pts: Vec3[] = [];
+    for (let i = 0; i <= RING_SEGMENTS; i++) {
+      const t = (i / RING_SEGMENTS) * Math.PI * 2;
+      const c = Math.cos(t) * r;
+      const s = Math.sin(t) * r;
+      pts.push([
+        center[0] + east[0] * c - north[0] * s,
+        center[1] + east[1] * c - north[1] * s,
+        center[2] + east[2] * c - north[2] * s,
+      ]);
+    }
+    return [pts];
+  }
+
+  if (family === 'cylindrical') {
+    const r = radius * scaleFactor;
+    const disc = radius * radius - r * r;
+    if (disc < -1e-9) return []; // cylinder encloses the sphere: no intersection
+    if (disc <= 1e-9) return [circlePoints(r, 0, RING_SEGMENTS)]; // tangent
+    const y = Math.sqrt(disc);
+    return [circlePoints(r, y, RING_SEGMENTS), circlePoints(r, -y, RING_SEGMENTS)];
+  }
+
+  // conic: cone–sphere intersection — quadratic in the axial height y
+  const sp = standardParallelRad(phiOrigin);
+  const t = Math.tan(sp);
+  const a = (phiOrigin < 0 ? -1 : 1) * (radius / Math.sin(sp)); // apex height
+  const A = scaleFactor * scaleFactor * t * t + 1;
+  const B = -2 * scaleFactor * scaleFactor * t * t * a;
+  const C = scaleFactor * scaleFactor * t * t * a * a - radius * radius;
+  const D = B * B - 4 * A * C;
+  if (D < -1e-9) return [];
+  const sq = Math.sqrt(Math.max(0, D));
+  // A double root (D≈0) means tangency ⇒ a single circle, not two coincident ones.
+  const roots = sq < 1e-9 ? [-B / (2 * A)] : [(-B + sq) / (2 * A), (-B - sq) / (2 * A)];
+  const circles: Vec3[][] = [];
+  for (const y of roots) {
+    const rad = scaleFactor * Math.abs(a - y) * t;
+    if (rad <= 1e-6) continue;
+    circles.push(circlePoints(rad, y, RING_SEGMENTS));
+  }
+  return circles;
 }
 
 // axial height of latitude `latRad` on the developable cone (tangent at sp)
@@ -299,15 +353,11 @@ export function computeCentralMeridianRays(params: RayParams): [Vec3, Vec3][] {
       const p = proj([lambda0, lat]);
       const dx = (p ? p[0] : 0) - (c ? c[0] : 0);
       const dy = (p ? p[1] : 0) - (c ? c[1] : 0);
-      const tangent: Vec3 = [
+      end = [
         center[0] + u[0] * dx * wpp - w[0] * dy * wpp,
         center[1] + u[1] * dx * wpp - w[1] * dy * wpp,
         center[2] + u[2] * dx * wpp - w[2] * dy * wpp,
       ];
-      // Project the tangent-plane hit outward onto the (offset) aux plane so
-      // the beams meet the floating plane rather than the globe surface.
-      const s = (radius + AUX_PLANE_GAP_FACTOR * radius) / radius;
-      end = [tangent[0] * s, tangent[1] * s, tangent[2] * s];
     } else {
       const latRad = (lat * Math.PI) / 180;
       const yCone = coneAxialHeight(latRad, sp, radius, sgn);

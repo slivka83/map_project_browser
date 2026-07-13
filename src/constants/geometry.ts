@@ -27,7 +27,6 @@ export const RAY_COUNT = 20;
 
 // Auxiliary-surface sizing, expressed relative to RADIUS.
 export const AUX_LENGTH = 2.6; // cylinder height / plane size factor
-export const AUX_PLANE_GAP_FACTOR = 0.7; // azimuthal plane offset outward from the globe (× RADIUS)
 export const CONE_Y_BASE = 0.35; // cone base offset from sphere centre
 export const RING_RADIUS = 0.45; // tangency-ring radius factor (azimuthal)
 

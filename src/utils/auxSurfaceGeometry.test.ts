@@ -2,12 +2,12 @@ import { describe, it, expect } from 'vitest';
 import {
   RADIUS,
   RAY_COUNT,
-  AUX_PLANE_GAP_FACTOR,
   lonLatToVec3,
   computeTangentBasis,
   computeAuxSurfaceParams,
   computeTangencyRing,
   computeAuxGraticule,
+  computeAuxSphereIntersections,
   computeCentralMeridianRays,
 } from './auxSurfaceGeometry';
 
@@ -131,15 +131,13 @@ describe('computeCentralMeridianRays', () => {
     for (const [, end] of segs) closeTo(Math.hypot(end[0], end[2]), RADIUS * sf, 1e-6);
   });
 
-  it('azimuthal rays lie on the offset aux plane (parallel to the tangent plane)', () => {
+  it('azimuthal rays lie on the tangent plane', () => {
     const lambda0 = 15;
     const phiOrigin = 25;
     const segs = computeCentralMeridianRays({ ...base, family: 'azimuthal', lambda0, phiOrigin });
     const { center, normal } = computeTangentBasis(lambda0, phiOrigin, RADIUS);
-    const s = (RADIUS + AUX_PLANE_GAP_FACTOR * RADIUS) / RADIUS;
-    const planeCenter: [number, number, number] = [center[0] * s, center[1] * s, center[2] * s];
     for (const [, end] of segs) {
-      const d = [end[0] - planeCenter[0], end[1] - planeCenter[1], end[2] - planeCenter[2]];
+      const d = [end[0] - center[0], end[1] - center[1], end[2] - center[2]];
       const dot = d[0] * normal[0] + d[1] * normal[1] + d[2] * normal[2];
       closeTo(dot, 0, 1e-6);
     }
@@ -164,6 +162,44 @@ describe('computeCentralMeridianRays', () => {
       expect(b[i][1][0]).toBeCloseTo(a[i][1][0], 9);
       expect(b[i][1][1]).toBeCloseTo(a[i][1][1], 9);
       expect(b[i][1][2]).toBeCloseTo(a[i][1][2], 9);
+    }
+  });
+});
+
+describe('computeAuxSphereIntersections', () => {
+  it('cylinder of radius < R intersects the sphere in two circles', () => {
+    const rings = computeAuxSphereIntersections('cylindrical', 0, 0, 0.9);
+    expect(rings.length).toBe(2);
+    for (const ring of rings) {
+      for (const [x, y, z] of ring) closeTo(Math.hypot(x, y, z), RADIUS, 1e-6);
+    }
+  });
+
+  it('cylinder of radius = R is tangent (one circle)', () => {
+    const rings = computeAuxSphereIntersections('cylindrical', 0, 0, 1);
+    expect(rings.length).toBe(1);
+  });
+
+  it('cylinder of radius > R does not touch the sphere (none)', () => {
+    const rings = computeAuxSphereIntersections('cylindrical', 0, 0, 1.1);
+    expect(rings.length).toBe(0);
+  });
+
+  it('cone tangent at the standard parallel yields one circle', () => {
+    const rings = computeAuxSphereIntersections('conic', 0, 30, 1);
+    expect(rings.length).toBe(1);
+  });
+
+  it('azimuthal plane touches the sphere at one point (one ring)', () => {
+    const rings = computeAuxSphereIntersections('azimuthal', 15, 25, 1);
+    expect(rings.length).toBe(1);
+    const ring = rings[0];
+    // every ring point sits at radius RING_RADIUS·R from the tangent point,
+    // i.e. the ring is centred on the sphere at (15°, 25°)
+    const v = lonLatToVec3(15, 25, RADIUS);
+    const r = 0.45 * RADIUS;
+    for (const [x, y, z] of ring) {
+      closeTo(Math.hypot(x - v[0], y - v[1], z - v[2]), r, 1e-6);
     }
   });
 });

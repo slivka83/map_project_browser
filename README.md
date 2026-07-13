@@ -54,7 +54,7 @@ npm run dev      # дев-сервер (http://localhost:5173)
 | `src/components/GlobeScene.tsx` | 3D-сцена, компонует `Globe` / `AuxSurface` / `IntersectionDisks` / `LightSource` / `Rays` |
 | `src/components/Globe.tsx`   | Прозрачный глобус с неоновыми 3D-линиями берегов и гратулы          |
 | `src/components/AuxSurface.tsx` | Вспомогательная поверхность — прозрачный неоновый каркас (цилиндр / конус / плоскость) |
-| `src/components/IntersectionDisks.tsx` | Белые неоновые диски на месте пересечения вспомогательной поверхности с глобусом |
+| `src/components/IntersectionDisks.tsx` | Полые белые неоновые кольца в местах реального пересечения поверхности с глобусом (0, 1 или 2 окружности) |
 | `src/components/LightSource.tsx` | Жёлтый светящийся «источник света» в центре глобуса            |
 | `src/components/Rays.tsx`    | Жёлтый веер лучей проекции от центра глобуса к вспомогательной поверхности |
 | `src/components/EpsgCatalog.tsx` | Модальный каталог EPSG-пресетов (через `createPortal`)          |
