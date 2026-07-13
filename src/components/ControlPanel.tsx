@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useAppStore, type ProjectionFamily, type DistortionModel } from '../store/useAppStore';
 import EpsgCatalog from './EpsgCatalog';
+import Dropdown from './Dropdown';
 
 const FAMILIES: { value: ProjectionFamily; label: string }[] = [
   { value: 'cylindrical', label: 'Цилиндрическая' },
@@ -91,7 +92,7 @@ function Slider({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="h-1 flex-1 accent-[#00e5ff]"
+        className="h-1 flex-1 accent-neon-blue"
       />
       <span className="w-10 shrink-0 text-right text-[10px] text-neon-blue">
         {value}
@@ -114,55 +115,12 @@ function DistortionSelect({
   value: DistortionModel;
   onChange: (v: DistortionModel) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDocClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, [open]);
-
-  const current = DISTORTIONS.find((d) => d.value === value) ?? DISTORTIONS[0];
-
   return (
-    <div ref={ref} className="relative w-full flex-1">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between rounded border border-neon-blue/50 bg-[#0b0b14] px-2 py-1 text-[11px] font-medium text-neon-blue outline-none transition drop-shadow-[0_0_3px_rgba(0,229,255,0.5)] focus:border-neon-blue focus:bg-neon-blue/10"
-      >
-        <span>{current.label}</span>
-        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-transform ${open ? 'rotate-180' : ''}`}>
-          <path d="M6 9l6 6 6-6" />
-        </svg>
-      </button>
-      {open && (
-        <ul className="absolute z-20 mt-1 w-full overflow-hidden rounded border border-neon-blue/50 bg-[#0b0b14] py-1 shadow-2xl shadow-black/60">
-          {DISTORTIONS.map((d) => (
-            <li key={d.value}>
-              <button
-                type="button"
-                onClick={() => {
-                  onChange(d.value);
-                  setOpen(false);
-                }}
-                className={`block w-full px-2 py-1 text-left text-[11px] transition ${
-                  d.value === value
-                    ? 'bg-neon-blue/20 text-neon-blue'
-                    : 'text-white/80 hover:bg-neon-blue/10 hover:text-neon-blue'
-                }`}
-              >
-                {d.label}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+    <Dropdown
+      value={value}
+      options={DISTORTIONS}
+      onChange={(v) => onChange(v as DistortionModel)}
+    />
   );
 }
 

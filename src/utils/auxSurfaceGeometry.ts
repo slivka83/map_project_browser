@@ -1,0 +1,228 @@
+import { getD3Projection } from './projectionMapper';
+import type { ProjectionParams } from '../store/useAppStore';
+
+export type Vec3 = [number, number, number];
+
+export const RADIUS = 10;
+export const RAY_COUNT = 20;
+
+export function lonLatToVec3(lon: number, lat: number, radius = RADIUS): Vec3 {
+  const lonRad = (lon * Math.PI) / 180;
+  const latRad = (lat * Math.PI) / 180;
+  return [
+    radius * Math.cos(latRad) * Math.cos(lonRad),
+    radius * Math.sin(latRad),
+    -radius * Math.cos(latRad) * Math.sin(lonRad),
+  ];
+}
+
+function normalize(v: Vec3): Vec3 {
+  const len = Math.hypot(v[0], v[1], v[2]) || 1;
+  return [v[0] / len, v[1] / len, v[2] / len];
+}
+
+function cross(a: Vec3, b: Vec3): Vec3 {
+  return [
+    a[1] * b[2] - a[2] * b[1],
+    a[2] * b[0] - a[0] * b[2],
+    a[0] * b[1] - a[1] * b[0],
+  ];
+}
+
+// pixels -> world units. Chosen so the unrolled map width (2π·100·scaleFactor px)
+// wraps exactly around the auxiliary cylinder (circumference 2π·RADIUS·scaleFactor).
+const worldPerPixel = (radius: number) => radius / 100;
+
+// The standard parallel (conic tangent latitude). Magnitude so a southern
+// phiOrigin yields a cone pointing south — consistent across surface/rings/rays.
+function standardParallelRad(phiOrigin: number): number {
+  const deg = Math.abs(phiOrigin) < 10 ? 30 : Math.abs(phiOrigin);
+  return (deg * Math.PI) / 180;
+}
+
+// East / north tangent basis at the sphere point (lambda0, phiOrigin). The
+// azimuthal aux plane and the rays are both built from this, so they stay aligned.
+export function computeTangentBasis(lambda0: number, phiOrigin: number, radius = RADIUS) {
+  const center = lonLatToVec3(lambda0, phiOrigin, radius);
+  const normal = normalize(center);
+  const east: Vec3 = Math.abs(normal[1]) > 0.9999 ? [1, 0, 0] : normalize(cross([0, 1, 0], normal));
+  const north = normalize(cross(normal, east));
+  return { center, normal, east, north };
+}
+
+export function circlePoints(radius: number, y: number, segments = 96): Vec3[] {
+  const pts: Vec3[] = [];
+  for (let i = 0; i <= segments; i++) {
+    const t = (i / segments) * Math.PI * 2;
+    pts.push([radius * Math.cos(t), y, radius * Math.sin(t)]);
+  }
+  return pts;
+}
+
+// ---- Auxiliary (developable) surface parameters (pure; no Three.js) ----
+export type AuxSurfaceParams =
+  | { kind: 'cylinder'; radius: number; height: number; rotationY: number }
+  | { kind: 'plane'; center: Vec3; normal: Vec3; size: number }
+  | { kind: 'cone'; radius: number; height: number; positionY: number; flip: 1 | -1 };
+
+export function computeAuxSurfaceParams(
+  family: ProjectionParams['family'],
+  lambda0: number,
+  phiOrigin: number,
+  scaleFactor: number,
+  radius = RADIUS,
+): AuxSurfaceParams {
+  const lonRad = (lambda0 * Math.PI) / 180;
+
+  if (family === 'cylindrical') {
+    return { kind: 'cylinder', radius: radius * scaleFactor, height: 2.6 * radius, rotationY: lonRad };
+  }
+
+  if (family === 'azimuthal') {
+    const { center, normal } = computeTangentBasis(lambda0, phiOrigin, radius);
+    return { kind: 'plane', center, normal, size: 2.6 * radius * scaleFactor };
+  }
+
+  // conic: cone tangent to the sphere at the standard parallel
+  const sp = standardParallelRad(phiOrigin);
+  const apex = radius / Math.sin(sp);
+  const yBase = -0.35 * radius;
+  const height = apex - yBase;
+  const coneRadius = scaleFactor * (apex - yBase) * Math.tan(sp);
+  const flip: 1 | -1 = phiOrigin < 0 ? -1 : 1;
+  return { kind: 'cone', radius: coneRadius, height, positionY: flip * (apex - height / 2), flip };
+}
+
+// ---- Tangency ring (standard parallel) parameters ----
+export interface TangencyRing {
+  kind: 'cylinder' | 'cone' | 'plane';
+  points: Vec3[];
+  rotateY: number;
+  center?: Vec3;
+  normal?: Vec3;
+}
+
+export function computeTangencyRing(
+  family: ProjectionParams['family'],
+  lambda0: number,
+  phiOrigin: number,
+  scaleFactor: number,
+  radius = RADIUS,
+): TangencyRing {
+  const lonRad = (lambda0 * Math.PI) / 180;
+
+  if (family === 'azimuthal') {
+    const { center, normal } = computeTangentBasis(lambda0, phiOrigin, radius);
+    const r = 0.45 * radius * scaleFactor;
+    const pts: Vec3[] = [];
+    for (let i = 0; i <= 96; i++) {
+      const t = (i / 96) * Math.PI * 2;
+      pts.push([r * Math.cos(t), r * Math.sin(t), 0]);
+    }
+    return { kind: 'plane', points: pts, rotateY: 0, center, normal };
+  }
+
+  if (family === 'conic') {
+    const sp = standardParallelRad(phiOrigin);
+    const latRad = (phiOrigin * Math.PI) / 180;
+    const y = radius * Math.sin(latRad);
+    // tangency ring radius = sphere radius at the tangent latitude (= cone radius there)
+    const rCone = scaleFactor * radius * Math.cos(sp);
+    return { kind: 'cone', points: circlePoints(rCone, y), rotateY: 0 };
+  }
+
+  // cylindrical
+  const latRad = (phiOrigin * Math.PI) / 180;
+  return { kind: 'cylinder', points: circlePoints(radius * scaleFactor, radius * Math.sin(latRad)), rotateY: lonRad };
+}
+
+// axial height of latitude `latRad` on the developable cone (tangent at sp)
+function coneAxialHeight(latRad: number, sp: number, radius: number, sgn: number): number {
+  return sgn * (radius * Math.sin(sp) + radius * Math.cos(sp) * (sgn * latRad - sp));
+}
+
+export interface RayParams {
+  family: ProjectionParams['family'];
+  distortion: ProjectionParams['distortion'];
+  lambda0: number;
+  phiOrigin: number;
+  scaleFactor: number;
+  falseEasting: number;
+  falseNorthing: number;
+  radius?: number;
+  rayCount?: number;
+}
+
+// Build the central-meridian ray fan: each segment runs from a point on the
+// globe (lon = lambda0) to the matching point on the auxiliary (developable)
+// surface, in the same world units the 3D scene draws the surface in. Pure and
+// projection-only (no Three.js) so it stays unit-testable in jsdom.
+export function computeCentralMeridianRays(params: RayParams): [Vec3, Vec3][] {
+  const {
+    family,
+    distortion,
+    lambda0,
+    phiOrigin,
+    scaleFactor,
+    falseEasting,
+    falseNorthing,
+    radius = RADIUS,
+    rayCount = RAY_COUNT,
+  } = params;
+
+  const cy = 300 + falseNorthing;
+  const wpp = worldPerPixel(radius);
+  const lonRad = (lambda0 * Math.PI) / 180;
+
+  const proj = getD3Projection({
+    family,
+    distortion,
+    lambda0,
+    phiOrigin,
+    scaleFactor,
+    falseEasting,
+    falseNorthing,
+  });
+
+  const sp = standardParallelRad(phiOrigin);
+  const apex = radius / Math.sin(sp);
+  const sgn = phiOrigin < 0 ? -1 : 1;
+  const { center, east, north } = computeTangentBasis(lambda0, phiOrigin, radius);
+  const u = east;
+  const w = north;
+
+  const result: [Vec3, Vec3][] = [];
+
+  for (let i = 0; i < rayCount; i++) {
+    const lat = -90 + (i * 180) / (rayCount - 1);
+    const start = lonLatToVec3(lambda0, lat, radius);
+
+    let end: Vec3;
+
+    if (family === 'cylindrical') {
+      const p = proj([lambda0, lat]);
+      const dy = p ? p[1] - cy : 0;
+      const r = radius * scaleFactor;
+      end = [r * Math.cos(lonRad), -dy * wpp, -r * Math.sin(lonRad)];
+    } else if (family === 'azimuthal') {
+      const c = proj([lambda0, phiOrigin]);
+      const p = proj([lambda0, lat]);
+      const dx = (p ? p[0] : 0) - (c ? c[0] : 0);
+      const dy = (p ? p[1] : 0) - (c ? c[1] : 0);
+      end = [
+        center[0] + u[0] * dx * wpp - w[0] * dy * wpp,
+        center[1] + u[1] * dx * wpp - w[1] * dy * wpp,
+        center[2] + u[2] * dx * wpp - w[2] * dy * wpp,
+      ];
+    } else {
+      const latRad = (lat * Math.PI) / 180;
+      const yCone = coneAxialHeight(latRad, sp, radius, sgn);
+      const rad = scaleFactor * Math.abs(sgn * apex - yCone) * Math.tan(sp);
+      end = [rad * Math.cos(lonRad), yCone, -rad * Math.sin(lonRad)];
+    }
+
+    result.push([start, end]);
+  }
+
+  return result;
+}

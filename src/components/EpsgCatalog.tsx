@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { EPSG_PRESETS } from '../constants/epsgPresets';
 import type { ProjectionParams, ProjectionFamily } from '../store/useAppStore';
+import Dropdown from './Dropdown';
 
 const FAMILY_LABEL: Record<ProjectionFamily, string> = {
   cylindrical: 'Цилиндрическая',
@@ -28,83 +29,6 @@ const COLS: ColDef[] = [
 interface Props {
   onClose: () => void;
   applyPreset: (preset: Partial<ProjectionParams>) => void;
-}
-
-function MiniSelect({
-  value,
-  options,
-  allLabel,
-  onChange,
-  onClose,
-}: {
-  value: string;
-  options: string[];
-  allLabel: string;
-  onChange: (v: string) => void;
-  onClose: () => void;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [open, setOpen] = useState(true);
-
-  useEffect(() => {
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-        onClose();
-      }
-    };
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, [onClose]);
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex h-full w-full items-center justify-between gap-1 text-left text-neon-blue"
-      >
-        <span className="truncate">{value || allLabel}</span>
-        <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2" className={`shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}>
-          <path d="M6 9l6 6 6-6" />
-        </svg>
-      </button>
-      {open && (
-        <ul className="absolute left-0 top-full z-30 mt-1 max-h-48 w-44 overflow-auto rounded border border-neon-blue/50 bg-[#0b0b14] py-1 shadow-2xl shadow-black/60">
-          <li>
-            <button
-              type="button"
-              onClick={() => {
-                onChange('');
-                setOpen(false);
-                onClose();
-              }}
-              className="block w-full px-2 py-1 text-left text-[11px] text-white/60 transition hover:bg-neon-blue/10 hover:text-neon-blue"
-            >
-              {allLabel}
-            </button>
-          </li>
-          {options.map((o) => (
-            <li key={o}>
-              <button
-                type="button"
-                onClick={() => {
-                  onChange(o);
-                  setOpen(false);
-                  onClose();
-                }}
-                className={`block w-full px-2 py-1 text-left text-[11px] transition ${
-                  o === value ? 'bg-neon-blue/20 text-neon-blue' : 'text-white/80 hover:bg-neon-blue/10 hover:text-neon-blue'
-                }`}
-              >
-                {o}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
 }
 
 export default function EpsgCatalog({ onClose, applyPreset }: Props) {
@@ -185,15 +109,17 @@ export default function EpsgCatalog({ onClose, applyPreset }: Props) {
                             placeholder={c.label}
                             className="h-full w-full rounded border border-neon-blue/50 bg-[#0b0b14] px-1.5 text-[11px] normal-case text-neon-blue outline-none drop-shadow-[0_0_3px_rgba(0,229,255,0.5)]"
                           />
-                        ) : (
-                          <MiniSelect
-                            value={c.key === 'type' ? typeSel : unitSel}
-                            options={c.key === 'type' ? familyOptions : unitOptions}
-                            allLabel="Все"
-                            onChange={(v) => (c.key === 'type' ? setTypeSel(v) : setUnitSel(v))}
-                            onClose={() => setActive(null)}
-                          />
-                        )
+                         ) : (
+                           <Dropdown
+                             variant="inline"
+                             initialOpen
+                             value={c.key === 'type' ? typeSel : unitSel}
+                             options={(c.key === 'type' ? familyOptions : unitOptions).map((o) => ({ value: o, label: o }))}
+                             allLabel="Все"
+                             onChange={(v) => (c.key === 'type' ? setTypeSel(v) : setUnitSel(v))}
+                             onClose={() => setActive(null)}
+                           />
+                         )
                       ) : (
                         <button
                           type="button"

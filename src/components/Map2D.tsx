@@ -2,10 +2,7 @@ import { useMemo } from 'react';
 import * as d3Geo from 'd3-geo';
 import { useAppStore } from '../store/useAppStore';
 import { getD3Projection } from '../utils/projectionMapper';
-
-const NEON_BLUE = '#00e5ff';
-const NEON_ORANGE = '#ff6a00';
-const BG = '#05050A';
+import { NEON_BLUE, NEON_ORANGE, BG } from '../constants/designTokens';
 
 const VIEW_W = 800;
 const VIEW_H = 600;
