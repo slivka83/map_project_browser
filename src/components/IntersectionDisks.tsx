@@ -19,8 +19,9 @@ export default function IntersectionDisks({ params }: { params: ProjectionParams
   if (ring.kind === 'plane' && ring.center && ring.normal) {
     const radius = RING_RADIUS * RADIUS * scaleFactor;
     const quat = quatFromNormal(ring.normal);
+    const euler = new THREE.Euler().setFromQuaternion(quat);
     return (
-      <group position={ring.center} quaternion={[quat.x, quat.y, quat.z, quat.w]} renderOrder={9}>
+      <group position={ring.center} rotation={[euler.x, euler.y, euler.z]} renderOrder={9}>
         <mesh>
           <circleGeometry args={[radius, 64]} />
           <meshBasicMaterial
