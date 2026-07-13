@@ -5,7 +5,7 @@ import type { FeatureCollection } from 'geojson';
 import { useAppStore } from '../store/useAppStore';
 import { getD3Projection, fitProjectionToView, computeAreaDistortion } from '../utils/projectionMapper';
 import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT } from '../constants/designTokens';
-import { iconBtn } from './ui/styles';
+import { iconBtnPlain } from './ui/styles';
 import { TissotIcon, BorderIcon, DetailIcon } from './ui/icons';
 import { FIT_MARGIN } from '../constants/geometry';
 
@@ -140,10 +140,8 @@ export default function Map2D() {
           title="Индикатрисы Тиссо"
           aria-label="Индикатрисы Тиссо"
           onClick={() => setShowTissot(!showTissot)}
-          className={`${iconBtn} ${
-            showTissot
-              ? 'border-neon-blue bg-neon-blue/15 text-neon-blue shadow-[0_0_10px_var(--color-neon-blue-soft)]'
-              : 'hover:bg-neon-blue/10 hover:shadow-[0_0_8px_var(--color-neon-blue-soft)]'
+          className={`${iconBtnPlain} ${
+            showTissot ? 'text-neon-blue drop-shadow-[0_0_10px_var(--color-neon-blue-soft)]' : ''
           }`}
         >
           <TissotIcon />
@@ -153,10 +151,8 @@ export default function Map2D() {
             title="Детализация карты"
             aria-label="Детализация карты"
             onClick={() => setDetailedMap(!detailedMap)}
-            className={`${iconBtn} ${
-              detailedMap
-                ? 'border-neon-blue bg-neon-blue/15 text-neon-blue shadow-[0_0_10px_var(--color-neon-blue-soft)]'
-                : 'hover:bg-neon-blue/10 hover:shadow-[0_0_8px_var(--color-neon-blue-soft)]'
+            className={`${iconBtnPlain} ${
+              detailedMap ? 'text-neon-blue drop-shadow-[0_0_10px_var(--color-neon-blue-soft)]' : ''
             }`}
           >
             <DetailIcon />
@@ -166,16 +162,15 @@ export default function Map2D() {
               title="Границы стран"
               aria-label="Границы стран"
               onClick={() => setShowBorders(!showBorders)}
-              className={`${iconBtn} ${
-                showBorders
-                  ? 'border-neon-blue bg-neon-blue/15 text-neon-blue shadow-[0_0_10px_var(--color-neon-blue-soft)]'
-                  : 'hover:bg-neon-blue/10 hover:shadow-[0_0_8px_var(--color-neon-blue-soft)]'
+              className={`${iconBtnPlain} ${
+                showBorders ? 'text-neon-blue drop-shadow-[0_0_10px(var(--color-neon-blue-soft))]' : ''
               }`}
             >
               <BorderIcon />
             </button>
           )}
         </div>
+      </div>
       </div>
       <div
         className="absolute right-2 bottom-2 z-10 rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-gray-300 backdrop-blur-md"
