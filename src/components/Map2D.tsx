@@ -79,7 +79,7 @@ export default function Map2D() {
     const circles: GeoJSON.Polygon[] = [];
     const lons = [-172.5, -157.5, -142.5, -127.5, -112.5, -97.5, -82.5, -67.5, -52.5, -37.5, -22.5, -7.5, 7.5, 22.5, 37.5, 52.5, 67.5, 82.5, 97.5, 112.5, 127.5, 142.5, 157.5, 172.5];
     for (const lon of lons) {
-      for (let lat = -45; lat <= 45; lat += 15) {
+      for (let lat = -60; lat <= 60; lat += 15) {
         const circle = d3Geo.geoCircle().center([lon, lat]).radius(5)();
         if (circle.type === 'Polygon') circles.push(circle);
       }
