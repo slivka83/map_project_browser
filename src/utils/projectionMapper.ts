@@ -16,9 +16,11 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
     if (distortion === 'conformal') proj = d3Geo.geoConicConformal();
     else if (distortion === 'equalArea') proj = d3Geo.geoConicEqualArea();
     else proj = d3Geo.geoConicEquidistant();
-    // No standard parallels in the new store: use a single tangent parallel
-    // at the central latitude so the cone is centred on phiOrigin.
-    proj = (proj as GeoConicProjection).parallels([phiOrigin, phiOrigin]);
+    // No standard parallels in the store: use a single tangent parallel at the
+    // central latitude. Near the equator a cone is degenerate, so fall back to
+    // 30° — matching the aux-surface geometry in auxSurfaceGeometry.ts.
+    const parallel = Math.abs(phiOrigin) < 10 ? 30 : Math.abs(phiOrigin);
+    proj = (proj as GeoConicProjection).parallels([parallel, parallel]);
   } else {
     if (distortion === 'conformal') proj = d3Geo.geoStereographic();
     else if (distortion === 'equalArea') proj = d3Geo.geoAzimuthalEqualArea();
@@ -33,3 +35,31 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
 
   return proj;
 };
+
+// Fit a configured projection so the whole globe fills the viewport `width`×
+// `height` with a uniform `margin`. `scaleFactor` acts as a zoom (1 = fill,
+// >1 zoom in, <1 zoom out), kept centred by shrinking/growing the fit box
+// around the viewport centre. The 3D scene keeps the fixed `scale(100)` from
+// getD3Projection; only the 2D map overrides it via this helper.
+export function fitProjectionToView(
+  proj: GeoProjection,
+  width: number,
+  height: number,
+  scaleFactor: number,
+  margin = 16,
+): GeoProjection {
+  const cx = width / 2;
+  const cy = height / 2;
+  const bx0 = cx - (cx - margin) * scaleFactor;
+  const by0 = cy - (cy - margin) * scaleFactor;
+  const bx1 = cx + (width - margin - cx) * scaleFactor;
+  const by1 = cy + (height - margin - cy) * scaleFactor;
+  proj.fitExtent(
+    [
+      [bx0, by0],
+      [bx1, by1],
+    ],
+    { type: 'Sphere' },
+  );
+  return proj;
+}

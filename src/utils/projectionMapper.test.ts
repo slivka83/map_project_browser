@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import * as d3Geo from 'd3-geo';
-import { getD3Projection } from './projectionMapper';
+import { getD3Projection, fitProjectionToView } from './projectionMapper';
 import { geoCylindricalEqualArea } from './d3GeoProjection';
-import type { ProjectionParams } from '../store/useAppStore';
+import type { ProjectionParams, ProjectionFamily, DistortionModel } from '../store/useAppStore';
 
 const makeState = (over: Partial<ProjectionParams> = {}): ProjectionParams => ({
   family: 'cylindrical',
@@ -82,5 +82,58 @@ describe('getD3Projection (spec §9.2)', () => {
     const p = getD3Projection(makeState({ family: 'azimuthal', distortion: 'equidistant' }));
     const ref = d3Geo.geoAzimuthalEquidistant().rotate([0, 0]).scale(100).translate([400, 300]);
     expect(p([0, 0])).toEqual(ref([0, 0]));
+  });
+});
+
+describe('fitProjectionToView (map always fills the viewport)', () => {
+  const W = 900;
+  const H = 600;
+  const M = 16;
+  const families: ProjectionFamily[] = ['cylindrical', 'conic', 'azimuthal'];
+  const distortions: DistortionModel[] = ['conformal', 'equalArea', 'equidistant'];
+
+  const sphereBounds = (p: d3Geo.GeoProjection) => d3Geo.geoPath(p).bounds({ type: 'Sphere' });
+
+  for (const family of families) {
+    for (const distortion of distortions) {
+      it(`fits ${family}/${distortion} inside the viewport with a margin`, () => {
+        const p = fitProjectionToView(
+          getD3Projection(makeState({ family, distortion, phiOrigin: family === 'conic' ? 40 : 0 })),
+          W,
+          H,
+          1,
+          M,
+        );
+        const b = sphereBounds(p);
+        expect(b[0][0]).toBeGreaterThanOrEqual(M - 1);
+        expect(b[0][1]).toBeGreaterThanOrEqual(M - 1);
+        expect(b[1][0]).toBeLessThanOrEqual(W - M + 1);
+        expect(b[1][1]).toBeLessThanOrEqual(H - M + 1);
+      });
+    }
+  }
+
+  it('keeps conic projections non-degenerate near the equator (phiOrigin = 0)', () => {
+    const p = fitProjectionToView(
+      getD3Projection(makeState({ family: 'conic', distortion: 'conformal', phiOrigin: 0 })),
+      W,
+      H,
+      1,
+      M,
+    );
+    // a degenerate conic would collapse to near-zero scale; assert a usable fill
+    const b = sphereBounds(p);
+    const w = b[1][0] - b[0][0];
+    const h = b[1][1] - b[0][1];
+    expect(w).toBeGreaterThan(W * 0.3);
+    expect(h).toBeGreaterThan(H * 0.3);
+  });
+
+  it('zooms in (overflows the margin) when scaleFactor > 1 and out when < 1', () => {
+    const zoomed = fitProjectionToView(getD3Projection(makeState()), W, H, 1.1, M);
+    const normal = fitProjectionToView(getD3Projection(makeState()), W, H, 1, M);
+    const wZoom = sphereBounds(zoomed)[1][0] - sphereBounds(zoomed)[0][0];
+    const wNorm = sphereBounds(normal)[1][0] - sphereBounds(normal)[0][0];
+    expect(wZoom).toBeGreaterThan(wNorm);
   });
 });

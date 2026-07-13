@@ -48,7 +48,7 @@ npm run dev      # дев-сервер (http://localhost:5173)
 | `src/store/useAppStore.ts`   | Единый источник правды: параметры проекции, геоданные, экшены        |
 | `src/utils/projectionMapper.ts` | Маппинг `(family × distortion)` → конкретная D3-проекция          |
 | `src/utils/auxSurfaceGeometry.ts` | Единый источник геометрии 3D: вспомогательная поверхность, кольца касания, лучи |
-| `src/components/Map2D.tsx`   | SVG-карта: гратула, берега, индикатрисы Тиссо                       |
+| `src/components/Map2D.tsx`   | Адаптивная SVG-карта: проекция подгоняется под контейнер (`fitProjectionToView`), чтобы глобус всегда заполнял доступную площадь с небольшими отступами; гратула, берега, индикатрисы Тиссо |
 | `src/components/ControlPanel.tsx` | Панель управления: семейство, искажения, слайдеры, пресеты EPSG |
 | `src/components/Dropdown.tsx` | Кастомный тёмный дропдаун (варианты `button` / `inline`)            |
 | `src/components/GlobeScene.tsx` | 3D-сцена, компонует `Globe` / `AuxSurface` / `TangencyRings` / `Rays` |
@@ -72,7 +72,11 @@ npm run dev      # дев-сервер (http://localhost:5173)
 | `azimuthal`          | Stereographic             | AzimuthalEqualArea        | AzimuthalEquidistant              |
 
 Вращение использует **отрицательные** знаки: `.rotate([-lambda0, -phiOrigin])`; для
-конических проекций берётся одна касательная параллель `parallels([phiOrigin, phiOrigin])`.
+конических проекций берётся одна касательная параллель `parallels([phiOrigin, phiOrigin])`
+(при `|phiOrigin| < 10` параллель берётся `30°`, т.к. у экватора конус вырожден —
+совпадает с геометрией вспомогательной поверхности). 2D-карта дополнительно
+подгоняется под размер контейнера через `fitProjectionToView`, чтобы глобус всегда
+заполнял окно с небольшими отступами.
 Вся геометрия 3D (поверхность, кольцо касания, лучи) выводится из одного модуля
 `auxSurfaceGeometry.ts`, поэтому фигуры не могут рассинхронизироваться.
 
