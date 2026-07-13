@@ -167,10 +167,11 @@ export default function Map2D() {
         </button>
       </div>
       <div
-        className="absolute right-2 bottom-2 z-10 rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-gray-300 backdrop-blur-md"
+        className="absolute right-2 bottom-2 z-10 rounded border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-gray-300 backdrop-blur-md"
         title="Средневзвешенное искажение площадей при текущих настройках"
       >
-        Искажение площади: {formatDistortion(areaDistortion)}%
+        Искажение площади:{' '}
+        <span className="text-[#ffe600]">{formatDistortion(areaDistortion)}%</span>
       </div>
     </div>
   );
