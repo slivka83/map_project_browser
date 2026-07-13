@@ -1,31 +1,38 @@
-import { useMemo, type CSSProperties } from 'react';
+import { useMemo } from 'react';
 import * as d3Geo from 'd3-geo';
 import { useAppStore } from '../store/useAppStore';
 import { getD3Projection } from '../utils/projectionMapper';
-import { useElementSize } from '../hooks/useElementSize';
 
 const NEON_BLUE = '#00e5ff';
 const NEON_ORANGE = '#ff6a00';
 const BG = '#05050A';
 
+const VIEW_W = 800;
+const VIEW_H = 600;
+
 export default function Map2D() {
-  const [ref, { width, height }] = useElementSize<HTMLDivElement>();
   const family = useAppStore((s) => s.family);
   const distortion = useAppStore((s) => s.distortion);
   const lambda0 = useAppStore((s) => s.lambda0);
-  const phi1 = useAppStore((s) => s.phi1);
-  const phi2 = useAppStore((s) => s.phi2);
+  const phiOrigin = useAppStore((s) => s.phiOrigin);
+  const scaleFactor = useAppStore((s) => s.scaleFactor);
+  const falseEasting = useAppStore((s) => s.falseEasting);
+  const falseNorthing = useAppStore((s) => s.falseNorthing);
   const showTissot = useAppStore((s) => s.showTissot);
   const geoJsonData = useAppStore((s) => s.geoJsonData);
 
   const pathGenerator = useMemo(() => {
-    const projection = getD3Projection(family, distortion, lambda0, phi1, phi2);
-    if (width > 0 && height > 0) {
-      if (geoJsonData) projection.fitSize([width, height], geoJsonData);
-      else projection.scale(Math.min(width, height) / 6).translate([width / 2, height / 2]);
-    }
+    const projection = getD3Projection({
+      family,
+      distortion,
+      lambda0,
+      phiOrigin,
+      scaleFactor,
+      falseEasting,
+      falseNorthing,
+    });
     return d3Geo.geoPath().projection(projection);
-  }, [family, distortion, lambda0, phi1, phi2, width, height, geoJsonData]);
+  }, [family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing]);
 
   const graticulePath = useMemo(
     () => pathGenerator(d3Geo.geoGraticule10()) ?? '',
@@ -42,24 +49,26 @@ export default function Map2D() {
       }
     }
     return circles;
-  }, [showTissot]);
+  }, [showTissot, pathGenerator]);
 
-  const containerStyle: CSSProperties = {
+  const containerStyle: React.CSSProperties = {
+    position: 'relative',
     width: '100%',
     height: '100%',
     background: BG,
   };
 
   return (
-    <div ref={ref} style={containerStyle}>
-      {width > 0 && height > 0 && geoJsonData && (
-        <svg width={width} height={height} style={{ display: 'block' }}>
-          <path
-            d={graticulePath}
-            fill="none"
-            stroke="#334155"
-            strokeWidth={0.5}
-          />
+    <div style={containerStyle}>
+      {geoJsonData && (
+        <svg
+          width="100%"
+          height="100%"
+          viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
+          preserveAspectRatio="xMidYMid meet"
+          style={{ display: 'block' }}
+        >
+          <path d={graticulePath} fill="none" stroke="#334155" strokeWidth={0.5} />
           {geoJsonData.features.map((feature, i) => (
             <path
               key={i}

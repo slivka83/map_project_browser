@@ -6,13 +6,15 @@ import type { Topology, GeometryCollection } from 'topojson-specification';
 export type ProjectionFamily = 'cylindrical' | 'conic' | 'azimuthal';
 export type DistortionModel = 'conformal' | 'equalArea' | 'equidistant';
 
-type ProjectionParams = {
+export interface ProjectionParams {
   family: ProjectionFamily;
   distortion: DistortionModel;
-  lambda0: number;
-  phi1: number;
-  phi2: number;
-};
+  lambda0: number; // -180...180  (central meridian)
+  phiOrigin: number; // -90...90   (central latitude)
+  scaleFactor: number; // 0.9...1.1 (aux-figure immersion)
+  falseEasting: number; // -1000...1000
+  falseNorthing: number; // -1000...1000
+}
 
 export type EpsgPreset = ProjectionParams;
 
@@ -23,21 +25,23 @@ interface AppState extends ProjectionParams {
   setParam: <K extends keyof ProjectionParams>(key: K, value: ProjectionParams[K]) => void;
   setShowTissot: (value: boolean) => void;
   loadGeoData: () => Promise<void>;
-  applyEpsgPreset: (preset: EpsgPreset) => void;
+  applyPreset: (preset: Partial<AppState>) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
   family: 'cylindrical',
   distortion: 'conformal',
   lambda0: 0,
-  phi1: 0,
-  phi2: 45,
+  phiOrigin: 0,
+  scaleFactor: 1,
+  falseEasting: 0,
+  falseNorthing: 0,
   showTissot: false,
   geoJsonData: null,
 
   setParam: (key, value) => set({ [key]: value } as Pick<AppState, typeof key>),
   setShowTissot: (value) => set({ showTissot: value }),
-  applyEpsgPreset: (preset) => set({ ...preset }),
+  applyPreset: (preset) => set({ ...preset }),
   loadGeoData: async () => {
     const response = await fetch('/world-110m.topojson');
     const topology = (await response.json()) as Topology;

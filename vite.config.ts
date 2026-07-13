@@ -4,9 +4,8 @@ import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
 export default defineConfig({
-  // Source files are symlinked into this native-FS workspace from the
-  // /mnt/d project (DrvFS blocks a local node_modules there). Keep symlink
-  // paths so Vite resolves everything within this root instead of /mnt/d.
-  resolve: { preserveSymlinks: true },
   plugins: [react(), tailwindcss()],
+  // DrvFS (9P) does not emit inotify events, so Vite's watcher never sees
+  // edits made on /mnt/d. Poll the files instead so HMR picks up changes.
+  server: { watch: { usePolling: true, interval: 500 } },
 })
