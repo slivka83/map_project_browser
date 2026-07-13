@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
+import * as THREE from 'three';
 import { Line } from '@react-three/drei';
 import { NEON_ORANGE } from '../constants/designTokens';
-import { computeAuxSurfaceParams, computeAuxGraticule } from '../utils/auxSurfaceGeometry';
+import { computeAuxSurfaceParams, computeAuxGraticule, type Vec3 } from '../utils/auxSurfaceGeometry';
 import { quatFromNormal } from '../utils/threeHelpers';
 import type { ProjectionParams } from '../store/useAppStore';
 
@@ -40,9 +41,22 @@ export default function AuxSurface({ params }: { params: ProjectionParams }) {
   }
 
   if (surface.kind === 'plane' && planeQuat) {
+    // Rotate the grid points directly by the tangent-basis quaternion so the
+    // plane is oriented in 3D regardless of how the group `quaternion` prop is
+    // handled. Then translate to the (offset) tangent point.
+    const rot = (pts: Vec3[]): Vec3[] =>
+      pts.map(([x, y, z]) => {
+        const v = new THREE.Vector3(x, y, z).applyQuaternion(planeQuat);
+        return [v.x, v.y, v.z];
+      });
     return (
-      <group position={surface.center} quaternion={planeQuat}>
-        {lines}
+      <group position={surface.center}>
+        {parallels.map((pts, i) => (
+          <Line key={`p${i}`} points={rot(pts)} color={NEON_ORANGE} lineWidth={0.8} transparent opacity={0.5} />
+        ))}
+        {meridians.map((pts, i) => (
+          <Line key={`m${i}`} points={rot(pts)} color={NEON_ORANGE} lineWidth={0.8} transparent opacity={0.5} />
+        ))}
       </group>
     );
   }
