@@ -3,25 +3,17 @@ import * as THREE from 'three';
 import { Canvas } from '@react-three/fiber';
 import { Line } from '@react-three/drei';
 import { useAppStore } from '../store/useAppStore';
-import { getD3Projection } from '../utils/projectionMapper';
+import {
+  RADIUS,
+  RAY_COUNT,
+  lonLatToVec3,
+  computeCentralMeridianRays,
+  type Vec3,
+} from '../utils/rayGeometry';
 import type { FeatureCollection, Geometry } from 'geojson';
 
 const NEON_BLUE = '#00e5ff';
 const NEON_ORANGE = '#ff6a00';
-const RADIUS = 10;
-const RAY_COUNT = 20;
-
-type Vec3 = [number, number, number];
-
-function lonLatToVec3(lon: number, lat: number, radius = RADIUS): Vec3 {
-  const lonRad = (lon * Math.PI) / 180;
-  const latRad = (lat * Math.PI) / 180;
-  return [
-    radius * Math.cos(latRad) * Math.cos(lonRad),
-    radius * Math.sin(latRad),
-    -radius * Math.cos(latRad) * Math.sin(lonRad),
-  ];
-}
 
 // --- Globe: transparent dark sphere + neon 3D graticule + coastlines ---
 
@@ -133,8 +125,10 @@ function AuxSurface({
     );
   }
 
-  // conic: cone tangent to the sphere at latitude phiOrigin
-  const sp = (Math.abs(phiOrigin) < 10 ? 30 : phiOrigin) * (Math.PI / 180);
+  // conic: cone tangent to the sphere at latitude phiOrigin. Magnitude so a
+  // southern phiOrigin produces a cone that points south (consistent with rays).
+  const spDeg = Math.abs(phiOrigin) < 10 ? 30 : Math.abs(phiOrigin);
+  const sp = spDeg * (Math.PI / 180);
   const apex = RADIUS / Math.sin(sp);
   const yBase = -0.35 * RADIUS;
   const height = apex - yBase;
@@ -192,11 +186,12 @@ function TangencyRings({
   const rings: { pts: Vec3[]; rotate: boolean }[] = [];
 
   if (family === 'conic') {
-    const sp = (Math.abs(phiOrigin) < 10 ? 30 : phiOrigin) * (Math.PI / 180);
-    const apex = RADIUS / Math.sin(sp);
+    const spDeg = Math.abs(phiOrigin) < 10 ? 30 : Math.abs(phiOrigin);
+    const sp = spDeg * (Math.PI / 180);
     const latRad = (phiOrigin * Math.PI) / 180;
     const y = RADIUS * Math.sin(latRad);
-    const rCone = scaleFactor * (apex - y) * Math.tan(sp);
+    // tangency ring radius = sphere radius at the tangent latitude (= cone radius there)
+    const rCone = scaleFactor * RADIUS * Math.cos(sp);
     rings.push({ pts: circlePoints(rCone, y), rotate: false });
   } else {
     const latRad = (phiOrigin * Math.PI) / 180;
@@ -236,13 +231,8 @@ function Rays({
   geoJson: FeatureCollection | null;
 }) {
   const segments = useMemo<[Vec3, Vec3][]>(() => {
-    const result: [Vec3, Vec3][] = [];
-    if (!geoJson) return result;
-
-    const cy = 300 + falseNorthing;
-    const lonRad = (lambda0 * Math.PI) / 180;
-
-    const proj = getD3Projection({
+    if (!geoJson) return [];
+    return computeCentralMeridianRays({
       family,
       distortion,
       lambda0,
@@ -250,55 +240,9 @@ function Rays({
       scaleFactor,
       falseEasting,
       falseNorthing,
+      radius: RADIUS,
+      rayCount: RAY_COUNT,
     });
-
-    // basis vectors for the azimuthal tangent plane at (lambda0, phiOrigin)
-    let u: THREE.Vector3 | null = null;
-    let w: THREE.Vector3 | null = null;
-    let center: Vec3 | null = null;
-    if (family === 'azimuthal') {
-      center = lonLatToVec3(lambda0, phiOrigin, RADIUS);
-      const c0 = new THREE.Vector3(...center);
-      const pLat = lonLatToVec3(lambda0, phiOrigin + 0.001 * 180 / Math.PI, RADIUS);
-      const pLon = lonLatToVec3(lambda0 + 0.001 * 180 / Math.PI, phiOrigin, RADIUS);
-      w = new THREE.Vector3(...pLat).sub(c0).normalize();
-      u = new THREE.Vector3(...pLon).sub(c0).normalize();
-    }
-
-    // cone geometry for the conic case
-    let apex = 0;
-    let sp = 0;
-    if (family === 'conic') {
-      sp = (Math.abs(phiOrigin) < 10 ? 30 : phiOrigin) * (Math.PI / 180);
-      apex = RADIUS / Math.sin(sp);
-    }
-
-    for (let i = 0; i < RAY_COUNT; i++) {
-      const lat = -90 + (i * 180) / (RAY_COUNT - 1);
-      const start = lonLatToVec3(lambda0, lat);
-      let end: Vec3;
-
-      if (family === 'cylindrical') {
-        const p = proj([lambda0, lat]);
-        const py = p ? p[1] : cy;
-        end = [RADIUS * scaleFactor * Math.cos(lonRad), py - cy, -RADIUS * scaleFactor * Math.sin(lonRad)];
-      } else if (family === 'azimuthal' && center && u && w) {
-        const c = proj([lambda0, phiOrigin]);
-        const p = proj([lambda0, lat]);
-        const dx = (p ? p[0] : 0) - (c ? c[0] : 0);
-        const dy = (p ? p[1] : 0) - (c ? c[1] : 0);
-        const e = new THREE.Vector3(...center).add(u.clone().multiplyScalar(dx)).add(w.clone().multiplyScalar(dy));
-        end = [e.x, e.y, e.z];
-      } else {
-        const latRad = (lat * Math.PI) / 180;
-        const y = RADIUS * Math.sin(latRad);
-        const rEnd = scaleFactor * (apex - y) * Math.tan(sp);
-        end = [rEnd * Math.cos(lonRad), y, -rEnd * Math.sin(lonRad)];
-      }
-
-      result.push([start, end]);
-    }
-    return result;
   }, [family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, geoJson]);
 
   return (
