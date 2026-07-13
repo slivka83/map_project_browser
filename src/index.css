@@ -28,8 +28,3 @@ body {
   color: #00e5ff;
   text-shadow: 0 0 5px #00e5ff;
 }
-
-.divider-neon {
-  border-color: rgba(0, 229, 255, 0.45);
-  filter: drop-shadow(0 0 4px rgba(0, 229, 255, 0.5));
-}
