@@ -57,7 +57,7 @@ function EpsgIcon() {
   );
 }
 
-function TissotIcon() {
+export function TissotIcon() {
   return (
     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5">
       <circle cx="12" cy="12" r="9" />
@@ -74,7 +74,7 @@ function ResetIcon() {
   );
 }
 
-function BorderIcon() {
+export function BorderIcon() {
   return (
     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5">
       <path d="M5 5h14v14H5z" />
@@ -122,7 +122,7 @@ function Slider({
   );
 }
 
-const iconBtn =
+export const iconBtn =
   'flex h-9 w-[54px] items-center justify-center rounded border border-neon-blue/50 bg-[#0b0b14] text-neon-blue drop-shadow-[0_0_3px_rgba(0,229,255,0.5)] transition';
 
 const famBtn =
@@ -151,10 +151,6 @@ export default function ControlPanel() {
   const lambda0 = useAppStore((s) => s.lambda0);
   const phiOrigin = useAppStore((s) => s.phiOrigin);
   const scaleFactor = useAppStore((s) => s.scaleFactor);
-  const showTissot = useAppStore((s) => s.showTissot);
-  const setShowTissot = useAppStore((s) => s.setShowTissot);
-  const showBorders = useAppStore((s) => s.showBorders);
-  const setShowBorders = useAppStore((s) => s.setShowBorders);
   const setParam = useAppStore((s) => s.setParam);
   const setFamily = useAppStore((s) => s.setFamily);
   const resetParams = useAppStore((s) => s.resetParams);
@@ -194,30 +190,6 @@ export default function ControlPanel() {
             className={`${iconBtn} hover:bg-neon-blue/10 hover:shadow-[0_0_8px_rgba(0,229,255,0.5)]`}
           >
             <ResetIcon />
-          </button>
-          <button
-            title="Индикатрисы Тиссо"
-            aria-label="Индикатрисы Тиссо"
-            onClick={() => setShowTissot(!showTissot)}
-            className={`${iconBtn} ${
-              showTissot
-                ? 'bg-neon-blue/15 shadow-[0_0_10px_rgba(0,229,255,0.5)]'
-                : 'hover:bg-neon-blue/10 hover:shadow-[0_0_8px_rgba(0,229,255,0.5)]'
-            }`}
-          >
-            <TissotIcon />
-          </button>
-          <button
-            title="Границы стран"
-            aria-label="Границы стран"
-            onClick={() => setShowBorders(!showBorders)}
-            className={`${iconBtn} ${
-              showBorders
-                ? 'border-neon-blue bg-neon-blue/15 text-neon-blue shadow-[0_0_10px_rgba(0,229,255,0.5)]'
-                : 'hover:bg-neon-blue/10 hover:shadow-[0_0_8px_rgba(0,229,255,0.5)]'
-            }`}
-          >
-            <BorderIcon />
           </button>
         </div>
       </div>

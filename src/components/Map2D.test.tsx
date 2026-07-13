@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render, waitFor } from '@testing-library/react';
+import { render, waitFor, fireEvent } from '@testing-library/react';
 import Map2D from './Map2D';
 import { useAppStore } from '../store/useAppStore';
 import type { FeatureCollection } from 'geojson';
@@ -29,7 +29,7 @@ describe('Map2D', () => {
   it('renders an svg with coastline paths once geo data is loaded', async () => {
     const { container } = render(<Map2D />);
     await waitFor(() => {
-      expect(container.querySelector('svg')).not.toBeNull();
+      expect(container.querySelector('svg[data-map="true"]')).not.toBeNull();
     });
     // graticule + at least one coastline path (do not assert exact `d`).
     expect(container.querySelectorAll('path').length).toBeGreaterThan(0);
@@ -52,9 +52,23 @@ describe('Map2D', () => {
     });
   });
 
-  it('renders nothing when geo data is not loaded yet', () => {
+  it('renders the map svg only once geo data is loaded', () => {
     useAppStore.setState({ land50GeoJson: null });
     const { container } = render(<Map2D />);
-    expect(container.querySelector('svg')).toBeNull();
+    expect(container.querySelector('svg[data-map="true"]')).toBeNull();
+  });
+
+  it('shows Tissot and Borders toggle buttons that flip the store flags', () => {
+    const { getByRole } = render(<Map2D />);
+    const tissot = getByRole('button', { name: 'Индикатрисы Тиссо' });
+    const borders = getByRole('button', { name: 'Границы стран' });
+    expect(tissot).toBeTruthy();
+    expect(borders).toBeTruthy();
+    expect(useAppStore.getState().showTissot).toBe(false);
+    expect(useAppStore.getState().showBorders).toBe(false);
+    fireEvent.click(tissot);
+    fireEvent.click(borders);
+    expect(useAppStore.getState().showTissot).toBe(true);
+    expect(useAppStore.getState().showBorders).toBe(true);
   });
 });

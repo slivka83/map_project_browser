@@ -5,6 +5,7 @@ import type { FeatureCollection } from 'geojson';
 import { useAppStore } from '../store/useAppStore';
 import { getD3Projection, fitProjectionToView } from '../utils/projectionMapper';
 import { NEON_BLUE, NEON_ORANGE, BG } from '../constants/designTokens';
+import { iconBtn, TissotIcon, BorderIcon } from './ControlPanel';
 
 const MARGIN = 16;
 
@@ -32,7 +33,9 @@ export default function Map2D() {
   const phiOrigin = useAppStore((s) => s.phiOrigin);
   const scaleFactor = useAppStore((s) => s.scaleFactor);
   const showTissot = useAppStore((s) => s.showTissot);
+  const setShowTissot = useAppStore((s) => s.setShowTissot);
   const showBorders = useAppStore((s) => s.showBorders);
+  const setShowBorders = useAppStore((s) => s.setShowBorders);
   const land50GeoJson = useAppStore((s) => s.land50GeoJson);
   const countriesGeoJson = useAppStore((s) => s.countriesGeoJson);
 
@@ -85,6 +88,7 @@ export default function Map2D() {
           height="100%"
           viewBox={`0 0 ${width} ${height}`}
           preserveAspectRatio="xMidYMid meet"
+          data-map="true"
           style={{ display: 'block' }}
         >
           <path d={graticulePath} fill="none" stroke="#334155" strokeWidth={0.5} />
@@ -118,6 +122,32 @@ export default function Map2D() {
           ))}
         </svg>
       )}
+      <div className="absolute right-2 top-2 z-10 flex gap-1">
+        <button
+          title="Индикатрисы Тиссо"
+          aria-label="Индикатрисы Тиссо"
+          onClick={() => setShowTissot(!showTissot)}
+          className={`${iconBtn} ${
+            showTissot
+              ? 'border-neon-blue bg-neon-blue/15 text-neon-blue shadow-[0_0_10px_rgba(0,229,255,0.5)]'
+              : 'hover:bg-neon-blue/10 hover:shadow-[0_0_8px_rgba(0,229,255,0.5)]'
+          }`}
+        >
+          <TissotIcon />
+        </button>
+        <button
+          title="Границы стран"
+          aria-label="Границы стран"
+          onClick={() => setShowBorders(!showBorders)}
+          className={`${iconBtn} ${
+            showBorders
+              ? 'border-neon-blue bg-neon-blue/15 text-neon-blue shadow-[0_0_10px_rgba(0,229,255,0.5)]'
+              : 'hover:bg-neon-blue/10 hover:shadow-[0_0_8px_rgba(0,229,255,0.5)]'
+          }`}
+        >
+          <BorderIcon />
+        </button>
+      </div>
     </div>
   );
 }
