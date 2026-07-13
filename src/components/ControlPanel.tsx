@@ -17,8 +17,8 @@ const DISTORTIONS: { value: DistortionModel; label: string }[] = [
 
 const panelClass = 'bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-2.5';
 const labelClass = 'text-[9px] uppercase tracking-wider text-neon-blue/80';
-const activeTab = 'bg-neon-blue/20 border-neon-blue text-neon-blue';
-const inactiveTab = 'border-white/10 text-white/60 hover:text-white';
+const activeTab = 'bg-neon-blue/20 border-neon-blue text-neon-blue shadow-[0_0_10px_rgba(0,229,255,0.45)]';
+const inactiveTab = 'border-white/10 text-white/60 hover:text-neon-blue hover:shadow-[0_0_8px_rgba(0,229,255,0.25)]';
 
 function FamilyIcon({ family }: { family: ProjectionFamily }) {
   if (family === 'cylindrical') {
@@ -170,7 +170,7 @@ export default function ControlPanel() {
             title="Библиотека EPSG"
             aria-label="Библиотека EPSG"
             onClick={() => setCatalogOpen(true)}
-            className={`${iconBtn} border-white/10 text-white/60 hover:text-neon-orange`}
+            className={`${iconBtn} border-white/10 text-white/60 hover:text-neon-orange hover:shadow-[0_0_8px_rgba(255,106,0,0.4)]`}
           >
             <EpsgIcon />
           </button>
@@ -178,7 +178,7 @@ export default function ControlPanel() {
             title="Сбросить параметры"
             aria-label="Сбросить параметры"
             onClick={() => resetParams()}
-            className={`${iconBtn} border-white/10 text-white/60 hover:text-neon-blue`}
+            className={`${iconBtn} border-white/10 text-white/60 hover:text-neon-blue hover:shadow-[0_0_8px_rgba(0,229,255,0.4)]`}
           >
             <ResetIcon />
           </button>
@@ -188,8 +188,8 @@ export default function ControlPanel() {
             onClick={() => setShowTissot(!showTissot)}
             className={`${iconBtn} ${
               showTissot
-                ? 'border-neon-orange bg-neon-orange/15 text-neon-orange'
-                : 'border-white/10 text-white/60 hover:text-neon-orange'
+                ? 'border-neon-orange bg-neon-orange/15 text-neon-orange shadow-[0_0_10px_rgba(255,106,0,0.45)]'
+                : 'border-white/10 text-white/60 hover:text-neon-orange hover:shadow-[0_0_8px_rgba(255,106,0,0.4)]'
             }`}
           >
             <TissotIcon />
