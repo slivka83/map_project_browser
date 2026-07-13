@@ -6,6 +6,14 @@ import type { Topology, GeometryCollection } from 'topojson-specification';
 export type ProjectionFamily = 'cylindrical' | 'conic' | 'azimuthal';
 export type DistortionModel = 'conformal' | 'equalArea' | 'equidistant';
 
+// Default distortion per family: cylindrical → conformal, conic → equidistant,
+// azimuthal → equal-area.
+export const DEFAULT_DISTORTION: Record<ProjectionFamily, DistortionModel> = {
+  cylindrical: 'conformal',
+  conic: 'equidistant',
+  azimuthal: 'equalArea',
+};
+
 export interface ProjectionParams {
   family: ProjectionFamily;
   distortion: DistortionModel;
@@ -18,29 +26,39 @@ export interface ProjectionParams {
 
 export type EpsgPreset = ProjectionParams;
 
+export function defaultParamsForFamily(family: ProjectionFamily): ProjectionParams {
+  return {
+    family,
+    distortion: DEFAULT_DISTORTION[family],
+    lambda0: 0,
+    phiOrigin: 0,
+    scaleFactor: 1,
+    falseEasting: 0,
+    falseNorthing: 0,
+  };
+}
+
 interface AppState extends ProjectionParams {
   showTissot: boolean;
   geoJsonData: FeatureCollection | null;
 
   setParam: <K extends keyof ProjectionParams>(key: K, value: ProjectionParams[K]) => void;
   setShowTissot: (value: boolean) => void;
+  setFamily: (family: ProjectionFamily) => void;
+  resetParams: () => void;
   loadGeoData: () => Promise<void>;
   applyPreset: (preset: Partial<AppState>) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
-  family: 'cylindrical',
-  distortion: 'conformal',
-  lambda0: 0,
-  phiOrigin: 0,
-  scaleFactor: 1,
-  falseEasting: 0,
-  falseNorthing: 0,
+  ...defaultParamsForFamily('cylindrical'),
   showTissot: false,
   geoJsonData: null,
 
   setParam: (key, value) => set({ [key]: value } as Pick<AppState, typeof key>),
   setShowTissot: (value) => set({ showTissot: value }),
+  setFamily: (family) => set({ ...defaultParamsForFamily(family) }),
+  resetParams: () => set((s) => ({ ...defaultParamsForFamily(s.family) })),
   applyPreset: (preset) => set({ ...preset }),
   loadGeoData: async () => {
     try {

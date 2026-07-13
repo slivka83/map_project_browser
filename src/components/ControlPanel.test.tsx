@@ -33,10 +33,27 @@ describe('ControlPanel', () => {
     expect(useAppStore.getState().lambda0).toBe(60);
   });
 
-  it('updates store.family when a family tab is clicked', () => {
+  it('updates store.family and resets to the family default distortion when a family tab is clicked', () => {
     render(<ControlPanel />);
     fireEvent.click(screen.getByRole('button', { name: 'Азимутальная' }));
-    expect(useAppStore.getState().family).toBe('azimuthal');
+    const s = useAppStore.getState();
+    expect(s.family).toBe('azimuthal');
+    expect(s.distortion).toBe('equalArea');
+    expect(s.lambda0).toBe(0);
+    expect(s.phiOrigin).toBe(0);
+    expect(s.scaleFactor).toBe(1);
+  });
+
+  it('resets params to the current family defaults via the reset button', () => {
+    render(<ControlPanel />);
+    fireEvent.click(screen.getByRole('button', { name: 'Коническая' }));
+    fireEvent.change((screen.getAllByRole('slider') as HTMLInputElement[])[0], { target: { value: '60' } });
+    expect(useAppStore.getState().lambda0).toBe(60);
+    fireEvent.click(screen.getByRole('button', { name: 'Сбросить параметры' }));
+    const s = useAppStore.getState();
+    expect(s.family).toBe('conic');
+    expect(s.distortion).toBe('equidistant');
+    expect(s.lambda0).toBe(0);
   });
 
   it('updates store.distortion when a distortion option is selected', () => {

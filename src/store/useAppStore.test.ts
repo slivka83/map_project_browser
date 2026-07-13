@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { useAppStore } from './useAppStore';
+import { useAppStore, type ProjectionFamily, type DistortionModel } from './useAppStore';
 import type { Topology } from 'topojson-specification';
 
 describe('useAppStore', () => {
@@ -70,6 +70,39 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().showTissot).toBe(true);
     useAppStore.getState().setShowTissot(false);
     expect(useAppStore.getState().showTissot).toBe(false);
+  });
+
+  it('sets the family default distortion via setFamily', () => {
+    const cases: [ProjectionFamily, DistortionModel][] = [
+      ['cylindrical', 'conformal'],
+      ['conic', 'equidistant'],
+      ['azimuthal', 'equalArea'],
+    ];
+    for (const [family, distortion] of cases) {
+      useAppStore.setState({ family: 'cylindrical', distortion: 'equalArea', lambda0: 90, phiOrigin: 45, scaleFactor: 1.1, falseEasting: 100, falseNorthing: -50 });
+      useAppStore.getState().setFamily(family);
+      const s = useAppStore.getState();
+      expect(s.family).toBe(family);
+      expect(s.distortion).toBe(distortion);
+      // other params reset to defaults
+      expect(s.lambda0).toBe(0);
+      expect(s.phiOrigin).toBe(0);
+      expect(s.scaleFactor).toBe(1);
+      expect(s.falseEasting).toBe(0);
+      expect(s.falseNorthing).toBe(0);
+    }
+  });
+
+  it('resetParams restores the current family defaults', () => {
+    useAppStore.setState({ family: 'conic', distortion: 'conformal', lambda0: 90, phiOrigin: 45, scaleFactor: 1.1 });
+    useAppStore.getState().resetParams();
+    const s = useAppStore.getState();
+    expect(s.distortion).toBe('equidistant');
+    expect(s.lambda0).toBe(0);
+    expect(s.phiOrigin).toBe(0);
+    expect(s.scaleFactor).toBe(1);
+    // family preserved
+    expect(s.family).toBe('conic');
   });
 
   it('loadGeoData fetches the topojson and stores a FeatureCollection', async () => {

@@ -65,6 +65,15 @@ function TissotIcon() {
   );
 }
 
+function ResetIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M3 12a9 9 0 1 0 3-6.7" />
+      <path d="M3 4v4h4" />
+    </svg>
+  );
+}
+
 function Slider({
   label,
   value,
@@ -134,6 +143,8 @@ export default function ControlPanel() {
   const showTissot = useAppStore((s) => s.showTissot);
   const setShowTissot = useAppStore((s) => s.setShowTissot);
   const setParam = useAppStore((s) => s.setParam);
+  const setFamily = useAppStore((s) => s.setFamily);
+  const resetParams = useAppStore((s) => s.resetParams);
   const applyPreset = useAppStore((s) => s.applyPreset);
 
   return (
@@ -145,7 +156,7 @@ export default function ControlPanel() {
               key={f.value}
               title={f.label}
               aria-label={f.label}
-              onClick={() => setParam('family', f.value)}
+              onClick={() => setFamily(f.value)}
               className={`${famBtn} rounded-none border-r border-white/10 last:border-r-0 ${
                 i > 0 ? '-ml-px' : ''
               } ${family === f.value ? `${activeTab} z-10` : inactiveTab}`}
@@ -162,6 +173,14 @@ export default function ControlPanel() {
             className={`${iconBtn} border-white/10 text-white/60 hover:text-neon-orange`}
           >
             <EpsgIcon />
+          </button>
+          <button
+            title="Сбросить параметры"
+            aria-label="Сбросить параметры"
+            onClick={() => resetParams()}
+            className={`${iconBtn} border-white/10 text-white/60 hover:text-neon-blue`}
+          >
+            <ResetIcon />
           </button>
           <button
             title="Индикатрисы Тиссо"
