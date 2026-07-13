@@ -49,7 +49,7 @@ export default function Map2D() {
       }
     }
     return circles;
-  }, [showTissot, pathGenerator]);
+  }, [showTissot]);
 
   const containerStyle: React.CSSProperties = {
     position: 'relative',
