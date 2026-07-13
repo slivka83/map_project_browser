@@ -163,7 +163,7 @@ export default function Map2D() {
               aria-label="Границы стран"
               onClick={() => setShowBorders(!showBorders)}
               className={`${iconBtnPlain} ${
-                showBorders ? 'text-neon-blue drop-shadow-[0_0_10px(var(--color-neon-blue-soft))]' : ''
+                showBorders ? 'text-neon-blue drop-shadow-[0_0_10px_var(--color-neon-blue-soft)]' : ''
               }`}
             >
               <BorderIcon />
