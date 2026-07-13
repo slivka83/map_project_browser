@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { EPSG_PRESETS } from '../constants/epsgPresets';
-import type { ProjectionParams, ProjectionFamily } from '../store/useAppStore';
+import type { ProjectionParams, ProjectionFamily, DistortionModel } from '../store/useAppStore';
 import Dropdown from './Dropdown';
 
 const FAMILY_LABEL: Record<ProjectionFamily, string> = {
@@ -10,7 +10,13 @@ const FAMILY_LABEL: Record<ProjectionFamily, string> = {
   azimuthal: 'Азимутальная',
 };
 
-type Col = 'code' | 'type' | 'name' | 'units';
+const DISTORTION_LABEL: Record<DistortionModel, string> = {
+  conformal: 'Равноугольная',
+  equalArea: 'Равновеликая',
+  equidistant: 'Равнопромежуточная',
+};
+
+type Col = 'code' | 'type' | 'distortion' | 'name' | 'units';
 type ColKind = 'text' | 'select';
 
 interface ColDef {
@@ -22,6 +28,7 @@ interface ColDef {
 const COLS: ColDef[] = [
   { key: 'code', label: 'EPSG-код', kind: 'text' },
   { key: 'type', label: 'Вид проекции', kind: 'select' },
+  { key: 'distortion', label: 'Матмодель', kind: 'select' },
   { key: 'name', label: 'Название', kind: 'text' },
   { key: 'units', label: 'Единицы', kind: 'select' },
 ];
@@ -36,10 +43,15 @@ export default function EpsgCatalog({ onClose, applyPreset }: Props) {
   const [codeQ, setCodeQ] = useState('');
   const [nameQ, setNameQ] = useState('');
   const [typeSel, setTypeSel] = useState('');
+  const [distortionSel, setDistortionSel] = useState('');
   const [unitSel, setUnitSel] = useState('');
 
   const familyOptions = useMemo(
     () => Array.from(new Set(EPSG_PRESETS.map((e) => FAMILY_LABEL[e.params.family]))),
+    [],
+  );
+  const distortionOptions = useMemo(
+    () => Array.from(new Set(EPSG_PRESETS.map((e) => DISTORTION_LABEL[e.params.distortion]))),
     [],
   );
   const unitOptions = useMemo(
@@ -53,14 +65,23 @@ export default function EpsgCatalog({ onClose, applyPreset }: Props) {
         if (codeQ && !e.code.toLowerCase().includes(codeQ.toLowerCase())) return false;
         if (nameQ && !e.name.toLowerCase().includes(nameQ.toLowerCase())) return false;
         if (typeSel && FAMILY_LABEL[e.params.family] !== typeSel) return false;
+        if (distortionSel && DISTORTION_LABEL[e.params.distortion] !== distortionSel) return false;
         if (unitSel && e.units !== unitSel) return false;
         return true;
       }),
-    [codeQ, nameQ, typeSel, unitSel],
+    [codeQ, nameQ, typeSel, distortionSel, unitSel],
   );
 
   const hasFilter = (c: Col) =>
-    c === 'code' ? !!codeQ : c === 'name' ? !!nameQ : c === 'type' ? !!typeSel : !!unitSel;
+    c === 'code'
+      ? !!codeQ
+      : c === 'name'
+        ? !!nameQ
+        : c === 'type'
+          ? !!typeSel
+          : c === 'distortion'
+            ? !!distortionSel
+            : !!unitSel;
 
   const onHeaderClick = (c: Col) => setActive((prev) => (prev === c ? null : c));
 
@@ -87,10 +108,11 @@ export default function EpsgCatalog({ onClose, applyPreset }: Props) {
         <div className="min-h-0 flex-1 overflow-auto">
           <table className="w-full table-fixed border-collapse text-sm">
             <colgroup>
+              <col className="w-[140px]" />
               <col className="w-[150px]" />
-              <col className="w-[170px]" />
+              <col className="w-[150px]" />
               <col />
-              <col className="w-[130px]" />
+              <col className="w-[120px]" />
             </colgroup>
             <thead className="sticky top-0 z-10 bg-[#0b0b14] text-left text-xs uppercase tracking-wider text-neon-blue/80">
               <tr>
@@ -110,15 +132,28 @@ export default function EpsgCatalog({ onClose, applyPreset }: Props) {
                             className="h-full w-full rounded border border-neon-blue/50 bg-[#0b0b14] px-1.5 text-[11px] normal-case text-neon-blue outline-none drop-shadow-[0_0_3px_rgba(0,229,255,0.5)]"
                           />
                          ) : (
-                           <Dropdown
-                             variant="inline"
-                             initialOpen
-                             value={c.key === 'type' ? typeSel : unitSel}
-                             options={(c.key === 'type' ? familyOptions : unitOptions).map((o) => ({ value: o, label: o }))}
-                             allLabel="Все"
-                             onChange={(v) => (c.key === 'type' ? setTypeSel(v) : setUnitSel(v))}
-                             onClose={() => setActive(null)}
-                           />
+                            <Dropdown
+                              variant="inline"
+                              initialOpen
+                              value={c.key === 'type' ? typeSel : c.key === 'distortion' ? distortionSel : unitSel}
+                              options={
+                                (c.key === 'type'
+                                  ? familyOptions
+                                  : c.key === 'distortion'
+                                    ? distortionOptions
+                                    : unitOptions
+                                ).map((o) => ({ value: o, label: o }))
+                              }
+                              allLabel="Все"
+                              onChange={(v) =>
+                                c.key === 'type'
+                                  ? setTypeSel(v)
+                                  : c.key === 'distortion'
+                                    ? setDistortionSel(v)
+                                    : setUnitSel(v)
+                              }
+                              onClose={() => setActive(null)}
+                            />
                          )
                       ) : (
                         <button
@@ -158,13 +193,14 @@ export default function EpsgCatalog({ onClose, applyPreset }: Props) {
                 >
                   <td className="whitespace-nowrap px-2 py-2 font-mono text-neon-blue/90">{entry.code}</td>
                   <td className="whitespace-nowrap px-2 py-2">{FAMILY_LABEL[entry.params.family]}</td>
+                  <td className="whitespace-nowrap px-2 py-2">{DISTORTION_LABEL[entry.params.distortion]}</td>
                   <td className="whitespace-nowrap px-2 py-2">{entry.name}</td>
                   <td className="whitespace-nowrap px-2 py-2">{entry.units}</td>
                 </tr>
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-2 py-4 text-center text-white/40">
+                  <td colSpan={5} className="px-2 py-4 text-center text-white/40">
                     Ничего не найдено
                   </td>
                 </tr>

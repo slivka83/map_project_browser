@@ -21,6 +21,7 @@ describe('EpsgCatalog', () => {
     expect(screen.getByRole('button', { name: 'Закрыть' })).toBeTruthy();
     expect(screen.getByText('EPSG-код')).toBeTruthy();
     expect(screen.getByText('Вид проекции')).toBeTruthy();
+    expect(screen.getByText('Матмодель')).toBeTruthy();
     expect(screen.getByText('Название')).toBeTruthy();
     expect(screen.getByText('Единицы')).toBeTruthy();
   });
@@ -70,11 +71,23 @@ describe('EpsgCatalog', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it('filters rows by a select filter (Матмодель = Равноугольная)', () => {
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Матмодель' }));
+    // the "all" option plus the distortion values are offered
+    expect(screen.getAllByText('Все').length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'Равноугольная' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Равноугольная' }));
+    // a conformal cylindrical code stays, an equal-area one is removed
+    expect(screen.getByText('EPSG:3395')).toBeTruthy();
+    expect(screen.queryByText('EPSG:53010')).toBeNull();
+  });
+
   it('locks column widths via a fixed table layout (colgroup)', () => {
     setup();
     const table = screen.getByRole('table');
     const colgroup = table.querySelector('colgroup');
     expect(colgroup).not.toBeNull();
-    expect(colgroup?.querySelectorAll('col').length).toBe(4);
+    expect(colgroup?.querySelectorAll('col').length).toBe(5);
   });
 });
