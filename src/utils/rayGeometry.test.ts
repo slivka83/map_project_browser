@@ -141,4 +141,42 @@ describe('computeCentralMeridianRays (spec §6, 3D rays)', () => {
     const segs = computeCentralMeridianRays({ ...base, rayCount: 5 });
     expect(segs).toHaveLength(5);
   });
+
+  // rayCount 4 makes lat === 30 land exactly on a sample (k = 2)
+  const lat = 30;
+  const idx = Math.round(((lat + 90) / 180) * 3);
+
+  it('cylindrical (equirectangular): a northern point sits on the seam at the projected height', () => {
+    const segs = computeCentralMeridianRays({
+      ...base,
+      family: 'cylindrical',
+      distortion: 'equidistant',
+      lambda0: 0,
+      phiOrigin: 0,
+      scaleFactor: 1,
+      rayCount: 4,
+    });
+    const [, end] = segs[idx];
+    expect(end[0]).toBeCloseTo(RADIUS, 6);
+    expect(end[2]).toBeCloseTo(0, 6);
+    expect(end[1]).toBeCloseTo(RADIUS * (lat * Math.PI) / 180, 6);
+  });
+
+  it('azimuthal (equidistant): a northern point lies on the tangent plane, due "north" of the centre', () => {
+    const segs = computeCentralMeridianRays({
+      ...base,
+      family: 'azimuthal',
+      distortion: 'equidistant',
+      lambda0: 0,
+      phiOrigin: 0,
+      scaleFactor: 1,
+      rayCount: 4,
+    });
+    const center = lonLatToVec3(0, 0, RADIUS);
+    const [, end] = segs[idx];
+    // end === center + north · (scaleFactor · RADIUS · latRad)
+    expect(end[0]).toBeCloseTo(center[0], 6);
+    expect(end[1]).toBeCloseTo(center[1] + RADIUS * (lat * Math.PI) / 180, 6);
+    expect(end[2]).toBeCloseTo(center[2], 6);
+  });
 });

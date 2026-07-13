@@ -87,7 +87,7 @@ describe('useAppStore', () => {
 
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue({ json: () => Promise.resolve(topology) }),
+      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(topology) }),
     );
 
     await useAppStore.getState().loadGeoData();

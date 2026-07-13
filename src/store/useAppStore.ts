@@ -43,10 +43,15 @@ export const useAppStore = create<AppState>((set) => ({
   setShowTissot: (value) => set({ showTissot: value }),
   applyPreset: (preset) => set({ ...preset }),
   loadGeoData: async () => {
-    const response = await fetch('/world-110m.topojson');
-    const topology = (await response.json()) as Topology;
-    const land = topology.objects.land as GeometryCollection;
-    const geojson = feature(topology, land) as FeatureCollection;
-    set({ geoJsonData: geojson });
+    try {
+      const response = await fetch('/world-110m.topojson');
+      if (!response.ok) throw new Error(`Failed to load world data: ${response.status}`);
+      const topology = (await response.json()) as Topology;
+      const land = topology.objects.land as GeometryCollection;
+      const geojson = feature(topology, land) as FeatureCollection;
+      set({ geoJsonData: geojson });
+    } catch (err) {
+      console.error('loadGeoData failed:', err);
+    }
   },
 }));
