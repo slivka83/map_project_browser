@@ -30,6 +30,5 @@ body {
 }
 
 .divider-neon {
-  border-color: rgba(0, 229, 255, 0.25);
-  box-shadow: 0 0 6px rgba(0, 229, 255, 0.35);
+  box-shadow: 0 0 6px rgba(0, 229, 255, 0.3);
 }
