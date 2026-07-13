@@ -16,7 +16,7 @@ const DISTORTIONS: { value: DistortionModel; label: string }[] = [
 ];
 
 const panelClass = 'bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-3';
-const labelClass = 'text-[11px] uppercase tracking-wider text-neon-blue/80 whitespace-nowrap';
+const labelClass = 'text-[11px] uppercase tracking-wider text-neon-blue/80 whitespace-nowrap text-right';
 const activeTab = 'z-10 bg-neon-blue/15 text-neon-blue shadow-[0_0_10px_rgba(0,229,255,0.5)]';
 const inactiveTab = 'text-neon-blue/70 hover:text-neon-blue hover:bg-neon-blue/5';
 
@@ -93,7 +93,7 @@ function Slider({
 }) {
   return (
     <div className="flex items-center gap-[2px]">
-      <span className={`${labelClass} shrink-0`}>{label}</span>
+      <span className={`${labelClass} w-48 shrink-0`}>{label}</span>
       <input
         type="range"
         min={min}
@@ -198,7 +198,7 @@ export default function ControlPanel() {
       </div>
 
       <div className="flex items-center gap-[2px]">
-        <span className={`${labelClass} shrink-0`}>Матмодель</span>
+        <span className={`${labelClass} w-48 shrink-0`}>Матмодель</span>
         <DistortionSelect value={distortion} onChange={(v) => setParam('distortion', v)} />
       </div>
 
