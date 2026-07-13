@@ -78,7 +78,7 @@ export default function Map2D() {
     if (!showTissot) return [] as GeoJSON.Polygon[];
     const circles: GeoJSON.Polygon[] = [];
     const baseLons = [-150, -120, -90, -60, -30, 0, 30, 60, 90, 120, 150];
-    const lats = [-75, -60, -45, -30, -15, 0, 15, 30, 45, 60, 75];
+    const lats = [-60, -30, 0, 30, 60];
     for (let r = 0; r < lats.length; r++) {
       const offset = r % 2 === 0 ? 0 : 15; // checkerboard: shift alternate rows
       for (const lon of baseLons) {
