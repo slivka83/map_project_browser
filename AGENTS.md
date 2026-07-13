@@ -71,4 +71,5 @@ geoJsonData: FeatureCollection | null;  // loaded from /world-110m.topojson
 Apply these after **any** code change in this repo:
 1. **Keep tests in sync with code.** After editing any source, add or update tests so every changed behaviour is covered (aim for all realistic scenarios). Per spec §9.3, WebGL/`<Canvas>` and SVG `d` attributes stay intentionally untested.
 2. **Run the whole suite.** After any code change, run `npm run test` (and ideally `npm run lint` + `npm run build`) and do not leave failing tests.
-3. **Commit after every change.** After changing any file, stage and commit all modifications to Git (with a concise, repo-style message). Do not leave edits uncommitted between turns.
+3. **Keep docs in sync.** If a code change alters functionality, update the affected docs to match, when necessary: `docs/BRD.md`, `docs/specification.md`, `AGENTS.md`, and `README.md`.
+4. **Commit after every change.** After changing any file, stage and commit all modifications to Git (with a concise, repo-style message). Do not leave edits uncommitted between turns.
