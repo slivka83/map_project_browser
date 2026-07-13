@@ -147,28 +147,24 @@ export default function Map2D() {
         >
           <TissotIcon />
         </button>
-        <div className="flex flex-col gap-1">
-          <button
-            title="Детализация карты"
-            aria-label="Детализация карты"
-            onClick={() => setDetailedMap(!detailedMap)}
-            className={iconBtnPlain}
-            style={{ color: detailedMap ? '#00e5ff' : undefined, filter: iconGlow(detailedMap) }}
-          >
-            <DetailIcon />
-          </button>
-          {detailedMap && (
-            <button
-              title="Границы стран"
-              aria-label="Границы стран"
-              onClick={() => setShowBorders(!showBorders)}
-              className={iconBtnPlain}
-              style={{ color: showBorders ? '#00e5ff' : undefined, filter: iconGlow(showBorders) }}
-            >
-              <BorderIcon />
-            </button>
-          )}
-        </div>
+        <button
+          title="Детализация карты"
+          aria-label="Детализация карты"
+          onClick={() => setDetailedMap(!detailedMap)}
+          className={iconBtnPlain}
+          style={{ color: detailedMap ? '#00e5ff' : undefined, filter: iconGlow(detailedMap) }}
+        >
+          <DetailIcon />
+        </button>
+        <button
+          title="Границы стран"
+          aria-label="Границы стран"
+          onClick={() => setShowBorders(!showBorders)}
+          className={iconBtnPlain}
+          style={{ color: showBorders ? '#00e5ff' : undefined, filter: iconGlow(showBorders) }}
+        >
+          <BorderIcon />
+        </button>
       </div>
       <div
         className="absolute right-2 bottom-2 z-10 rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-gray-300 backdrop-blur-md"

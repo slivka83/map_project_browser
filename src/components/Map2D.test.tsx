@@ -87,25 +87,21 @@ describe('Map2D', () => {
     expect(getByText(/% искажений$/)).toBeTruthy();
   });
 
-  it('shows Detail on the right and reveals Borders beneath it only when detail is on', () => {
-    const { getByRole, queryByRole, container } = render(<Map2D />);
-    const detail = getByRole('button', { name: 'Детализация карты' });
+  it('shows all three overlay buttons in a row, always visible', () => {
+    const { getByRole, container } = render(<Map2D />);
     const tissot = getByRole('button', { name: 'Индикатрисы Тиссо' });
-    expect(detail).toBeTruthy();
+    const detail = getByRole('button', { name: 'Детализация карты' });
+    const borders = getByRole('button', { name: 'Границы стран' });
     expect(tissot).toBeTruthy();
-    // Detail is the rightmost button by default (low detail).
-    const buttons = container.querySelectorAll('button');
-    expect(buttons[buttons.length - 1].getAttribute('aria-label')).toBe('Детализация карты');
-    // Borders hidden until detail is activated.
-    expect(queryByRole('button', { name: 'Границы стран' })).toBeNull();
+    expect(detail).toBeTruthy();
+    expect(borders).toBeTruthy();
+    // Three buttons total, rendered as a single horizontal row.
+    expect(container.querySelectorAll('button').length).toBe(3);
     expect(useAppStore.getState().detailedMap).toBe(false);
     expect(useAppStore.getState().showBorders).toBe(false);
 
     fireEvent.click(detail);
-    const borders = getByRole('button', { name: 'Границы стран' });
     expect(useAppStore.getState().detailedMap).toBe(true);
-    // Borders revealed but untouched (default unpressed).
-    expect(useAppStore.getState().showBorders).toBe(false);
 
     fireEvent.click(borders);
     expect(useAppStore.getState().showBorders).toBe(true);
