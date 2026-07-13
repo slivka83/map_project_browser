@@ -171,7 +171,6 @@ export default function Map2D() {
           )}
         </div>
       </div>
-      </div>
       <div
         className="absolute right-2 bottom-2 z-10 rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-gray-300 backdrop-blur-md"
         title="Средневзвешенное искажение площадей при текущих настройках"
