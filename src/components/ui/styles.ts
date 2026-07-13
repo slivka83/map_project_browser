@@ -11,4 +11,5 @@ export const inactiveTab = 'text-neon-blue/70 hover:text-neon-blue hover:bg-neon
 export const iconBtn = 'flex h-9 w-[54px] items-center justify-center rounded border border-neon-blue/50 bg-panel-bg text-neon-blue drop-shadow-[0_0_3px_var(--color-neon-blue-soft)] transition';
 
 // Icon-only button (no rectangular backing) — just the neon icon.
-export const iconBtnPlain = 'flex h-9 w-9 items-center justify-center text-neon-blue/80 transition hover:text-neon-blue';
+export const iconBtnPlain =
+  'flex h-9 w-9 items-center justify-center text-neon-blue/80 drop-shadow-[0_0_8px_var(--color-neon-blue-soft)] transition hover:text-neon-blue';
