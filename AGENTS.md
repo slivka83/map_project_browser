@@ -1,7 +1,7 @@
 # AGENTS.md
 
 ## Project status
-Working MVP of «Carto-Space» — an interactive cartographic-projection simulator (educational tool showing the 3D Earth ↔ 2D map relationship). Client-side SPA only: **no backend, no external APIs**; all projection math runs in-browser. Authoritative specs are `BRD.md` (business, Russian) and `specification.md` (technical, Russian) — the app UI language must be Russian.
+Working MVP of «Carto-Space» — an interactive cartographic-projection simulator (educational tool showing the 3D Earth ↔ 2D map relationship). Client-side SPA only: **no backend, no external APIs**; all projection math runs in-browser. Product/legacy specs live in `docs/BRD.md` (business, Russian) and `docs/specification.md` (technical, Russian) — they may be out of date; **this `AGENTS.md` is the authoritative implementation reference.** The app UI language must be Russian.
 
 ## Commands
 Run **directly from the project directory** `/mnt/d/_projects/pet_project/map_project_browser`:
@@ -28,7 +28,9 @@ Environment is Node 20.18.0. Toolchain pinned to Node-20.18-compatible set: Vite
 - Single Zustand store `src/store/useAppStore.ts` is the **only** source of truth; UI / 2D / 3D components only read from it or call its actions (`setParam`, `setShowTissot`, `applyPreset`, `loadGeoData`).
 - `src/utils/projectionMapper.ts` maps (`family` × `distortion`) → a D3 projection, then applies `proj.rotate([-lambda0, -phiOrigin]).scale(100 * scaleFactor).translate([400 + falseEasting, 300 + falseNorthing])`. Note the **negative** signs. Conic projections use a single tangent parallel `parallels([phiOrigin, phiOrigin])` (the store dropped `phi1`/`phi2`).
 - 2D `src/components/Map2D.tsx`: SVG with fixed `800×600` viewBox (no `fitSize`); graticule, coastlines from `geoJsonData`, and optional Tissot indicatrices via `d3Geo.geoCircle().radius(5)` on a 30° grid.
-- 3D `src/components/GlobeScene.tsx`: transparent dark sphere with neon-blue **3D-line** coastlines + graticule (NOT the `CanvasTexture`/orthographic variant from spec §6); semi-transparent neon-orange aux surface (cylinder for cylindrical, cone for conic, plane for azimuthal), tangency rings, and a ray fan along the central meridian.
+- 3D scene `src/components/GlobeScene.tsx` composes four thin components (all flat under `components/`, no `Scene3D/` subfolder): `Globe.tsx` (transparent dark sphere with neon-blue **3D-line** coastlines + graticule — NOT the `CanvasTexture`/orthographic variant from spec §6), `AuxSurface.tsx` (semi-transparent neon-orange aux surface: cylinder for cylindrical, cone for conic, plane for azimuthal), `TangencyRings.tsx` (standard-parallel highlight), and `Rays.tsx` (central-meridian ray fan). The ray fan is **analytic** (computed from the projection) and renders independently of whether the geo dataset has loaded.
+- `src/utils/auxSurfaceGeometry.ts` is the **single source of truth** for all 3D geometry: `computeAuxSurfaceParams`, `computeTangencyRing`, `computeCentralMeridianRays`, `computeTangentBasis`, `lonLatToVec3` (`RADIUS = 10`). Surface, ring, and rays derive from the same math so they can never drift apart. (Replaces the old `rayGeometry.ts`.)
+- `src/constants/designTokens.ts` exports the shared palette `NEON_BLUE` / `NEON_ORANGE` / `BG`; both 2D and 3D components import it instead of hard-coding the hex values.
 - `src/components/EpsgCatalog.tsx`: modal rendered via `createPortal` to `document.body` (so it isn't trapped by the panel's `backdrop-blur` containing block). Selecting a row calls `applyPreset(row.params)` and closes.
 
 ## Store shape (verified in code)
@@ -50,17 +52,16 @@ geoJsonData: FeatureCollection | null;  // loaded from /world-110m.topojson
 - Wrap D3 projection / `pathGenerator` / ray math in `useMemo` — real-time perf requirement, never recompute per frame.
 - All controls visible at once (no hidden/nested control levels).
 - Earth model is spherical; do not add ellipsoid math.
-- Per spec §9.3, WebGL/`<Canvas>` and SVG `d` attributes are intentionally **not** unit-tested. Existing unit tests cover the store, `projectionMapper`, `ControlPanel`, `Map2D`, and `App`.
+- Per spec §9.3, WebGL/`<Canvas>` and SVG `d` attributes are intentionally **not** unit-tested. Existing unit tests cover the store, `projectionMapper`, `auxSurfaceGeometry`, `ControlPanel`, `Map2D`, `EpsgCatalog`, `Dropdown`, and `App`.
 
 ## Gotchas an agent will likely miss
-- **Native `<select>` popups ignore CSS `background` on most browsers (they render white).** The app uses custom dark dropdowns instead: `DistortionSelect` in `ControlPanel.tsx` and `MiniSelect` in `EpsgCatalog.tsx`. Do NOT replace them with a native `<select>` — keep them custom so the dark theme holds.
+- **Native `<select>` popups ignore CSS `background` on most browsers (they render white).** The app uses a single custom dark dropdown `src/components/Dropdown.tsx` (a `button` + popover, variants `button` / `inline`) — it backs the math-model selector in `ControlPanel.tsx` and the EPSG-filter selects in `EpsgCatalog.tsx`. Do NOT replace it with a native `<select>` — keep it custom so the dark theme holds.
 - `falseEasting` / `falseNorthing` exist in the store and projection math but have **no sliders in the UI** (only `lambda0`, `phiOrigin`, `scaleFactor` are exposed). Don't assume they're wired to controls.
 - The three family buttons in `ControlPanel` are a single segmented control (overlapping borders via `-ml-px`, `z-10` on the active one) — keep the segmented look when editing.
-- `src/hooks/useElementSize.ts` is currently unused — don't rely on it for layout.
 - The EPSG modal is a fixed `920px × 80vh` with `table-fixed` + `<colgroup>` so column widths never shift when filtering. Keep fixed widths when editing that table.
 
 ## Design tokens
-- App background `#05050A`; neon blue `#00e5ff` (globe, coastlines, active text); neon orange `#ff6a00` (aux surface, rays, tangency rings).
+- Shared palette in `src/constants/designTokens.ts`: `BG = '#05050A'`; `NEON_BLUE = '#00e5ff'` (globe, coastlines, active text); `NEON_ORANGE = '#ff6a00'` (aux surface, rays, tangency rings). Import these — do not hard-code the hex values in components.
 - Glass panels: `bg-white/5 backdrop-blur-md border-white/10`. Body text `text-gray-300`; active `text-[#00e5ff]`. Aesthetic: dark "spaceship control panel" with high-contrast neon accents.
 
 ## CI

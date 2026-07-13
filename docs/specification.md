@@ -18,16 +18,16 @@
 ```text
 src/
 ├── assets/           # world-110m.topojson
-├── components/
-│   ├── UI/           # Слайдеры, селекторы, кнопка EPSG
-│   ├── Scene3D/      # Globe, Surface, Rays
-│   └── Map2D/        # SVG с картой
+├── components/       # Плоская структура (без Scene3D/UI подпапок):
+│   ├── ControlPanel.tsx, Dropdown.tsx, EpsgCatalog.tsx  # UI/селекторы/EPSG
+│   ├── Globe.tsx, AuxSurface.tsx, TangencyRings.tsx, Rays.tsx, GlobeScene.tsx  # 3D
+│   └── Map2D.tsx     # SVG с картой
 ├── store/
 │   └── useAppStore.ts # Единый источник истины
 ├── utils/
-│   ├── projectionMapper.ts # Маппинг параметров в D3 функции
-│   └── rayCalculator.ts    # Математика 3D лучей
-└── types/            # Интерфейсы проекций
+│   ├── projectionMapper.ts   # Маппинг параметров в D3 функции
+│   └── auxSurfaceGeometry.ts # Единый источник геометрии поверхности/колец/лучей
+└── constants/        # designTokens.ts, epsgPresets.ts
 
 ```
 
