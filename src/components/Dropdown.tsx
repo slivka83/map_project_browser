@@ -67,7 +67,7 @@ export default function Dropdown({
 
   const triggerClass =
     variant === 'button'
-      ? 'flex w-full items-center justify-between rounded border border-neon-blue/50 bg-[#0b0b14] px-2 py-1 text-[11px] font-medium text-neon-blue outline-none transition drop-shadow-[0_0_3px_rgba(0,229,255,0.5)] focus:border-neon-blue focus:bg-neon-blue/10'
+      ? 'flex w-full items-center justify-between rounded border border-neon-blue/50 bg-[#0b0b14] px-2 py-1 text-[12px] font-medium text-neon-blue outline-none transition drop-shadow-[0_0_3px_rgba(0,229,255,0.5)] focus:border-neon-blue focus:bg-neon-blue/10'
       : 'flex h-full w-full items-center justify-between gap-1 text-left text-neon-blue';
 
   const menuClass =

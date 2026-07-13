@@ -15,8 +15,8 @@ const DISTORTIONS: { value: DistortionModel; label: string }[] = [
   { value: 'equidistant', label: 'Равнопромежуточная' },
 ];
 
-const panelClass = 'bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-2.5';
-const labelClass = 'text-[9px] uppercase tracking-wider text-neon-blue/80';
+const panelClass = 'bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-3';
+const labelClass = 'text-[11px] uppercase tracking-wider text-neon-blue/80';
 const activeTab = 'z-10 bg-neon-blue/15 text-neon-blue shadow-[0_0_10px_rgba(0,229,255,0.5)]';
 const inactiveTab = 'text-neon-blue/70 hover:text-neon-blue hover:bg-neon-blue/5';
 
@@ -103,7 +103,7 @@ function Slider({
         onChange={(e) => onChange(Number(e.target.value))}
         className="h-1 flex-1 accent-neon-blue"
       />
-      <span className="w-10 shrink-0 text-right text-[10px] text-neon-blue">
+      <span className="w-12 shrink-0 text-right text-[12px] text-neon-blue">
         {value}
         {suffix}
       </span>
@@ -148,7 +148,7 @@ export default function ControlPanel() {
   const applyPreset = useAppStore((s) => s.applyPreset);
 
   return (
-    <div className={`flex flex-col gap-2.5 ${panelClass}`}>
+    <div className={`flex flex-col gap-3.5 ${panelClass}`}>
       <div className="flex items-center gap-1">
         <div className="flex overflow-hidden rounded-md border border-neon-blue/50 bg-[#0b0b14] drop-shadow-[0_0_3px_rgba(0,229,255,0.5)]">
           {FAMILIES.map((f, i) => (
