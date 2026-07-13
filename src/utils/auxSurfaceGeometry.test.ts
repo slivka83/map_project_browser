@@ -190,16 +190,17 @@ describe('computeAuxSphereIntersections', () => {
     expect(rings.length).toBe(1);
   });
 
-  it('azimuthal plane touches the sphere at one point (one ring)', () => {
+  it('azimuthal marker is a small ring on the sphere at the tangent point', () => {
     const rings = computeAuxSphereIntersections('azimuthal', 15, 25, 1);
     expect(rings.length).toBe(1);
     const ring = rings[0];
-    // every ring point sits at radius RING_RADIUS·R from the tangent point,
-    // i.e. the ring is centred on the sphere at (15°, 25°)
+    // every marker point lies ON the sphere surface (radius R from origin)
+    for (const [x, y, z] of ring) closeTo(Math.hypot(x, y, z), RADIUS, 1e-6);
+    // and within the small angular cap around the tangent point (15°, 25°)
     const v = lonLatToVec3(15, 25, RADIUS);
-    const r = 0.45 * RADIUS;
+    const maxChord = 2 * RADIUS * Math.sin((4 * Math.PI) / 180 / 2) + 1e-6;
     for (const [x, y, z] of ring) {
-      closeTo(Math.hypot(x - v[0], y - v[1], z - v[2]), r, 1e-6);
+      expect(Math.hypot(x - v[0], y - v[1], z - v[2])).toBeLessThanOrEqual(maxChord + 1e-6);
     }
   });
 });

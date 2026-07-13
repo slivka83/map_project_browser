@@ -29,6 +29,7 @@ export const RAY_COUNT = 20;
 export const AUX_LENGTH = 2.6; // cylinder height / plane size factor
 export const CONE_Y_BASE = 0.35; // cone base offset from sphere centre
 export const RING_RADIUS = 0.45; // tangency-ring radius factor (azimuthal)
+export const AZIMUTHAL_POINT_DEG = 4; // angular radius (deg) of the point marker at the azimuthal tangency
 
 // Globe render inflation: coastlines drawn slightly above the sphere surface.
 export const GLOBE_INFLATE = 1.002;

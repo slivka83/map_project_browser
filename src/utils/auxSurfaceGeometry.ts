@@ -8,6 +8,7 @@ import {
   CONE_Y_BASE,
   RING_RADIUS,
   RING_SEGMENTS,
+  AZIMUTHAL_POINT_DEG,
   VIEW_CENTER_Y,
   standardParallelDeg,
 } from '../constants/geometry';
@@ -231,17 +232,23 @@ export function computeAuxSphereIntersections(
   radius = RADIUS,
 ): Vec3[][] {
   if (family === 'azimuthal') {
-    const { center, east, north } = computeTangentBasis(lambda0, phiOrigin, radius);
-    const r = RING_RADIUS * radius * scaleFactor;
+    // The tangent plane touches the sphere at a single point. Mark it with a
+    // small circle drawn ON the sphere surface (a spherical cap ring) around
+    // the tangent point, so the marker hugs the globe instead of floating in
+    // the tangent plane.
+    const { normal, east, north } = computeTangentBasis(lambda0, phiOrigin, radius);
+    const alpha = (AZIMUTHAL_POINT_DEG * Math.PI) / 180;
+    const cosA = Math.cos(alpha);
+    const sinA = Math.sin(alpha);
     const pts: Vec3[] = [];
     for (let i = 0; i <= RING_SEGMENTS; i++) {
       const t = (i / RING_SEGMENTS) * Math.PI * 2;
-      const c = Math.cos(t) * r;
-      const s = Math.sin(t) * r;
+      const c = Math.cos(t) * sinA;
+      const s = Math.sin(t) * sinA;
       pts.push([
-        center[0] + east[0] * c - north[0] * s,
-        center[1] + east[1] * c - north[1] * s,
-        center[2] + east[2] * c - north[2] * s,
+        radius * (normal[0] * cosA + east[0] * c + north[0] * s),
+        radius * (normal[1] * cosA + east[1] * c + north[1] * s),
+        radius * (normal[2] * cosA + east[2] * c + north[2] * s),
       ]);
     }
     return [pts];
