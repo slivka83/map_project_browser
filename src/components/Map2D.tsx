@@ -77,12 +77,10 @@ export default function Map2D() {
   const tissotCircles = useMemo(() => {
     if (!showTissot) return [] as GeoJSON.Polygon[];
     const circles: GeoJSON.Polygon[] = [];
-    const baseLons = [-150, -120, -90, -60, -30, 0, 30, 60, 90, 120, 150];
-    const lats = [-60, -30, 0, 30, 60];
-    for (let r = 0; r < lats.length; r++) {
-      const offset = r % 2 === 0 ? 0 : 15; // checkerboard: shift alternate rows
-      for (const lon of baseLons) {
-        const circle = d3Geo.geoCircle().center([lon + offset, lats[r]]).radius(5)();
+    for (let lat = -60; lat <= 60; lat += 30) {
+      const lonOffset = (lat / 30) % 2 === 0 ? 0 : 15;
+      for (let lon = -150 + lonOffset; lon <= 150; lon += 30) {
+        const circle = d3Geo.geoCircle().center([lon, lat]).radius(5)();
         if (circle.type === 'Polygon') circles.push(circle);
       }
     }
