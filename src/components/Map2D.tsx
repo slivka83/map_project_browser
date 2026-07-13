@@ -77,10 +77,14 @@ export default function Map2D() {
   const tissotCircles = useMemo(() => {
     if (!showTissot) return [] as GeoJSON.Polygon[];
     const circles: GeoJSON.Polygon[] = [];
-    const lons = [-150, -120, -90, -60, -30, 0, 30, 60, 90, 120, 150];
+    // Denser meridian spacing (15°) avoids gaps on compact projections; the
+    // radius grows toward the poles so the indicatrices stay readable and fill
+    // empty bands on projections that compress the equatorial region.
+    const lons = [-172.5, -157.5, -142.5, -127.5, -112.5, -97.5, -82.5, -67.5, -52.5, -37.5, -22.5, -7.5, 7.5, 22.5, 37.5, 52.5, 67.5, 82.5, 97.5, 112.5, 127.5, 142.5, 157.5, 172.5];
+    const ringRadius = (lat: number): number => (Math.abs(lat) <= 30 ? 6 : 9);
     for (const lon of lons) {
-      for (let lat = -60; lat <= 60; lat += 30) {
-        const circle = d3Geo.geoCircle().center([lon, lat]).radius(5)();
+      for (let lat = -75; lat <= 75; lat += 15) {
+        const circle = d3Geo.geoCircle().center([lon, lat]).radius(ringRadius(lat))();
         if (circle.type === 'Polygon') circles.push(circle);
       }
     }
