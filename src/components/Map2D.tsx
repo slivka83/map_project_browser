@@ -171,7 +171,7 @@ export default function Map2D() {
         title="Средневзвешенное искажение площадей при текущих настройках"
       >
         Искажение площади:{' '}
-        <span className="text-[#ffe600]">{formatDistortion(areaDistortion)}%</span>
+        <span className="text-[#ffe600]">{formatDistortion(areaDistortion)}</span>%
       </div>
     </div>
   );
