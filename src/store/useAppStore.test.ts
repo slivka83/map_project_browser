@@ -13,11 +13,11 @@ describe('useAppStore', () => {
       falseEasting: 0,
       falseNorthing: 0,
       showTissot: false,
-      showBorders: true,
+      showBorders: false,
       geoJsonData: null,
       land50GeoJson: null,
       countriesGeoJson: null,
-      detailedMap: true,
+      detailedMap: false,
     });
   });
 
@@ -31,7 +31,8 @@ describe('useAppStore', () => {
     expect(s.falseEasting).toBe(0);
     expect(s.falseNorthing).toBe(0);
     expect(s.showTissot).toBe(false);
-    expect(s.showBorders).toBe(true);
+    expect(s.showBorders).toBe(false);
+    expect(s.detailedMap).toBe(false);
   });
 
   it('changes a single parameter via setParam (spec §9.1)', () => {

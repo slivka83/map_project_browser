@@ -62,11 +62,11 @@ interface AppState extends ProjectionParams {
 export const useAppStore = create<AppState>((set) => ({
   ...defaultParamsForFamily('cylindrical'),
   showTissot: false,
-  showBorders: true,
+  showBorders: false,
   geoJsonData: null,
   land50GeoJson: null,
   countriesGeoJson: null,
-  detailedMap: true,
+  detailedMap: false,
 
   setParam: (key, value) => set({ [key]: value } as Pick<AppState, typeof key>),
   setShowTissot: (value) => set({ showTissot: value }),

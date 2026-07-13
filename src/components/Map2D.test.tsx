@@ -23,7 +23,7 @@ describe('Map2D', () => {
       geoJsonData: sampleFc,
       land50GeoJson: sampleFc,
       countriesGeoJson: null,
-      detailedMap: true,
+      detailedMap: false,
     });
   });
 
@@ -45,7 +45,7 @@ describe('Map2D', () => {
   });
 
   it('renders country border paths when borders are enabled', async () => {
-    useAppStore.setState({ showBorders: true, countriesGeoJson: sampleFc });
+    useAppStore.setState({ detailedMap: true, showBorders: true, countriesGeoJson: sampleFc });
     const { container } = render(<Map2D />);
     await waitFor(() => {
       // graticule + 1 land path + 1 border path
@@ -68,22 +68,27 @@ describe('Map2D', () => {
     expect(container.querySelectorAll('path').length).toBeGreaterThan(0);
   });
 
-  it('shows Tissot, Borders and Detail toggle buttons that flip the store flags', () => {
-    const { getByRole } = render(<Map2D />);
-    const tissot = getByRole('button', { name: 'Индикатрисы Тиссо' });
-    const borders = getByRole('button', { name: 'Границы стран' });
+  it('shows Detail on the right and reveals Borders beneath it only when detail is on', () => {
+    const { getByRole, queryByRole, container } = render(<Map2D />);
     const detail = getByRole('button', { name: 'Детализация карты' });
-    expect(tissot).toBeTruthy();
-    expect(borders).toBeTruthy();
+    const tissot = getByRole('button', { name: 'Индикатрисы Тиссо' });
     expect(detail).toBeTruthy();
-    expect(useAppStore.getState().showTissot).toBe(false);
-    expect(useAppStore.getState().showBorders).toBe(false);
-    expect(useAppStore.getState().detailedMap).toBe(true);
-    fireEvent.click(tissot);
-    fireEvent.click(borders);
-    fireEvent.click(detail);
-    expect(useAppStore.getState().showTissot).toBe(true);
-    expect(useAppStore.getState().showBorders).toBe(true);
+    expect(tissot).toBeTruthy();
+    // Detail is the rightmost button by default (low detail).
+    const buttons = container.querySelectorAll('button');
+    expect(buttons[buttons.length - 1].getAttribute('aria-label')).toBe('Детализация карты');
+    // Borders hidden until detail is activated.
+    expect(queryByRole('button', { name: 'Границы стран' })).toBeNull();
     expect(useAppStore.getState().detailedMap).toBe(false);
+    expect(useAppStore.getState().showBorders).toBe(false);
+
+    fireEvent.click(detail);
+    const borders = getByRole('button', { name: 'Границы стран' });
+    expect(useAppStore.getState().detailedMap).toBe(true);
+    // Borders revealed but untouched (default unpressed).
+    expect(useAppStore.getState().showBorders).toBe(false);
+
+    fireEvent.click(borders);
+    expect(useAppStore.getState().showBorders).toBe(true);
   });
 });

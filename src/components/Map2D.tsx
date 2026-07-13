@@ -130,19 +130,7 @@ export default function Map2D() {
           ))}
         </svg>
       )}
-      <div className="absolute right-2 top-2 z-10 flex gap-1">
-        <button
-          title="Детализация карты"
-          aria-label="Детализация карты"
-          onClick={() => setDetailedMap(!detailedMap)}
-          className={`${iconBtn} ${
-            detailedMap
-              ? 'border-neon-blue bg-neon-blue/15 text-neon-blue shadow-[0_0_10px_rgba(0,229,255,0.5)]'
-              : 'hover:bg-neon-blue/10 hover:shadow-[0_0_8px_rgba(0,229,255,0.5)]'
-          }`}
-        >
-          <DetailIcon />
-        </button>
+      <div className="absolute right-2 top-2 z-10 flex gap-1 items-start">
         <button
           title="Индикатрисы Тиссо"
           aria-label="Индикатрисы Тиссо"
@@ -155,18 +143,34 @@ export default function Map2D() {
         >
           <TissotIcon />
         </button>
-        <button
-          title="Границы стран"
-          aria-label="Границы стран"
-          onClick={() => setShowBorders(!showBorders)}
-          className={`${iconBtn} ${
-            showBorders
-              ? 'border-neon-blue bg-neon-blue/15 text-neon-blue shadow-[0_0_10px_rgba(0,229,255,0.5)]'
-              : 'hover:bg-neon-blue/10 hover:shadow-[0_0_8px_rgba(0,229,255,0.5)]'
-          }`}
-        >
-          <BorderIcon />
-        </button>
+        <div className="flex flex-col gap-1">
+          <button
+            title="Детализация карты"
+            aria-label="Детализация карты"
+            onClick={() => setDetailedMap(!detailedMap)}
+            className={`${iconBtn} ${
+              detailedMap
+                ? 'border-neon-blue bg-neon-blue/15 text-neon-blue shadow-[0_0_10px_rgba(0,229,255,0.5)]'
+                : 'hover:bg-neon-blue/10 hover:shadow-[0_0_8px_rgba(0,229,255,0.5)]'
+            }`}
+          >
+            <DetailIcon />
+          </button>
+          {detailedMap && (
+            <button
+              title="Границы стран"
+              aria-label="Границы стран"
+              onClick={() => setShowBorders(!showBorders)}
+              className={`${iconBtn} ${
+                showBorders
+                  ? 'border-neon-blue bg-neon-blue/15 text-neon-blue shadow-[0_0_10px_rgba(0,229,255,0.5)]'
+                  : 'hover:bg-neon-blue/10 hover:shadow-[0_0_8px_rgba(0,229,255,0.5)]'
+              }`}
+            >
+              <BorderIcon />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
