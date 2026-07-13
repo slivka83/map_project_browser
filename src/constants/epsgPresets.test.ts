@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { EPSG_PRESETS } from './epsgPresets';
+import { getD3Projection } from '../utils/projectionMapper';
 
 const FAMILIES = ['cylindrical', 'conic', 'azimuthal'] as const;
 const DISTORTIONS = ['conformal', 'equalArea', 'equidistant'] as const;
@@ -27,6 +28,16 @@ describe('EPSG_PRESETS', () => {
       expect(falseEasting).toBeLessThanOrEqual(1000);
       expect(falseNorthing).toBeGreaterThanOrEqual(-1000);
       expect(falseNorthing).toBeLessThanOrEqual(1000);
+    }
+  });
+
+  it('every preset resolves to a finite projection at its own centre', () => {
+    for (const entry of EPSG_PRESETS) {
+      const p = getD3Projection(entry.params);
+      const out = p([entry.params.lambda0, entry.params.phiOrigin]);
+      expect(Array.isArray(out)).toBe(true);
+      expect(Number.isFinite((out as number[])[0])).toBe(true);
+      expect(Number.isFinite((out as number[])[1])).toBe(true);
     }
   });
 });

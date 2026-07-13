@@ -165,4 +165,108 @@ describe('useAppStore', () => {
 
     vi.unstubAllGlobals();
   });
+
+  it('applyPreset merges partial fields and preserves the rest', () => {
+    useAppStore.setState({
+      family: 'conic',
+      distortion: 'equidistant',
+      lambda0: 90,
+      phiOrigin: 45,
+      scaleFactor: 1.1,
+      falseEasting: 100,
+      falseNorthing: -50,
+    });
+    useAppStore.getState().applyPreset({ lambda0: 10 });
+    const s = useAppStore.getState();
+    expect(s.lambda0).toBe(10);
+    // unspecified fields untouched
+    expect(s.family).toBe('conic');
+    expect(s.distortion).toBe('equidistant');
+    expect(s.phiOrigin).toBe(45);
+    expect(s.scaleFactor).toBe(1.1);
+    expect(s.falseEasting).toBe(100);
+    expect(s.falseNorthing).toBe(-50);
+  });
+
+  it('applyPreset can override distortion independently of family', () => {
+    useAppStore.getState().applyPreset({ family: 'azimuthal', distortion: 'conformal' });
+    const s = useAppStore.getState();
+    expect(s.family).toBe('azimuthal');
+    expect(s.distortion).toBe('conformal');
+  });
+
+  it('setFamily resets projection params but preserves UI flags', () => {
+    useAppStore.setState({ showTissot: true, showBorders: true, detailedMap: true });
+    useAppStore.getState().setFamily('conic');
+    const s = useAppStore.getState();
+    expect(s.family).toBe('conic');
+    expect(s.distortion).toBe('equidistant');
+    expect(s.lambda0).toBe(0);
+    expect(s.falseEasting).toBe(0);
+    expect(s.showTissot).toBe(true);
+    expect(s.showBorders).toBe(true);
+    expect(s.detailedMap).toBe(true);
+  });
+
+  it('resetParams preserves UI flags', () => {
+    useAppStore.setState({
+      family: 'conic',
+      distortion: 'conformal',
+      lambda0: 90,
+      phiOrigin: 45,
+      showTissot: true,
+      showBorders: true,
+      detailedMap: true,
+    });
+    useAppStore.getState().resetParams();
+    const s = useAppStore.getState();
+    expect(s.lambda0).toBe(0);
+    expect(s.family).toBe('conic');
+    expect(s.showTissot).toBe(true);
+    expect(s.showBorders).toBe(true);
+    expect(s.detailedMap).toBe(true);
+  });
+
+  it('loadGeoData isolates a single failed fetch and keeps the others', async () => {
+    const topology = {
+      type: 'Topology',
+      transform: { scale: [1, 1], translate: [0, 0] },
+      objects: {
+        land: { type: 'GeometryCollection', geometries: [{ type: 'Polygon', arcs: [[0]] }] },
+        countries: { type: 'GeometryCollection', geometries: [{ type: 'Polygon', arcs: [[0]] }] },
+      },
+      arcs: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+    } as unknown as Topology;
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        if (url === '/countries-50m.json') {
+          return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+        }
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(topology) });
+      }),
+    );
+
+    await useAppStore.getState().loadGeoData();
+    const s = useAppStore.getState();
+    expect(s.geoJsonData).not.toBeNull();
+    expect(s.land50GeoJson).not.toBeNull();
+    expect(s.countries110GeoJson).not.toBeNull();
+    // the 50m borders failed -> null, but the rest still loaded
+    expect(s.countriesGeoJson).toBeNull();
+
+    vi.unstubAllGlobals();
+  });
+
+  it('loadGeoData sets every dataset to null when all fetches fail', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
+    await useAppStore.getState().loadGeoData();
+    const s = useAppStore.getState();
+    expect(s.geoJsonData).toBeNull();
+    expect(s.land50GeoJson).toBeNull();
+    expect(s.countriesGeoJson).toBeNull();
+    expect(s.countries110GeoJson).toBeNull();
+    vi.unstubAllGlobals();
+  });
 });

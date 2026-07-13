@@ -162,4 +162,123 @@ describe('fitProjectionToView (map always fills the viewport)', () => {
     const wNorm = fitBounds(normal)[1][0] - fitBounds(normal)[0][0];
     expect(wZoom).toBeGreaterThan(wNorm);
   });
+
+  it('does not throw on a tiny square viewport and keeps bounds inside', () => {
+    const w = 60;
+    const h = 60;
+    const m = 4;
+    for (const family of families) {
+      for (const distortion of distortions) {
+        const p = fitProjectionToView(
+          getD3Projection(makeState({ family, distortion, phiOrigin: family === 'conic' ? 40 : 0 })),
+          w,
+          h,
+          1,
+          m,
+        );
+        const b = fitBounds(p);
+        expect(b[0][0]).toBeGreaterThanOrEqual(m - 1);
+        expect(b[0][1]).toBeGreaterThanOrEqual(m - 1);
+        expect(b[1][0]).toBeLessThanOrEqual(w - m + 1);
+        expect(b[1][1]).toBeLessThanOrEqual(h - m + 1);
+      }
+    }
+  });
+
+  it('accepts margin 0 without producing NaN scale', () => {
+    const p = fitProjectionToView(getD3Projection(makeState()), 800, 600, 1, 0);
+    expect(Number.isFinite(p.scale())).toBe(true);
+  });
+
+  it('fits every combo at the scaleFactor extremes without throwing', () => {
+    for (const family of families) {
+      for (const distortion of distortions) {
+        for (const sf of [0.9, 1.1]) {
+          const p = fitProjectionToView(
+            getD3Projection(makeState({ family, distortion, phiOrigin: family === 'conic' ? 40 : 0, scaleFactor: sf })),
+            800,
+            600,
+            sf,
+            16,
+          );
+          expect(Number.isFinite(p.scale())).toBe(true);
+          const b = fitBounds(p);
+          expect(Number.isFinite(b[0][0])).toBe(true);
+        }
+      }
+    }
+  });
+});
+
+describe('getD3Projection parameter boundaries', () => {
+  it('honours scaleFactor at its allowed extremes 0.9 and 1.1', () => {
+    expect(getD3Projection(makeState({ scaleFactor: 0.9 })).scale()).toBeCloseTo(90, 5);
+    expect(getD3Projection(makeState({ scaleFactor: 1.1 })).scale()).toBeCloseTo(110, 5);
+  });
+
+  it('applies falseEasting/falseNorthing extremes to the translate', () => {
+    const p = getD3Projection(makeState({ falseEasting: 1000, falseNorthing: -1000 }));
+    const t = p.translate();
+    expect(t[0]).toBeCloseTo(400 + 1000, 5);
+    expect(t[1]).toBeCloseTo(300 - 1000, 5);
+  });
+
+  it('rotates correctly for a 180° central meridian', () => {
+    const p = getD3Projection(makeState({ lambda0: 180 }));
+    expect(p.rotate()[0]).toBeCloseTo(-180, 5);
+  });
+
+  it('all 9 family × distortion combinations yield a callable, finite projection', () => {
+    const fams: ProjectionFamily[] = ['cylindrical', 'conic', 'azimuthal'];
+    const dists: DistortionModel[] = ['conformal', 'equalArea', 'equidistant'];
+    for (const family of fams) {
+      for (const distortion of dists) {
+        const p = getD3Projection(makeState({ family, distortion, phiOrigin: family === 'conic' ? 45 : 0 }));
+        const out = p([0, 0]);
+        expect(Array.isArray(out)).toBe(true);
+        expect(Number.isFinite((out as number[])[0])).toBe(true);
+        expect(Number.isFinite((out as number[])[1])).toBe(true);
+      }
+    }
+  });
+});
+
+describe('computeAreaDistortion edge cases', () => {
+  const fams: ProjectionFamily[] = ['cylindrical', 'conic', 'azimuthal'];
+  const dists: DistortionModel[] = ['conformal', 'equalArea', 'equidistant'];
+
+  it('stays ~0% for equal-area across scaleFactor extremes', () => {
+    for (const sf of [0.9, 1, 1.1]) {
+      expect(
+        computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'equalArea', scaleFactor: sf })),
+      ).toBeCloseTo(0, 1);
+      expect(
+        computeAreaDistortion(makeState({ family: 'azimuthal', distortion: 'equalArea', scaleFactor: sf })),
+      ).toBeCloseTo(0, 1);
+    }
+  });
+
+  it('is never negative and always finite across all combinations', () => {
+    for (const family of fams) {
+      for (const distortion of dists) {
+        for (const sf of [0.9, 1, 1.1]) {
+          for (const phi of [0, 45, -45, 80]) {
+            const v = computeAreaDistortion(
+              makeState({ family, distortion, scaleFactor: sf, phiOrigin: family === 'conic' ? phi : 0 }),
+            );
+            expect(Number.isFinite(v)).toBe(true);
+            expect(v).toBeGreaterThanOrEqual(0);
+          }
+        }
+      }
+    }
+  });
+
+  it('is positive (non-trivial) for conformal projections in every family', () => {
+    expect(computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'conformal' }))).toBeGreaterThan(50);
+    expect(
+      computeAreaDistortion(makeState({ family: 'conic', distortion: 'conformal', phiOrigin: 40 })),
+    ).toBeGreaterThan(0);
+    expect(computeAreaDistortion(makeState({ family: 'azimuthal', distortion: 'conformal', phiOrigin: 0 }))).toBeGreaterThan(0);
+  });
 });

@@ -252,3 +252,224 @@ describe('computeAuxSphereIntersections', () => {
     }
   });
 });
+
+describe('lonLatToVec3 edge cases', () => {
+  it('maps the north pole to +Y', () => {
+    const [x, y, z] = lonLatToVec3(0, 90, RADIUS);
+    closeTo(x, 0);
+    closeTo(z, 0);
+    closeTo(y, RADIUS);
+  });
+
+  it('maps the south pole to -Y regardless of longitude', () => {
+    for (const lon of [0, 45, 180, -90]) {
+      const [x, y, z] = lonLatToVec3(lon, -90, RADIUS);
+      closeTo(x, 0);
+      closeTo(z, 0);
+      closeTo(y, -RADIUS);
+    }
+  });
+
+  it('treats longitude 180 and -180 identically', () => {
+    const a = lonLatToVec3(180, 30, RADIUS);
+    const b = lonLatToVec3(-180, 30, RADIUS);
+    for (let i = 0; i < 3; i++) closeTo(a[i], b[i], 1e-9);
+  });
+
+  it('places every point exactly on the sphere of the given radius', () => {
+    for (const [lon, lat] of [[0, 0], [123, -45], [-77, 60], [360, 0], [-200, 10]]) {
+      const [x, y, z] = lonLatToVec3(lon, lat, RADIUS);
+      closeTo(Math.hypot(x, y, z), RADIUS, 1e-6);
+    }
+  });
+
+  it('honours a custom radius', () => {
+    const [x, y, z] = lonLatToVec3(0, 0, 2.5);
+    closeTo(Math.hypot(x, y, z), 2.5, 1e-9);
+  });
+});
+
+describe('computeTangentBasis orthonormality', () => {
+  const checkOrthonormal = (b: { normal: number[]; east: number[]; north: number[] }) => {
+    const dot = (u: number[], v: number[]) => u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
+    const norm = (u: number[]) => Math.hypot(u[0], u[1], u[2]);
+    for (const v of [b.normal, b.east, b.north]) closeTo(norm(v), 1, 1e-9);
+    closeTo(dot(b.normal, b.east), 0, 1e-9);
+    closeTo(dot(b.normal, b.north), 0, 1e-9);
+    closeTo(dot(b.east, b.north), 0, 1e-9);
+  };
+
+  it('is orthonormal for a northern-hemisphere tangent point', () => {
+    checkOrthonormal(computeTangentBasis(0, 45));
+  });
+
+  it('is orthonormal for a southern-hemisphere tangent point', () => {
+    checkOrthonormal(computeTangentBasis(0, -45));
+  });
+
+  it('is orthonormal at the poles', () => {
+    checkOrthonormal(computeTangentBasis(0, 90));
+    checkOrthonormal(computeTangentBasis(0, -90));
+  });
+
+  it('points the normal outward to the tangent point direction', () => {
+    const b = computeTangentBasis(60, 30);
+    const t = lonLatToVec3(60, 30, 1);
+    const dot = b.normal[0] * t[0] + b.normal[1] * t[1] + b.normal[2] * t[2];
+    closeTo(dot, 1, 1e-9);
+  });
+});
+
+describe('computeAuxSurfaceParams surface-kind invariants', () => {
+  it('cylindrical: radius is R·scaleFactor and rotationY follows lambda0', () => {
+    const p = computeAuxSurfaceParams('cylindrical', 30, 0, 1.05);
+    if (p.kind !== 'cylinder') throw new Error('expected cylinder');
+    expect(p.radius).toBeCloseTo(RADIUS * 1.05, 9);
+    expect(p.rotationY).toBeCloseTo((30 * Math.PI) / 180, 9);
+  });
+
+  it('conic northern: positive positionY, flip +1', () => {
+    const p = computeAuxSurfaceParams('conic', 0, 45, 1);
+    if (p.kind !== 'cone') throw new Error('expected cone');
+    expect(p.positionY).toBeGreaterThan(0);
+    expect(p.flip).toBe(1);
+  });
+
+  it('conic southern: negative positionY, flip -1', () => {
+    const p = computeAuxSurfaceParams('conic', 0, -45, 1);
+    if (p.kind !== 'cone') throw new Error('expected cone');
+    expect(p.positionY).toBeLessThan(0);
+    expect(p.flip).toBe(-1);
+  });
+
+  it('azimuthal: a tangent plane whose normal points outward', () => {
+    const p = computeAuxSurfaceParams('azimuthal', 0, 30, 1);
+    if (p.kind !== 'plane') throw new Error('expected plane');
+    const t = lonLatToVec3(0, 30, 1);
+    const dot = p.normal[0] * t[0] + p.normal[1] * t[1] + p.normal[2] * t[2];
+    closeTo(dot, 1, 1e-9);
+    expect(p.size).toBeGreaterThan(0);
+  });
+});
+
+describe('computeAuxGraticule', () => {
+  it('returns meridian and parallel loops for a cylinder', () => {
+    const surface = computeAuxSurfaceParams('cylindrical', 0, 0, 1);
+    const g = computeAuxGraticule(surface);
+    expect(g.meridians.length).toBeGreaterThan(0);
+    expect(g.parallels.length).toBeGreaterThan(0);
+    for (const loop of [...g.meridians, ...g.parallels]) {
+      expect(loop.length).toBeGreaterThan(0);
+      for (const [x, y, z] of loop) expect(Number.isFinite(x + y + z)).toBe(true);
+    }
+  });
+
+  it('returns loops for a cone and a plane too', () => {
+    for (const family of ['conic', 'azimuthal'] as const) {
+      const surface = computeAuxSurfaceParams(family, 0, family === 'azimuthal' ? 30 : 45, 1);
+      const g = computeAuxGraticule(surface);
+      expect(g.meridians.length).toBeGreaterThan(0);
+      expect(g.parallels.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('computeTangencyRing', () => {
+  it('returns a non-empty, finite points array for every surface kind', () => {
+    const expectedKind = { cylindrical: 'cylinder', conic: 'cone', azimuthal: 'plane' } as const;
+    for (const family of ['cylindrical', 'conic', 'azimuthal'] as const) {
+      const ring = computeTangencyRing(family, 0, family === 'azimuthal' ? 30 : 45, 1);
+      expect(ring.kind).toBe(expectedKind[family]);
+      expect(ring.points.length).toBeGreaterThan(0);
+      for (const [x, y, z] of ring.points) {
+        expect(Number.isFinite(x)).toBe(true);
+        expect(Number.isFinite(y)).toBe(true);
+        expect(Number.isFinite(z)).toBe(true);
+      }
+    }
+  });
+
+  it('azimuthal ring lies in the local tangent plane and scales with scaleFactor', () => {
+    const small = computeTangencyRing('azimuthal', 0, 30, 1);
+    const big = computeTangencyRing('azimuthal', 0, 30, 1.1);
+    for (const [, , z] of small.points) expect(z).toBeCloseTo(0, 6);
+    const r1 = Math.hypot(small.points[0][0], small.points[0][1]);
+    const r2 = Math.hypot(big.points[0][0], big.points[0][1]);
+    expect(r2).toBeCloseTo(r1 * 1.1, 4);
+  });
+
+  it('cylindrical ring sits at the standard-parallel height and radius R·scaleFactor', () => {
+    const ring = computeTangencyRing('cylindrical', 0, 45, 1.1);
+    const y = RADIUS * Math.sin((45 * Math.PI) / 180);
+    for (const [x, yy, z] of ring.points) {
+      expect(yy).toBeCloseTo(y, 6);
+      expect(Math.hypot(x, z)).toBeCloseTo(RADIUS * 1.1, 6);
+    }
+  });
+});
+
+describe('computeAuxSphereIntersections edge cases', () => {
+  it('produces two circles when the cylinder is immersed inside the sphere', () => {
+    const circles = computeAuxSphereIntersections('cylindrical', 0, 0, 0.5);
+    expect(circles.length).toBe(2);
+    for (const c of circles) {
+      for (const [x, y, z] of c) closeTo(Math.hypot(x, y, z), RADIUS, 1e-6);
+    }
+  });
+
+  it('produces no circles when the cylinder encloses the sphere', () => {
+    const circles = computeAuxSphereIntersections('cylindrical', 0, 0, 1.3);
+    expect(circles.length).toBe(0);
+  });
+
+  it('produces one tangent circle when the cylinder just touches the sphere', () => {
+    const circles = computeAuxSphereIntersections('cylindrical', 0, 0, 1);
+    expect(circles.length).toBe(1);
+    const c = circles[0];
+    for (const [x, y, z] of c) closeTo(Math.hypot(x, y, z), RADIUS, 1e-6);
+  });
+
+  it('azimuthal tangent plane yields exactly one marker ring on the sphere', () => {
+    const circles = computeAuxSphereIntersections('azimuthal', 0, 30, 1);
+    expect(circles.length).toBe(1);
+    for (const [x, y, z] of circles[0]) closeTo(Math.hypot(x, y, z), RADIUS, 1e-6);
+  });
+
+  it('conic immersed gives two circles; enclosing gives none; all on the sphere', () => {
+    const immersed = computeAuxSphereIntersections('conic', 0, 45, 0.5);
+    expect(immersed.length).toBe(2);
+    for (const c of immersed) {
+      expect(c.length).toBeGreaterThan(0);
+      for (const [x, y, z] of c) closeTo(Math.hypot(x, y, z), RADIUS, 1e-6);
+    }
+
+    const enclosing = computeAuxSphereIntersections('conic', 0, 45, 1.5);
+    expect(enclosing.length).toBe(0);
+  });
+});
+
+
+describe('computeCone / coneAxialHeight', () => {
+  it('coneAxialHeight at the standard parallel equals the sphere height there', () => {
+    const sp = (30 * Math.PI) / 180;
+    const cone = computeCone(30, RADIUS, 1);
+    closeTo(coneAxialHeight(sp, cone, RADIUS), RADIUS * Math.sin(sp), 1e-6);
+  });
+
+  it('southern standard parallel yields a downward (negative) cone position', () => {
+    const cone = computeCone(-45, RADIUS, 1);
+    expect(cone.sign).toBe(-1);
+    expect(cone.positionY).toBeLessThan(0);
+  });
+
+  it('cone base radius scales linearly with scaleFactor', () => {
+    const c1 = computeCone(45, RADIUS, 1);
+    const c2 = computeCone(45, RADIUS, 1.1);
+    expect(c2.baseRadius).toBeCloseTo(c1.baseRadius * 1.1, 6);
+  });
+
+  it('cone apex magnitude is radius / sin(standard parallel)', () => {
+    const cone = computeCone(45, RADIUS, 1);
+    closeTo(cone.apex, RADIUS / Math.sin((45 * Math.PI) / 180), 1e-9);
+  });
+});
