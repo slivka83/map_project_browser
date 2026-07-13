@@ -83,8 +83,8 @@ describe('Map2D', () => {
   });
 
   it('shows an area-distortion label in the bottom-right corner', () => {
-    const { getByText } = render(<Map2D />);
-    expect(getByText(/^Искажение площади: \d+%$/)).toBeTruthy();
+    const { getByTestId } = render(<Map2D />);
+    expect(getByTestId('area-distortion-label').textContent).toMatch(/^Искажение площади: \d+%$/);
   });
 
   it('shows all three overlay buttons in a row, always visible', () => {

@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react';
 import * as d3Geo from 'd3-geo';
 import type { FeatureCollection } from 'geojson';
 import { useAppStore } from '../store/useAppStore';
+import { useProjectionParams } from '../store/selectors';
 import { getD3Projection, fitProjectionToView, computeAreaDistortion } from '../utils/projectionMapper';
 import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT } from '../constants/designTokens';
 import { iconBtnPlain, iconGlow } from './ui/styles';
@@ -27,11 +28,7 @@ function useElementSize() {
 }
 
 export default function Map2D() {
-  const family = useAppStore((s) => s.family);
-  const distortion = useAppStore((s) => s.distortion);
-  const lambda0 = useAppStore((s) => s.lambda0);
-  const phiOrigin = useAppStore((s) => s.phiOrigin);
-  const scaleFactor = useAppStore((s) => s.scaleFactor);
+  const { family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing } = useProjectionParams();
   const showTissot = useAppStore((s) => s.showTissot);
   const setShowTissot = useAppStore((s) => s.setShowTissot);
   const showBorders = useAppStore((s) => s.showBorders);
@@ -59,20 +56,20 @@ export default function Map2D() {
       lambda0,
       phiOrigin,
       scaleFactor,
-      falseEasting: 0,
-      falseNorthing: 0,
+      falseEasting,
+      falseNorthing,
     });
     // Fit the whole globe into the viewport so the map always fills the
     // available area regardless of the chosen projection (small uniform margin).
     fitProjectionToView(proj, width, height, scaleFactor, FIT_MARGIN);
     return d3Geo.geoPath().projection(proj);
-  }, [family, distortion, lambda0, phiOrigin, scaleFactor, width, height]);
+  }, [family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, width, height]);
 
   const graticulePath = useMemo(() => pathGenerator(d3Geo.geoGraticule10()) ?? '', [pathGenerator]);
 
   const areaDistortion = useMemo(
-    () => computeAreaDistortion({ family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting: 0, falseNorthing: 0 }),
-    [family, distortion, lambda0, phiOrigin, scaleFactor],
+    () => computeAreaDistortion({ family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing }),
+    [family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing],
   );
 
   const tissotCircles = useMemo(() => {
@@ -167,6 +164,7 @@ export default function Map2D() {
         </button>
       </div>
       <div
+        data-testid="area-distortion-label"
         className="absolute right-2 bottom-2 z-10 rounded border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-gray-300 backdrop-blur-md"
         title="Средневзвешенное искажение площадей при текущих настройках"
       >

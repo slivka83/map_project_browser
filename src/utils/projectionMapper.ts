@@ -40,7 +40,9 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
 
 // Local area scale factor (projected px² per steradian) of `proj` at (lon,lat),
 // measured from a small quad of half-size `d` degrees. Returns null when any
-// corner falls outside the projection's clip (so it can't distort a real area).
+// corner falls outside the projection's clip, or when the projected quad folds
+// onto itself (a discontinuity such as the azimuthal antipode) so it can't
+// represent a real local area.
 function localAreaScale(proj: GeoProjection, lon: number, lat: number, d: number): number | null {
   const corners: ([number, number] | null)[] = [
     proj([lon - d, lat - d]) as [number, number] | null,
@@ -50,6 +52,10 @@ function localAreaScale(proj: GeoProjection, lon: number, lat: number, d: number
   ];
   if (corners.some((c) => !c || !isFinite(c[0]) || !isFinite(c[1]))) return null;
   const p = corners as [number, number][];
+  // A folded (self-intersecting) projected quad — e.g. a cell straddling the
+  // azimuthal antipode — yields a meaningless area; skip it so it can't
+  // masquerade as the least-distorted reference and inflate the distortion.
+  if (quadSelfIntersects(p)) return null;
   // Shoelace area of the projected quad.
   let projArea = 0;
   for (let i = 0; i < p.length; i++) {
@@ -64,30 +70,60 @@ function localAreaScale(proj: GeoProjection, lon: number, lat: number, d: number
   return projArea / trueArea;
 }
 
+// Orientation of the ordered triple (a, b, c); sign tells which side c is of
+// the directed segment a→b.
+function orient(a: [number, number], b: [number, number], c: [number, number]): number {
+  return (b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1]);
+}
+
+// True when the two non-adjacent edge pairs of the quad cross — i.e. the quad
+// is a self-intersecting "bow-tie" in the projection plane.
+function quadSelfIntersects(p: [number, number][]): boolean {
+  const seg = (a: [number, number], b: [number, number], c: [number, number], d: [number, number]) =>
+    orient(a, b, c) * orient(a, b, d) < 0 && orient(c, d, a) * orient(c, d, b) < 0;
+  return seg(p[0], p[1], p[2], p[3]) || seg(p[1], p[2], p[3], p[0]);
+}
+
+// Beyond this multiple of the centre area scale a sampled cell is certainly an
+// artifact (a projection discontinuity stretched the quad), not real distortion.
+const ARTIFACT_SCALE_LIMIT = 50;
+
 // Area-weighted mean area distortion of a projection, as a percentage. The
-// least-distorted sampled point is taken as the undistorted reference (its area
-// scale = 100%), and the result is the mean relative area excess elsewhere. An
+// projection's central point (lambda0, phiOrigin) is, by construction, its
+// least-distorted point, so it is taken as the undistorted reference (area
+// scale = 100%); the result is the mean relative area excess elsewhere. An
 // equal-area projection keeps a constant area scale everywhere → 0%.
 export function computeAreaDistortion(params: ProjectionParams): number {
   const proj = getD3Projection(params);
-  const d = 0.5; // half-size of the sampling quad, degrees
+  const d = 0.25; // half-size of the sampling quad, degrees (small → low curvature error)
+  // Reference = the area scale at the projection centre; a clipped centre (a
+  // pole) falls back to the smallest valid sampled scale.
+  const centre = localAreaScale(proj, params.lambda0, params.phiOrigin, d);
+  const aRef = centre != null && centre > 0 ? centre : null;
+
   const scales: number[] = [];
   const weights: number[] = [];
   for (let lat = -80; lat <= 80; lat += 10) {
     for (let lon = -180; lon < 180; lon += 10) {
+      // Skip quads that straddle the antimeridian (lon ±180): the projection
+      // wraps them across the whole map, producing a phantom huge area-scale.
+      if (lon - d <= -180 || lon + d >= 180) continue;
       const a = localAreaScale(proj, lon, lat, d);
       if (a == null || a <= 0) continue;
+      // Drop cells stretched far past the centre scale (discontinuity artifacts).
+      if (aRef != null && a > aRef * ARTIFACT_SCALE_LIMIT) continue;
       scales.push(a);
       weights.push(Math.cos((lat * Math.PI) / 180));
     }
   }
   if (scales.length === 0) return 0;
-  const aMin = Math.min(...scales);
-  if (aMin <= 0) return 0;
+  const reference = aRef != null ? aRef : Math.min(...scales);
+  if (reference <= 0) return 0;
   let num = 0;
   let den = 0;
   for (let i = 0; i < scales.length; i++) {
-    num += weights[i] * (scales[i] / aMin - 1);
+    // "Excess" area is non-negative; sub-reference samples are sampling noise.
+    num += weights[i] * Math.max(0, scales[i] / reference - 1);
     den += weights[i];
   }
   return den > 0 ? (num / den) * 100 : 0;

@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import { Line } from '@react-three/drei';
 import { NEON_YELLOW } from '../constants/designTokens';
-import { RADIUS, RAY_COUNT, computeCentralMeridianRays, type Vec3 } from '../utils/auxSurfaceGeometry';
+import { RADIUS, RAY_COUNT } from '../constants/geometry';
+import { computeCentralMeridianRays, type Vec3 } from '../utils/auxSurfaceGeometry';
 import type { ProjectionParams } from '../store/useAppStore';
 
 // Projection light beams: a fan along the central meridian from the globe

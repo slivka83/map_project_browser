@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAppStore, type DistortionModel } from '../store/useAppStore';
+import { useProjectionParams } from '../store/selectors';
 import EpsgCatalog from './EpsgCatalog';
 import Dropdown from './Dropdown';
 import { FamilyIcon, EpsgIcon, ResetIcon } from './ui/icons';
@@ -67,11 +68,7 @@ function DistortionSelect({
 
 export default function ControlPanel() {
   const [catalogOpen, setCatalogOpen] = useState(false);
-  const family = useAppStore((s) => s.family);
-  const distortion = useAppStore((s) => s.distortion);
-  const lambda0 = useAppStore((s) => s.lambda0);
-  const phiOrigin = useAppStore((s) => s.phiOrigin);
-  const scaleFactor = useAppStore((s) => s.scaleFactor);
+  const { family, distortion, lambda0, phiOrigin, scaleFactor } = useProjectionParams();
   const setParam = useAppStore((s) => s.setParam);
   const setFamily = useAppStore((s) => s.setFamily);
   const resetParams = useAppStore((s) => s.resetParams);

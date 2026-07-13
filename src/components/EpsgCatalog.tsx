@@ -61,16 +61,28 @@ export default function EpsgCatalog({ onClose, applyPreset }: Props) {
     [codeQ, nameQ, typeSel, distortionSel, unitSel],
   );
 
-  const hasFilter = (c: Col) =>
+  // Current value of the column's filter state, and its setter. Centralising
+  // the column→state mapping removes the repeated ternaries in the header.
+  const filterValue = (c: Col): string =>
     c === 'code'
-      ? !!codeQ
+      ? codeQ
       : c === 'name'
-        ? !!nameQ
+        ? nameQ
         : c === 'type'
-          ? !!typeSel
+          ? typeSel
           : c === 'distortion'
-            ? !!distortionSel
-            : !!unitSel;
+            ? distortionSel
+            : unitSel;
+
+  const setFilterValue = (c: Col, v: string): void => {
+    if (c === 'code') setCodeQ(v);
+    else if (c === 'name') setNameQ(v);
+    else if (c === 'type') setTypeSel(v);
+    else if (c === 'distortion') setDistortionSel(v);
+    else setUnitSel(v);
+  };
+
+  const hasFilter = (c: Col) => !!filterValue(c);
 
   const onHeaderClick = (c: Col) => setActive((prev) => (prev === c ? null : c));
 
@@ -108,43 +120,35 @@ export default function EpsgCatalog({ onClose, applyPreset }: Props) {
                 {COLS.map((c) => (
                   <th key={c.key} className="whitespace-nowrap px-2 py-2 align-middle">
                     <div className="flex h-7 items-center">
-                      {active === c.key ? (
-                        c.kind === 'text' ? (
-                          <input
-                            autoFocus
-                            value={c.key === 'code' ? codeQ : nameQ}
-                            onChange={(e) =>
-                              c.key === 'code' ? setCodeQ(e.target.value) : setNameQ(e.target.value)
-                            }
-                            onBlur={() => setActive(null)}
-                            placeholder={c.label}
-                            className="h-full w-full rounded border border-neon-blue/50 bg-panel-bg px-1.5 text-[11px] normal-case text-neon-blue outline-none drop-shadow-[0_0_3px_var(--color-neon-blue-soft)]"
-                          />
-                         ) : (
-                            <Dropdown
-                              variant="inline"
-                              initialOpen
-                              value={c.key === 'type' ? typeSel : c.key === 'distortion' ? distortionSel : unitSel}
-                              options={
-                                (c.key === 'type'
-                                  ? familyOptions
-                                  : c.key === 'distortion'
-                                    ? distortionOptions
-                                    : unitOptions
-                                ).map((o) => ({ value: o, label: o }))
-                              }
-                              allLabel="Все"
-                              onChange={(v) =>
-                                c.key === 'type'
-                                  ? setTypeSel(v)
-                                  : c.key === 'distortion'
-                                    ? setDistortionSel(v)
-                                    : setUnitSel(v)
-                              }
-                              onClose={() => setActive(null)}
-                            />
-                         )
-                      ) : (
+                          {active === c.key ? (
+                            c.kind === 'text' ? (
+                              <input
+                                autoFocus
+                                value={filterValue(c.key)}
+                                onChange={(e) => setFilterValue(c.key, e.target.value)}
+                                onBlur={() => setActive(null)}
+                                placeholder={c.label}
+                                className="h-full w-full rounded border border-neon-blue/50 bg-panel-bg px-1.5 text-[11px] normal-case text-neon-blue outline-none drop-shadow-[0_0_3px_var(--color-neon-blue-soft)]"
+                              />
+                             ) : (
+                              <Dropdown
+                                variant="inline"
+                                initialOpen
+                                value={filterValue(c.key)}
+                                options={
+                                  (c.key === 'type'
+                                    ? familyOptions
+                                    : c.key === 'distortion'
+                                      ? distortionOptions
+                                      : unitOptions
+                                  ).map((o) => ({ value: o, label: o }))
+                                }
+                                allLabel="Все"
+                                onChange={(v) => setFilterValue(c.key, v)}
+                                onClose={() => setActive(null)}
+                              />
+                             )
+                           ) : (
                         <button
                           type="button"
                           onClick={() => onHeaderClick(c.key)}

@@ -15,9 +15,6 @@ import {
 
 export type Vec3 = [number, number, number];
 
-// Re-exported for 3D components that previously imported these from here.
-export { RADIUS, RAY_COUNT } from '../constants/geometry';
-
 export function lonLatToVec3(lon: number, lat: number, radius = RADIUS): Vec3 {
   const lonRad = (lon * Math.PI) / 180;
   const latRad = (lat * Math.PI) / 180;
@@ -157,6 +154,43 @@ export type AuxSurfaceParams =
   | { kind: 'plane'; center: Vec3; normal: Vec3; size: number }
   | { kind: 'cone'; radius: number; height: number; positionY: number; flip: 1 | -1 };
 
+// Pure geometry of the tangent cone (shared by the aux surface, the
+// intersection rings and the central-meridian rays so they can never drift
+// apart). The cone is tangent to the sphere at the standard parallel `sp`
+// (magnitude of phiOrigin, with the equirectangular fallback), has its apex at
+// height `apex = radius / sin(sp)` on the +Y (or −Y for a southern phiOrigin)
+// axis, and `scaleFactor` scales its horizontal (radius) extent.
+export interface ConeParams {
+  sp: number; // standard parallel in radians (magnitude)
+  apex: number; // apex height magnitude = radius / sin(sp)
+  sign: 1 | -1; // hemisphere sign derived from phiOrigin
+  yBase: number; // cone base offset = -CONE_Y_BASE * radius
+  height: number; // apex - yBase
+  baseRadius: number; // scaleFactor * (apex - yBase) * tan(sp)
+  positionY: number; // sign * (apex - height / 2)
+  flip: 1 | -1; // = sign
+}
+
+export function computeCone(
+  phiOrigin: number,
+  radius = RADIUS,
+  scaleFactor = 1,
+): ConeParams {
+  const sp = standardParallelRad(phiOrigin);
+  const apex = radius / Math.sin(sp);
+  const sign: 1 | -1 = phiOrigin < 0 ? -1 : 1;
+  const yBase = -CONE_Y_BASE * radius;
+  const height = apex - yBase;
+  const baseRadius = scaleFactor * (apex - yBase) * Math.tan(sp);
+  const positionY = sign * (apex - height / 2);
+  return { sp, apex, sign, yBase, height, baseRadius, positionY, flip: sign };
+}
+
+// Axial (Y) height of the latitude `latRad` circle on the tangent cone.
+export function coneAxialHeight(latRad: number, cone: ConeParams, radius: number): number {
+  return cone.sign * (radius * Math.sin(cone.sp) + radius * Math.cos(cone.sp) * (cone.sign * latRad - cone.sp));
+}
+
 export function computeAuxSurfaceParams(
   family: ProjectionParams['family'],
   lambda0: number,
@@ -176,13 +210,8 @@ export function computeAuxSurfaceParams(
   }
 
   // conic: cone tangent to the sphere at the standard parallel
-  const sp = standardParallelRad(phiOrigin);
-  const apex = radius / Math.sin(sp);
-  const yBase = -CONE_Y_BASE * radius;
-  const height = apex - yBase;
-  const coneRadius = scaleFactor * (apex - yBase) * Math.tan(sp);
-  const flip: 1 | -1 = phiOrigin < 0 ? -1 : 1;
-  return { kind: 'cone', radius: coneRadius, height, positionY: flip * (apex - height / 2), flip };
+  const cone = computeCone(phiOrigin, radius, scaleFactor);
+  return { kind: 'cone', radius: cone.baseRadius, height: cone.height, positionY: cone.positionY, flip: cone.flip };
 }
 
 // ---- Tangency ring (standard parallel) parameters ----
@@ -275,9 +304,9 @@ export function computeAuxSphereIntersections(
   }
 
   // conic: cone–sphere intersection — quadratic in the axial height y
-  const sp = standardParallelRad(phiOrigin);
-  const t = Math.tan(sp);
-  const a = (phiOrigin < 0 ? -1 : 1) * (radius / Math.sin(sp)); // apex height
+  const cone = computeCone(phiOrigin, radius, scaleFactor);
+  const t = Math.tan(cone.sp);
+  const a = cone.sign * cone.apex; // apex height (signed)
   const A = scaleFactor * scaleFactor * t * t + 1;
   const B = -2 * scaleFactor * scaleFactor * t * t * a;
   const C = scaleFactor * scaleFactor * t * t * a * a - radius * radius;
@@ -296,18 +325,7 @@ export function computeAuxSphereIntersections(
 }
 
 // axial height of latitude `latRad` on the developable cone (tangent at sp)
-function coneAxialHeight(latRad: number, sp: number, radius: number, sgn: number): number {
-  return sgn * (radius * Math.sin(sp) + radius * Math.cos(sp) * (sgn * latRad - sp));
-}
-
-export interface RayParams {
-  family: ProjectionParams['family'];
-  distortion: ProjectionParams['distortion'];
-  lambda0: number;
-  phiOrigin: number;
-  scaleFactor: number;
-  falseEasting: number;
-  falseNorthing: number;
+export interface RayParams extends ProjectionParams {
   radius?: number;
   rayCount?: number;
 }
@@ -343,9 +361,7 @@ export function computeCentralMeridianRays(params: RayParams): [Vec3, Vec3][] {
     falseNorthing,
   });
 
-  const sp = standardParallelRad(phiOrigin);
-  const apex = radius / Math.sin(sp);
-  const sgn = phiOrigin < 0 ? -1 : 1;
+  const cone = computeCone(phiOrigin, radius, scaleFactor);
   const { center, east, north } = computeTangentBasis(lambda0, phiOrigin, radius);
   const u = east;
   const w = north;
@@ -378,8 +394,8 @@ export function computeCentralMeridianRays(params: RayParams): [Vec3, Vec3][] {
       ];
     } else {
       const latRad = (lat * Math.PI) / 180;
-      const yCone = coneAxialHeight(latRad, sp, radius, sgn);
-      const rad = scaleFactor * Math.abs(sgn * apex - yCone) * Math.tan(sp);
+      const yCone = coneAxialHeight(latRad, cone, radius);
+      const rad = scaleFactor * Math.abs(cone.sign * cone.apex - yCone) * Math.tan(cone.sp);
       end = [rad * Math.cos(lonRad), yCone, -rad * Math.sin(lonRad)];
     }
 

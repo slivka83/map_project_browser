@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { RADIUS, RAY_COUNT } from '../constants/geometry';
 import {
-  RADIUS,
-  RAY_COUNT,
   lonLatToVec3,
   computeTangentBasis,
   computeAuxSurfaceParams,
@@ -9,6 +8,8 @@ import {
   computeAuxGraticule,
   computeAuxSphereIntersections,
   computeCentralMeridianRays,
+  computeCone,
+  coneAxialHeight,
 } from './auxSurfaceGeometry';
 
 const closeTo = (a: number, b: number, eps = 1e-6) =>
@@ -30,6 +31,44 @@ describe('lonLatToVec3', () => {
     closeTo(v[0], RADIUS, 1e-9);
     closeTo(v[1], 0);
     closeTo(v[2], 0);
+  });
+});
+
+describe('computeCone', () => {
+  it('apex = radius / sin(sp) with the equator fallback (30°)', () => {
+    const cone = computeCone(0, RADIUS, 1);
+    closeTo(cone.sp, (30 * Math.PI) / 180);
+    closeTo(cone.apex, RADIUS / Math.sin((30 * Math.PI) / 180), 1e-9);
+    expect(cone.sign).toBe(1);
+  });
+  it('uses |phiOrigin| as the standard parallel above the fallback threshold', () => {
+    const cone = computeCone(40, RADIUS, 1);
+    closeTo(cone.sp, (40 * Math.PI) / 180);
+  });
+  it('sign is negative for a southern phiOrigin', () => {
+    expect(computeCone(-30, RADIUS, 1).sign).toBe(-1);
+  });
+  it('baseRadius scales linearly with scaleFactor', () => {
+    const a = computeCone(40, RADIUS, 1).baseRadius;
+    const b = computeCone(40, RADIUS, 1.1).baseRadius;
+    closeTo(b / a, 1.1, 1e-9);
+  });
+  it('matches the cone fields exposed by computeAuxSurfaceParams', () => {
+    const cone = computeCone(30, RADIUS, 1.05);
+    const surface = computeAuxSurfaceParams('conic', 0, 30, 1.05);
+    if (surface.kind !== 'cone') throw new Error('expected cone');
+    closeTo(surface.radius, cone.baseRadius, 1e-9);
+    closeTo(surface.height, cone.height, 1e-9);
+    closeTo(surface.positionY, cone.positionY, 1e-9);
+    expect(surface.flip).toBe(cone.flip);
+  });
+});
+
+describe('coneAxialHeight', () => {
+  it('at the standard parallel the axial height equals radius·sin(sp)', () => {
+    const cone = computeCone(40, RADIUS, 1);
+    const y = coneAxialHeight(cone.sp, cone, RADIUS);
+    closeTo(y, cone.sign * RADIUS * Math.sin(cone.sp), 1e-9);
   });
 });
 

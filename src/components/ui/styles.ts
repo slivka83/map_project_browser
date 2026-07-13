@@ -1,3 +1,5 @@
+import { NEON_BLUE } from '../../constants/designTokens';
+
 // Shared glass-panel + control styling (spec §5 "spaceship control panel" look).
 // Colors come from CSS variables defined in index.css @theme so Tailwind can
 // detect the literal class strings at build time.
@@ -15,5 +17,5 @@ export const iconBtnPlain =
   'flex h-9 w-9 items-center justify-center text-neon-blue/80 transition hover:text-neon-blue';
 export const iconGlow = (active: boolean): string =>
   active
-    ? 'drop-shadow(0 0 6px #00e5ff) drop-shadow(0 0 12px rgba(0,229,255,0.8))'
+    ? `drop-shadow(0 0 6px ${NEON_BLUE}) drop-shadow(0 0 12px rgba(0,229,255,0.8))`
     : 'drop-shadow(0 0 4px rgba(0,229,255,0.45))';
