@@ -84,7 +84,7 @@ describe('Map2D', () => {
 
   it('shows an area-distortion label in the bottom-right corner', () => {
     const { getByText } = render(<Map2D />);
-    expect(getByText(/% искажений$/)).toBeTruthy();
+    expect(getByText(/^Искажение площади: \d+%$/)).toBeTruthy();
   });
 
   it('shows all three overlay buttons in a row, always visible', () => {

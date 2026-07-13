@@ -170,7 +170,7 @@ export default function Map2D() {
         className="absolute right-2 bottom-2 z-10 rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-gray-300 backdrop-blur-md"
         title="Средневзвешенное искажение площадей при текущих настройках"
       >
-        {formatDistortion(areaDistortion)}% искажений
+        Искажение площади: {formatDistortion(areaDistortion)}%
       </div>
     </div>
   );
@@ -178,6 +178,5 @@ export default function Map2D() {
 
 function formatDistortion(value: number): string {
   const v = Number.isFinite(value) ? value : 0;
-  const [intPart, decPart = '00'] = v.toFixed(2).split('.');
-  return `${intPart.padStart(2, '0')}.${decPart}`;
+  return Math.round(v).toString();
 }
