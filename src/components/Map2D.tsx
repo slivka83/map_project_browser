@@ -135,7 +135,7 @@ export default function Map2D() {
           ))}
         </svg>
       )}
-      <div className="absolute right-6 top-6 z-10 flex gap-1 items-start">
+      <div className="absolute right-3 top-3 z-10 flex gap-1 items-start">
         <button
           title="Индикатрисы Тиссо"
           aria-label="Индикатрисы Тиссо"

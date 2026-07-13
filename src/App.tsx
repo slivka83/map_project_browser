@@ -21,7 +21,7 @@ export default function App() {
           <GlobeScene />
         </div>
       </div>
-      <div className="w-2/3 border-l border-white/10 pl-3">
+      <div className="w-2/3 border-l border-white/10 px-3">
         <Map2D />
       </div>
     </div>
