@@ -47,15 +47,23 @@ npm run dev      # дев-сервер (http://localhost:5173)
 | ---------------------------- | -------------------------------------------------------------------- |
 | `src/store/useAppStore.ts`   | Единый источник правды: параметры проекции, геоданные, экшены        |
 | `src/utils/projectionMapper.ts` | Маппинг `(family × distortion)` → конкретная D3-проекция          |
+| `src/utils/auxSurfaceGeometry.ts` | Единый источник геометрии 3D: вспомогательная поверхность, кольца касания, лучи |
 | `src/components/Map2D.tsx`   | SVG-карта: гратула, берега, индикатрисы Тиссо                       |
 | `src/components/ControlPanel.tsx` | Панель управления: семейство, искажения, слайдеры, пресеты EPSG |
-| `src/components/GlobeScene.tsx` | 3D-сцена: текстура-глобус, вспомогательная поверхность, лучи    |
+| `src/components/Dropdown.tsx` | Кастомный тёмный дропдаун (варианты `button` / `inline`)            |
+| `src/components/GlobeScene.tsx` | 3D-сцена, компонует `Globe` / `AuxSurface` / `TangencyRings` / `Rays` |
+| `src/components/Globe.tsx`   | Прозрачный глобус с неоновыми 3D-линиями берегов и гратулы          |
+| `src/components/AuxSurface.tsx` | Вспомогательная поверхность (цилиндр / конус / плоскость)         |
+| `src/components/TangencyRings.tsx` | Кольцо касания (стандартная параллель)                         |
+| `src/components/Rays.tsx`    | Веер лучей проекции вдоль центрального меридиана                    |
+| `src/components/EpsgCatalog.tsx` | Модальный каталог EPSG-пресетов (через `createPortal`)          |
+| `src/constants/designTokens.ts` | Общая палитра `NEON_BLUE` / `NEON_ORANGE` / `BG`                |
 | `src/App.tsx`                | Компоновка из трёх панелей + загрузка геоданных при монтировании   |
 
 ### Математическое ядро
 
-`getD3Projection(family, distortion, lambda0, phi1, phi2)` возвращает D3-проекцию по
-жёсткой таблице:
+`getD3Projection(params)` (где `params` — объект `ProjectionParams` из стора)
+возвращает D3-проекцию по жёсткой таблице:
 
 | Семейство (`family`) | Conformal (равноугольная) | EqualArea (равновеликая) | Equidistant (равнопромежуточная) |
 | -------------------- | ------------------------- | ------------------------- | --------------------------------- |
@@ -63,7 +71,10 @@ npm run dev      # дев-сервер (http://localhost:5173)
 | `conic`              | ConicConformal            | ConicEqualArea            | ConicEquidistant                  |
 | `azimuthal`          | Stereographic             | AzimuthalEqualArea        | AzimuthalEquidistant              |
 
-Вращение по долготе использует **отрицательный** лямбда: `.rotate([-lambda0, 0, 0])`.
+Вращение использует **отрицательные** знаки: `.rotate([-lambda0, -phiOrigin])`; для
+конических проекций берётся одна касательная параллель `parallels([phiOrigin, phiOrigin])`.
+Вся геометрия 3D (поверхность, кольцо касания, лучи) выводится из одного модуля
+`auxSurfaceGeometry.ts`, поэтому фигуры не могут рассинхронизироваться.
 
 ### Геоданные
 
@@ -72,9 +83,11 @@ npm run dev      # дев-сервер (http://localhost:5173)
 
 ### Дизайн-токены
 
-- Фон приложения: `#05050A`
-- Неоновый синий `#00e5ff` — глобус, берега, текст
-- Неоновый оранжевый `#ff6a00` — вспомогательная поверхность, лучи проекции
+Экспортируются из `src/constants/designTokens.ts` — не хардкодьте hex в компонентах.
+
+- `BG` — фон приложения: `#05050A`
+- `NEON_BLUE` `#00e5ff` — глобус, берега, текст
+- `NEON_ORANGE` `#ff6a00` — вспомогательная поверхность, лучи, кольца касания
 - Стеклянные панели: `bg-white/5 backdrop-blur-md border-white/10`
 
 ## Тестирование
@@ -83,9 +96,10 @@ npm run dev      # дев-сервер (http://localhost:5173)
 npm run test
 ```
 
-Покрываются (по `specification.md` §9): стор, маппер проекций, панель управления и
-монтирование `App`. Намеренно **не** тестируются WebGL/`<Canvas>` и атрибуты `d` SVG-путей
-(хрупко и зависит от размеров экрана) — это проверяется только вручную.
+Покрываются: стор, маппер проекций, геометрия `auxSurfaceGeometry`, `ControlPanel`,
+`Map2D`, `EpsgCatalog`, `Dropdown` и монтирование `App`. Намеренно **не** тестируются
+WebGL/`<Canvas>` и атрибуты `d` SVG-путей (хрупко и зависит от размеров экрана) —
+это проверяется только вручную.
 
 При push/PR выполняется CI (`.github/workflows/ci.yml`): `npm ci` → lint → build → test.
 
@@ -94,7 +108,8 @@ npm run test
 Если вы работаете в смонтированном Windows-диске (`/mnt/d`, 9P/DrvFS), `npm install`
 там падает с `ENOTDIR` при создании `node_modules`, а испорченный dentry не удаляется
 изнутри контейнера. В этом окружении зависимости устанавливаются на нативную ФС
-(`/tmp/opencode/mbp-deps/node_modules`), а из `/mnt/d` в рабочую директорию ведут
-симлинки на исходники; `vite.config.ts` и `vitest.config.ts` используют
-`resolve.preserveSymlinks`. На обычных Linux/macOS/CI это не нужно — достаточно
+(`/tmp/opencode/mbp-deps/node_modules`), а `node_modules` в проекте — симлинк на неё
+(исходники остаются локальными, `preserveSymlinks` не нужен); `vite.config.ts`
+использует `server.watch.usePolling`, так как DrvFS не шлёт `inotify`-события и HMR
+иначе не срабатывает. На обычных Linux/macOS/CI это не нужно — достаточно
 `npm install` в корне проекта.
