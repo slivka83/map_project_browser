@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as d3Geo from 'd3-geo';
-import { getD3Projection, fitProjectionToView, FIT_SPHERE } from './projectionMapper';
+import { getD3Projection, fitProjectionToView, FIT_SPHERE, computeAreaDistortion } from './projectionMapper';
 import { geoCylindricalEqualArea } from './d3GeoProjection';
 import type { ProjectionParams, ProjectionFamily, DistortionModel } from '../store/useAppStore';
 
@@ -82,6 +82,32 @@ describe('getD3Projection (spec §9.2)', () => {
     const p = getD3Projection(makeState({ family: 'azimuthal', distortion: 'equidistant' }));
     const ref = d3Geo.geoAzimuthalEquidistant().rotate([0, 0]).scale(100).translate([400, 300]);
     expect(p([0, 0])).toEqual(ref([0, 0]));
+  });
+});
+
+describe('computeAreaDistortion', () => {
+  it('is ~0% for equal-area projections', () => {
+    expect(computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'equalArea' }))).toBeCloseTo(0, 1);
+    expect(computeAreaDistortion(makeState({ family: 'azimuthal', distortion: 'equalArea' }))).toBeCloseTo(0, 1);
+    expect(
+      computeAreaDistortion(makeState({ family: 'conic', distortion: 'equalArea', phiOrigin: 40 })),
+    ).toBeCloseTo(0, 1);
+  });
+
+  it('is large and positive for Mercator (cylindrical conformal)', () => {
+    const d = computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'conformal' }));
+    expect(d).toBeGreaterThan(50);
+  });
+
+  it('is invariant to a uniform zoom (scaleFactor)', () => {
+    const a = computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'conformal', scaleFactor: 1 }));
+    const b = computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'conformal', scaleFactor: 1.1 }));
+    expect(a).toBeCloseTo(b, 5);
+  });
+
+  it('never returns a negative distortion', () => {
+    expect(computeAreaDistortion(makeState({ family: 'azimuthal', distortion: 'conformal' }))).toBeGreaterThanOrEqual(0);
+    expect(computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'equidistant' }))).toBeGreaterThanOrEqual(0);
   });
 });
 

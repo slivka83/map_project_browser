@@ -38,6 +38,61 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
   return proj;
 };
 
+// Local area scale factor (projected px² per steradian) of `proj` at (lon,lat),
+// measured from a small quad of half-size `d` degrees. Returns null when any
+// corner falls outside the projection's clip (so it can't distort a real area).
+function localAreaScale(proj: GeoProjection, lon: number, lat: number, d: number): number | null {
+  const corners: ([number, number] | null)[] = [
+    proj([lon - d, lat - d]) as [number, number] | null,
+    proj([lon + d, lat - d]) as [number, number] | null,
+    proj([lon + d, lat + d]) as [number, number] | null,
+    proj([lon - d, lat + d]) as [number, number] | null,
+  ];
+  if (corners.some((c) => !c || !isFinite(c[0]) || !isFinite(c[1]))) return null;
+  const p = corners as [number, number][];
+  // Shoelace area of the projected quad.
+  let projArea = 0;
+  for (let i = 0; i < p.length; i++) {
+    const [x1, y1] = p[i];
+    const [x2, y2] = p[(i + 1) % p.length];
+    projArea += x1 * y2 - x2 * y1;
+  }
+  projArea = Math.abs(projArea) / 2;
+  const rad = Math.PI / 180;
+  const trueArea = Math.cos(lat * rad) * (2 * d * rad) * (2 * d * rad);
+  if (trueArea <= 0) return null;
+  return projArea / trueArea;
+}
+
+// Area-weighted mean area distortion of a projection, as a percentage. The
+// least-distorted sampled point is taken as the undistorted reference (its area
+// scale = 100%), and the result is the mean relative area excess elsewhere. An
+// equal-area projection keeps a constant area scale everywhere → 0%.
+export function computeAreaDistortion(params: ProjectionParams): number {
+  const proj = getD3Projection(params);
+  const d = 0.5; // half-size of the sampling quad, degrees
+  const scales: number[] = [];
+  const weights: number[] = [];
+  for (let lat = -80; lat <= 80; lat += 10) {
+    for (let lon = -180; lon < 180; lon += 10) {
+      const a = localAreaScale(proj, lon, lat, d);
+      if (a == null || a <= 0) continue;
+      scales.push(a);
+      weights.push(Math.cos((lat * Math.PI) / 180));
+    }
+  }
+  if (scales.length === 0) return 0;
+  const aMin = Math.min(...scales);
+  if (aMin <= 0) return 0;
+  let num = 0;
+  let den = 0;
+  for (let i = 0; i < scales.length; i++) {
+    num += weights[i] * (scales[i] / aMin - 1);
+    den += weights[i];
+  }
+  return den > 0 ? (num / den) * 100 : 0;
+}
+
 // Fit object used to size the 2D map. A full {type:'Sphere'} is infinite for
 // some projections (e.g. conic conformal, where the pole maps to infinity), so
 // `fitExtent` there collapses to a degenerate scale. Clipping the fit target to

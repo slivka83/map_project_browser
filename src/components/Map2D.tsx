@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react';
 import * as d3Geo from 'd3-geo';
 import type { FeatureCollection } from 'geojson';
 import { useAppStore } from '../store/useAppStore';
-import { getD3Projection, fitProjectionToView } from '../utils/projectionMapper';
+import { getD3Projection, fitProjectionToView, computeAreaDistortion } from '../utils/projectionMapper';
 import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT } from '../constants/designTokens';
 import { iconBtn } from './ui/styles';
 import { TissotIcon, BorderIcon, DetailIcon } from './ui/icons';
@@ -68,6 +68,11 @@ export default function Map2D() {
   }, [family, distortion, lambda0, phiOrigin, scaleFactor, width, height]);
 
   const graticulePath = useMemo(() => pathGenerator(d3Geo.geoGraticule10()) ?? '', [pathGenerator]);
+
+  const areaDistortion = useMemo(
+    () => computeAreaDistortion({ family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting: 0, falseNorthing: 0 }),
+    [family, distortion, lambda0, phiOrigin, scaleFactor],
+  );
 
   const tissotCircles = useMemo(() => {
     if (!showTissot) return [] as GeoJSON.Polygon[];
@@ -172,6 +177,18 @@ export default function Map2D() {
           )}
         </div>
       </div>
+      <div
+        className="absolute right-2 bottom-2 z-10 rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-gray-300 backdrop-blur-md"
+        title="Средневзвешенное искажение площадей при текущих настройках"
+      >
+        {formatDistortion(areaDistortion)}% искажений
+      </div>
     </div>
   );
+}
+
+function formatDistortion(value: number): string {
+  const v = Number.isFinite(value) ? value : 0;
+  const [intPart, decPart = '00'] = v.toFixed(2).split('.');
+  return `${intPart.padStart(2, '0')}.${decPart}`;
 }

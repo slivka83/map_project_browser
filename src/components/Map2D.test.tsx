@@ -68,6 +68,11 @@ describe('Map2D', () => {
     expect(container.querySelectorAll('path').length).toBeGreaterThan(0);
   });
 
+  it('shows an area-distortion label in the bottom-right corner', () => {
+    const { getByText } = render(<Map2D />);
+    expect(getByText(/% искажений$/)).toBeTruthy();
+  });
+
   it('shows Detail on the right and reveals Borders beneath it only when detail is on', () => {
     const { getByRole, queryByRole, container } = render(<Map2D />);
     const detail = getByRole('button', { name: 'Детализация карты' });
