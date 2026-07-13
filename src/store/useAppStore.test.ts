@@ -17,6 +17,7 @@ describe('useAppStore', () => {
       geoJsonData: null,
       land50GeoJson: null,
       countriesGeoJson: null,
+      detailedMap: true,
     });
   });
 
@@ -81,6 +82,13 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().showBorders).toBe(false);
     useAppStore.getState().setShowBorders(true);
     expect(useAppStore.getState().showBorders).toBe(true);
+  });
+
+  it('toggles detailedMap via setDetailedMap', () => {
+    useAppStore.getState().setDetailedMap(false);
+    expect(useAppStore.getState().detailedMap).toBe(false);
+    useAppStore.getState().setDetailedMap(true);
+    expect(useAppStore.getState().detailedMap).toBe(true);
   });
 
   it('sets the family default distortion via setFamily', () => {

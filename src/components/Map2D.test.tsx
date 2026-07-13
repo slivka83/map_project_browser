@@ -23,6 +23,7 @@ describe('Map2D', () => {
       geoJsonData: sampleFc,
       land50GeoJson: sampleFc,
       countriesGeoJson: null,
+      detailedMap: true,
     });
   });
 
@@ -53,22 +54,36 @@ describe('Map2D', () => {
   });
 
   it('renders the map svg only once geo data is loaded', () => {
-    useAppStore.setState({ land50GeoJson: null });
+    useAppStore.setState({ land50GeoJson: null, detailedMap: true });
     const { container } = render(<Map2D />);
     expect(container.querySelector('svg[data-map="true"]')).toBeNull();
   });
 
-  it('shows Tissot and Borders toggle buttons that flip the store flags', () => {
+  it('falls back to the lightweight 110m land when detail is off', () => {
+    useAppStore.setState({ detailedMap: false, land50GeoJson: null, geoJsonData: sampleFc });
+    const { container } = render(<Map2D />);
+    expect(container.querySelector('svg[data-map="true"]')).not.toBeNull();
+    // detailed off => no country-border layer even when one is available
+    useAppStore.setState({ showBorders: true, countriesGeoJson: sampleFc });
+    expect(container.querySelectorAll('path').length).toBeGreaterThan(0);
+  });
+
+  it('shows Tissot, Borders and Detail toggle buttons that flip the store flags', () => {
     const { getByRole } = render(<Map2D />);
     const tissot = getByRole('button', { name: 'Индикатрисы Тиссо' });
     const borders = getByRole('button', { name: 'Границы стран' });
+    const detail = getByRole('button', { name: 'Детализация карты' });
     expect(tissot).toBeTruthy();
     expect(borders).toBeTruthy();
+    expect(detail).toBeTruthy();
     expect(useAppStore.getState().showTissot).toBe(false);
     expect(useAppStore.getState().showBorders).toBe(false);
+    expect(useAppStore.getState().detailedMap).toBe(true);
     fireEvent.click(tissot);
     fireEvent.click(borders);
+    fireEvent.click(detail);
     expect(useAppStore.getState().showTissot).toBe(true);
     expect(useAppStore.getState().showBorders).toBe(true);
+    expect(useAppStore.getState().detailedMap).toBe(false);
   });
 });

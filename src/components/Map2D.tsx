@@ -5,7 +5,7 @@ import type { FeatureCollection } from 'geojson';
 import { useAppStore } from '../store/useAppStore';
 import { getD3Projection, fitProjectionToView } from '../utils/projectionMapper';
 import { NEON_BLUE, NEON_ORANGE, BG } from '../constants/designTokens';
-import { iconBtn, TissotIcon, BorderIcon } from './ControlPanel';
+import { iconBtn, TissotIcon, BorderIcon, DetailIcon } from './ControlPanel';
 
 const MARGIN = 16;
 
@@ -36,8 +36,16 @@ export default function Map2D() {
   const setShowTissot = useAppStore((s) => s.setShowTissot);
   const showBorders = useAppStore((s) => s.showBorders);
   const setShowBorders = useAppStore((s) => s.setShowBorders);
+  const detailedMap = useAppStore((s) => s.detailedMap);
+  const setDetailedMap = useAppStore((s) => s.setDetailedMap);
   const land50GeoJson = useAppStore((s) => s.land50GeoJson);
   const countriesGeoJson = useAppStore((s) => s.countriesGeoJson);
+  const geoJsonData = useAppStore((s) => s.geoJsonData);
+
+  // Detailed 2D map (50m land + country borders) when enabled; otherwise the
+  // lightweight 110m land shared with the 3D globe, without borders.
+  const baseLand = detailedMap ? land50GeoJson : geoJsonData;
+  const borders = detailedMap ? countriesGeoJson : null;
 
   const { ref, size } = useElementSize();
   const width = size.width || 800;
@@ -82,7 +90,7 @@ export default function Map2D() {
 
   return (
     <div ref={ref} style={containerStyle}>
-      {land50GeoJson && (
+      {baseLand && (
         <svg
           width="100%"
           height="100%"
@@ -92,7 +100,7 @@ export default function Map2D() {
           style={{ display: 'block' }}
         >
           <path d={graticulePath} fill="none" stroke="#334155" strokeWidth={0.5} />
-          {(land50GeoJson as FeatureCollection).features.map((feature, i) => (
+          {(baseLand as FeatureCollection).features.map((feature, i) => (
             <path
               key={i}
               d={pathGenerator(feature) ?? ''}
@@ -102,8 +110,8 @@ export default function Map2D() {
             />
           ))}
           {showBorders &&
-            countriesGeoJson &&
-            (countriesGeoJson as FeatureCollection).features.map((feature, i) => (
+            borders &&
+            (borders as FeatureCollection).features.map((feature, i) => (
               <path
                 key={`border-${i}`}
                 d={pathGenerator(feature) ?? ''}
@@ -123,6 +131,18 @@ export default function Map2D() {
         </svg>
       )}
       <div className="absolute right-2 top-2 z-10 flex gap-1">
+        <button
+          title="Детализация карты"
+          aria-label="Детализация карты"
+          onClick={() => setDetailedMap(!detailedMap)}
+          className={`${iconBtn} ${
+            detailedMap
+              ? 'border-neon-blue bg-neon-blue/15 text-neon-blue shadow-[0_0_10px_rgba(0,229,255,0.5)]'
+              : 'hover:bg-neon-blue/10 hover:shadow-[0_0_8px_rgba(0,229,255,0.5)]'
+          }`}
+        >
+          <DetailIcon />
+        </button>
         <button
           title="Индикатрисы Тиссо"
           aria-label="Индикатрисы Тиссо"

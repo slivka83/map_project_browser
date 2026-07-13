@@ -83,6 +83,15 @@ export function BorderIcon() {
   );
 }
 
+export function DetailIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M12 3 21 8l-9 5-9-5 9-5z" />
+      <path d="M3 13l9 5 9-5" />
+    </svg>
+  );
+}
+
 function Slider({
   label,
   value,

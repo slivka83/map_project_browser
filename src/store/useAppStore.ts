@@ -45,10 +45,14 @@ interface AppState extends ProjectionParams {
   geoJsonData: FeatureCollection | null;
   land50GeoJson: FeatureCollection | null;
   countriesGeoJson: FeatureCollection | null;
+  // When true the 2D map uses the detailed 50m land + country borders; otherwise the
+  // lightweight 110m land (shared with the 3D globe) is drawn without borders.
+  detailedMap: boolean;
 
   setParam: <K extends keyof ProjectionParams>(key: K, value: ProjectionParams[K]) => void;
   setShowTissot: (value: boolean) => void;
   setShowBorders: (value: boolean) => void;
+  setDetailedMap: (value: boolean) => void;
   setFamily: (family: ProjectionFamily) => void;
   resetParams: () => void;
   loadGeoData: () => Promise<void>;
@@ -62,10 +66,12 @@ export const useAppStore = create<AppState>((set) => ({
   geoJsonData: null,
   land50GeoJson: null,
   countriesGeoJson: null,
+  detailedMap: true,
 
   setParam: (key, value) => set({ [key]: value } as Pick<AppState, typeof key>),
   setShowTissot: (value) => set({ showTissot: value }),
   setShowBorders: (value) => set({ showBorders: value }),
+  setDetailedMap: (value) => set({ detailedMap: value }),
   setFamily: (family) => set({ ...defaultParamsForFamily(family) }),
   resetParams: () => set((s) => ({ ...defaultParamsForFamily(s.family) })),
   applyPreset: (preset) => set({ ...preset }),
