@@ -104,7 +104,7 @@ function Slider({
           onChange={(e) => onChange(Number(e.target.value))}
           className="h-1 flex-1 accent-neon-blue"
         />
-        <span className="w-12 shrink-0 text-right text-[12px] text-neon-blue">
+        <span className="w-12 shrink-0 text-left text-[12px] text-neon-blue">
           {value}
           {suffix}
         </span>
