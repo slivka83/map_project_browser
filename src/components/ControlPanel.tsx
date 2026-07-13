@@ -74,6 +74,17 @@ function ResetIcon() {
   );
 }
 
+// Format a slider value to a fixed-width string so all value readouts share
+// the same width — this lets every slider end align while keeping the shortest
+// slider's length unchanged and the numbers right-aligned without dead space.
+function formatValue(v: number, suffix: string): string {
+  if (suffix === '°') {
+    const sign = v < 0 ? '-' : '+';
+    return `${sign}${String(Math.abs(Math.round(v))).padStart(3, '0')}°`;
+  }
+  return ` ${v.toFixed(2)}`;
+}
+
 function Slider({
   label,
   value,
@@ -104,9 +115,8 @@ function Slider({
           onChange={(e) => onChange(Number(e.target.value))}
           className="h-1 flex-1 accent-neon-blue"
         />
-        <span className="w-12 shrink-0 text-right text-[12px] text-neon-blue">
-          {value}
-          {suffix}
+        <span className="w-10 shrink-0 text-right text-[12px] text-neon-blue tabular-nums">
+          {formatValue(value, suffix)}
         </span>
       </div>
     </div>
