@@ -40,10 +40,15 @@ export function defaultParamsForFamily(family: ProjectionFamily): ProjectionPara
 
 interface AppState extends ProjectionParams {
   showTissot: boolean;
+  showBorders: boolean;
+  // 3D globe keeps the lightweight 110m land; 2D map uses the detailed 50m datasets.
   geoJsonData: FeatureCollection | null;
+  land50GeoJson: FeatureCollection | null;
+  countriesGeoJson: FeatureCollection | null;
 
   setParam: <K extends keyof ProjectionParams>(key: K, value: ProjectionParams[K]) => void;
   setShowTissot: (value: boolean) => void;
+  setShowBorders: (value: boolean) => void;
   setFamily: (family: ProjectionFamily) => void;
   resetParams: () => void;
   loadGeoData: () => Promise<void>;
@@ -53,23 +58,35 @@ interface AppState extends ProjectionParams {
 export const useAppStore = create<AppState>((set) => ({
   ...defaultParamsForFamily('cylindrical'),
   showTissot: false,
+  showBorders: true,
   geoJsonData: null,
+  land50GeoJson: null,
+  countriesGeoJson: null,
 
   setParam: (key, value) => set({ [key]: value } as Pick<AppState, typeof key>),
   setShowTissot: (value) => set({ showTissot: value }),
+  setShowBorders: (value) => set({ showBorders: value }),
   setFamily: (family) => set({ ...defaultParamsForFamily(family) }),
   resetParams: () => set((s) => ({ ...defaultParamsForFamily(s.family) })),
   applyPreset: (preset) => set({ ...preset }),
   loadGeoData: async () => {
-    try {
-      const response = await fetch('/world-110m.topojson');
-      if (!response.ok) throw new Error(`Failed to load world data: ${response.status}`);
-      const topology = (await response.json()) as Topology;
-      const land = topology.objects.land as GeometryCollection;
-      const geojson = feature(topology, land) as FeatureCollection;
-      set({ geoJsonData: geojson });
-    } catch (err) {
-      console.error('loadGeoData failed:', err);
-    }
+    const load = async (url: string, object: string): Promise<FeatureCollection | null> => {
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Failed to load ${url}: ${response.status}`);
+        const topology = (await response.json()) as Topology;
+        const geometry = topology.objects[object] as GeometryCollection;
+        return feature(topology, geometry) as FeatureCollection;
+      } catch (err) {
+        console.error('loadGeoData failed:', url, err);
+        return null;
+      }
+    };
+    const [land110, land50, countries] = await Promise.all([
+      load('/world-110m.topojson', 'land'),
+      load('/land-50m.json', 'land'),
+      load('/countries-50m.json', 'countries'),
+    ]);
+    set({ geoJsonData: land110, land50GeoJson: land50, countriesGeoJson: countries });
   },
 }));

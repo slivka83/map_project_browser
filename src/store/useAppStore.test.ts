@@ -13,7 +13,10 @@ describe('useAppStore', () => {
       falseEasting: 0,
       falseNorthing: 0,
       showTissot: false,
+      showBorders: true,
       geoJsonData: null,
+      land50GeoJson: null,
+      countriesGeoJson: null,
     });
   });
 
@@ -27,6 +30,7 @@ describe('useAppStore', () => {
     expect(s.falseEasting).toBe(0);
     expect(s.falseNorthing).toBe(0);
     expect(s.showTissot).toBe(false);
+    expect(s.showBorders).toBe(true);
   });
 
   it('changes a single parameter via setParam (spec §9.1)', () => {
@@ -72,6 +76,13 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().showTissot).toBe(false);
   });
 
+  it('toggles showBorders via setShowBorders', () => {
+    useAppStore.getState().setShowBorders(false);
+    expect(useAppStore.getState().showBorders).toBe(false);
+    useAppStore.getState().setShowBorders(true);
+    expect(useAppStore.getState().showBorders).toBe(true);
+  });
+
   it('sets the family default distortion via setFamily', () => {
     const cases: [ProjectionFamily, DistortionModel][] = [
       ['cylindrical', 'conformal'],
@@ -114,6 +125,10 @@ describe('useAppStore', () => {
           type: 'GeometryCollection',
           geometries: [{ type: 'Polygon', arcs: [[0]] }],
         },
+        countries: {
+          type: 'GeometryCollection',
+          geometries: [{ type: 'Polygon', arcs: [[0]] }],
+        },
       },
       arcs: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
     } as unknown as Topology;
@@ -125,11 +140,19 @@ describe('useAppStore', () => {
 
     await useAppStore.getState().loadGeoData();
     const data = useAppStore.getState().geoJsonData;
+    const land50 = useAppStore.getState().land50GeoJson;
+    const countries = useAppStore.getState().countriesGeoJson;
 
     expect(data).not.toBeNull();
     expect(data?.type).toBe('FeatureCollection');
     expect(Array.isArray(data?.features)).toBe(true);
     expect((data?.features.length ?? 0)).toBeGreaterThan(0);
+
+    expect(land50).not.toBeNull();
+    expect(land50?.type).toBe('FeatureCollection');
+    expect(countries).not.toBeNull();
+    expect(Array.isArray(countries?.features)).toBe(true);
+    expect((countries?.features.length ?? 0)).toBeGreaterThan(0);
 
     vi.unstubAllGlobals();
   });

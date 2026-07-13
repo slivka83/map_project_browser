@@ -32,7 +32,9 @@ export default function Map2D() {
   const phiOrigin = useAppStore((s) => s.phiOrigin);
   const scaleFactor = useAppStore((s) => s.scaleFactor);
   const showTissot = useAppStore((s) => s.showTissot);
-  const geoJsonData = useAppStore((s) => s.geoJsonData);
+  const showBorders = useAppStore((s) => s.showBorders);
+  const land50GeoJson = useAppStore((s) => s.land50GeoJson);
+  const countriesGeoJson = useAppStore((s) => s.countriesGeoJson);
 
   const { ref, size } = useElementSize();
   const width = size.width || 800;
@@ -77,7 +79,7 @@ export default function Map2D() {
 
   return (
     <div ref={ref} style={containerStyle}>
-      {geoJsonData && (
+      {land50GeoJson && (
         <svg
           width="100%"
           height="100%"
@@ -86,7 +88,7 @@ export default function Map2D() {
           style={{ display: 'block' }}
         >
           <path d={graticulePath} fill="none" stroke="#334155" strokeWidth={0.5} />
-          {(geoJsonData as FeatureCollection).features.map((feature, i) => (
+          {(land50GeoJson as FeatureCollection).features.map((feature, i) => (
             <path
               key={i}
               d={pathGenerator(feature) ?? ''}
@@ -95,6 +97,17 @@ export default function Map2D() {
               strokeWidth={1}
             />
           ))}
+          {showBorders &&
+            countriesGeoJson &&
+            (countriesGeoJson as FeatureCollection).features.map((feature, i) => (
+              <path
+                key={`border-${i}`}
+                d={pathGenerator(feature) ?? ''}
+                fill="none"
+                stroke="rgba(0, 229, 255, 0.55)"
+                strokeWidth={0.6}
+              />
+            ))}
           {tissotCircles.map((circle, i) => (
             <path
               key={`tissot-${i}`}

@@ -17,7 +17,13 @@ const sampleFc: FeatureCollection = {
 
 describe('Map2D', () => {
   beforeEach(() => {
-    useAppStore.setState({ showTissot: false, geoJsonData: sampleFc });
+    useAppStore.setState({
+      showTissot: false,
+      showBorders: false,
+      geoJsonData: sampleFc,
+      land50GeoJson: sampleFc,
+      countriesGeoJson: null,
+    });
   });
 
   it('renders an svg with coastline paths once geo data is loaded', async () => {
@@ -37,8 +43,17 @@ describe('Map2D', () => {
     });
   });
 
+  it('renders country border paths when borders are enabled', async () => {
+    useAppStore.setState({ showBorders: true, countriesGeoJson: sampleFc });
+    const { container } = render(<Map2D />);
+    await waitFor(() => {
+      // graticule + 1 land path + 1 border path
+      expect(container.querySelectorAll('path').length).toBeGreaterThan(2);
+    });
+  });
+
   it('renders nothing when geo data is not loaded yet', () => {
-    useAppStore.setState({ geoJsonData: null });
+    useAppStore.setState({ land50GeoJson: null });
     const { container } = render(<Map2D />);
     expect(container.querySelector('svg')).toBeNull();
   });

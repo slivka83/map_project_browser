@@ -43,9 +43,12 @@ scaleFactor: number;   // 0.9...1.1  aux-figure immersion
 falseEasting: number;  // -1000...1000
 falseNorthing: number; // -1000...1000
 showTissot: boolean;
-geoJsonData: FeatureCollection | null;  // loaded from /world-110m.topojson
+showBorders: boolean;                 // 2D country-border layer toggle (default true)
+geoJsonData: FeatureCollection | null;      // land-110m, source for the 3D globe
+land50GeoJson: FeatureCollection | null;    // land-50m, 2D base map
+countriesGeoJson: FeatureCollection | null; // countries-50m, 2D border layer
 ```
-`isEllipsoid` was removed — the model is **spherical** (D3 projections are spherical too; true ellipsoidal support is out of scope for the MVP).
+Map data is bundled locally (no runtime/external API, per spec): `public/world-110m.topojson` (Natural Earth 1:110m land, used by the 3D globe), plus `public/land-50m.json` and `public/countries-50m.json` (1:50m, used by the 2D `Map2D`). `loadGeoData` fetches all three in parallel and stores them separately; a failed fetch for one file does not abort the others. `isEllipsoid` was removed — the model is **spherical** (D3 projections are spherical too; true ellipsoidal support is out of scope for the MVP).
 
 ## Hard rules / conventions (from spec, enforced in code)
 - Strict TypeScript: no `any` in component props; type the TopoJSON `FeatureCollection`.

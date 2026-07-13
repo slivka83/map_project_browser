@@ -74,6 +74,15 @@ function ResetIcon() {
   );
 }
 
+function BorderIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M5 5h14v14H5z" />
+      <path d="M5 12h14M12 5v14" />
+    </svg>
+  );
+}
+
 function Slider({
   label,
   value,
@@ -144,6 +153,8 @@ export default function ControlPanel() {
   const scaleFactor = useAppStore((s) => s.scaleFactor);
   const showTissot = useAppStore((s) => s.showTissot);
   const setShowTissot = useAppStore((s) => s.setShowTissot);
+  const showBorders = useAppStore((s) => s.showBorders);
+  const setShowBorders = useAppStore((s) => s.setShowBorders);
   const setParam = useAppStore((s) => s.setParam);
   const setFamily = useAppStore((s) => s.setFamily);
   const resetParams = useAppStore((s) => s.resetParams);
@@ -195,6 +206,18 @@ export default function ControlPanel() {
             }`}
           >
             <TissotIcon />
+          </button>
+          <button
+            title="Границы стран"
+            aria-label="Границы стран"
+            onClick={() => setShowBorders(!showBorders)}
+            className={`${iconBtn} ${
+              showBorders
+                ? 'border-neon-blue bg-neon-blue/15 text-neon-blue shadow-[0_0_10px_rgba(0,229,255,0.5)]'
+                : 'hover:bg-neon-blue/10 hover:shadow-[0_0_8px_rgba(0,229,255,0.5)]'
+            }`}
+          >
+            <BorderIcon />
           </button>
         </div>
       </div>
