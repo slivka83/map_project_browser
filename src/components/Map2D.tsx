@@ -77,9 +77,9 @@ export default function Map2D() {
   const tissotCircles = useMemo(() => {
     if (!showTissot) return [] as GeoJSON.Polygon[];
     const circles: GeoJSON.Polygon[] = [];
-    const lons = [-172.5, -157.5, -142.5, -127.5, -112.5, -97.5, -82.5, -67.5, -52.5, -37.5, -22.5, -7.5, 7.5, 22.5, 37.5, 52.5, 67.5, 82.5, 97.5, 112.5, 127.5, 142.5, 157.5, 172.5];
+    const lons = [-165, -135, -105, -75, -45, -15, 15, 45, 75, 105, 135, 165];
     for (const lon of lons) {
-      for (let lat = -60; lat <= 60; lat += 15) {
+      for (let lat = -60; lat <= 60; lat += 30) {
         const circle = d3Geo.geoCircle().center([lon, lat]).radius(5)();
         if (circle.type === 'Polygon') circles.push(circle);
       }
