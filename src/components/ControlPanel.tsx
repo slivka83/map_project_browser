@@ -72,8 +72,6 @@ export default function ControlPanel() {
   const lambda0 = useAppStore((s) => s.lambda0);
   const phiOrigin = useAppStore((s) => s.phiOrigin);
   const scaleFactor = useAppStore((s) => s.scaleFactor);
-  const falseEasting = useAppStore((s) => s.falseEasting);
-  const falseNorthing = useAppStore((s) => s.falseNorthing);
   const setParam = useAppStore((s) => s.setParam);
   const setFamily = useAppStore((s) => s.setFamily);
   const resetParams = useAppStore((s) => s.resetParams);
@@ -125,8 +123,6 @@ export default function ControlPanel() {
       <Slider label="Центральный меридиан" value={lambda0} min={-180} max={180} step={1} onChange={(v) => setParam('lambda0', v)} />
       <Slider label="Широта начала отсчета" value={phiOrigin} min={-90} max={90} step={1} onChange={(v) => setParam('phiOrigin', v)} />
       <Slider label="Масштаб" value={scaleFactor} min={0.9} max={1.1} step={0.01} onChange={(v) => setParam('scaleFactor', v)} suffix="" />
-      <Slider label="Восточное смещение (False Easting)" value={falseEasting} min={-1000} max={1000} step={10} suffix="" onChange={(v) => setParam('falseEasting', v)} />
-      <Slider label="Северное смещение (False Northing)" value={falseNorthing} min={-1000} max={1000} step={10} suffix="" onChange={(v) => setParam('falseNorthing', v)} />
 
       {catalogOpen && <EpsgCatalog onClose={() => setCatalogOpen(false)} applyPreset={applyPreset} />}
     </div>

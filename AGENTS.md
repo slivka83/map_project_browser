@@ -64,7 +64,7 @@ Map data is bundled locally (no runtime/external API, per spec): `public/world-1
 
 ## Gotchas an agent will likely miss
 - **Native `<select>` popups ignore CSS `background` on most browsers (they render white).** The app uses a single custom dark dropdown `src/components/Dropdown.tsx` (a `button` + popover, variants `button` / `inline`) — it backs the math-model selector in `ControlPanel.tsx` and the EPSG-filter selects in `EpsgCatalog.tsx`. It is generic over the option value type. Do NOT replace it with a native `<select>` — keep it custom so the dark theme holds.
-- `falseEasting` / `falseNorthing` are exposed as sliders in `ControlPanel` (range −1000…1000, step 10) and are applied by **both** the 3D ray math and the 2D `Map2D` projection, so the two views stay in sync. Don't assume they're ignored.
+- `falseEasting` / `falseNorthing` exist in the store and projection math but have **no sliders in the UI** (only `lambda0`, `phiOrigin`, `scaleFactor` are exposed). Don't assume they're wired to controls.
 - The three family buttons in `ControlPanel` are a single segmented control (overlapping borders via `-ml-px`, `z-10` on the active one) — keep the segmented look when editing.
 - The EPSG modal is a fixed `920px × 80vh` with `table-fixed` + `<colgroup>` so column widths never shift when filtering. Keep fixed widths when editing that table.
 

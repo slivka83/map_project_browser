@@ -70,15 +70,6 @@ describe('ControlPanel', () => {
     expect(useAppStore.getState().phiOrigin).toBe(25);
   });
 
-  it('updates store.falseEasting / falseNorthing when the offset sliders change', () => {
-    render(<ControlPanel />);
-    fireEvent.change(screen.getByRole('slider', { name: 'Восточное смещение (False Easting)' }), { target: { value: '120' } });
-    fireEvent.change(screen.getByRole('slider', { name: 'Северное смещение (False Northing)' }), { target: { value: '-80' } });
-    const s = useAppStore.getState();
-    expect(s.falseEasting).toBe(120);
-    expect(s.falseNorthing).toBe(-80);
-  });
-
   it('applies an EPSG preset from the catalog modal', async () => {
     render(<ControlPanel />);
     fireEvent.click(screen.getByRole('button', { name: 'Библиотека EPSG' }));

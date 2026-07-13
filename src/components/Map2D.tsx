@@ -32,8 +32,6 @@ export default function Map2D() {
   const lambda0 = useAppStore((s) => s.lambda0);
   const phiOrigin = useAppStore((s) => s.phiOrigin);
   const scaleFactor = useAppStore((s) => s.scaleFactor);
-  const falseEasting = useAppStore((s) => s.falseEasting);
-  const falseNorthing = useAppStore((s) => s.falseNorthing);
   const showTissot = useAppStore((s) => s.showTissot);
   const setShowTissot = useAppStore((s) => s.setShowTissot);
   const showBorders = useAppStore((s) => s.showBorders);
@@ -60,14 +58,14 @@ export default function Map2D() {
       lambda0,
       phiOrigin,
       scaleFactor,
-      falseEasting,
-      falseNorthing,
+      falseEasting: 0,
+      falseNorthing: 0,
     });
     // Fit the whole globe into the viewport so the map always fills the
     // available area regardless of the chosen projection (small uniform margin).
     fitProjectionToView(proj, width, height, scaleFactor, FIT_MARGIN);
     return d3Geo.geoPath().projection(proj);
-  }, [family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, width, height]);
+  }, [family, distortion, lambda0, phiOrigin, scaleFactor, width, height]);
 
   const graticulePath = useMemo(() => pathGenerator(d3Geo.geoGraticule10()) ?? '', [pathGenerator]);
 
