@@ -94,19 +94,21 @@ function Slider({
   return (
     <div className="flex items-center gap-[12px]">
       <span className={`${labelClass} w-40 shrink-0`}>{label}</span>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="h-1 flex-1 accent-neon-blue"
-      />
-      <span className="w-12 shrink-0 text-right text-[12px] text-neon-blue">
-        {value}
-        {suffix}
-      </span>
+      <div className="flex flex-1 items-center gap-[4px]">
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="h-1 flex-1 accent-neon-blue"
+        />
+        <span className="w-12 shrink-0 text-right text-[12px] text-neon-blue">
+          {value}
+          {suffix}
+        </span>
+      </div>
     </div>
   );
 }
