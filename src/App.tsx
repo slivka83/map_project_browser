@@ -17,11 +17,11 @@ export default function App() {
         <div className="pb-3">
           <ControlPanel />
         </div>
-        <div className="min-h-0 flex-1 border-t border-white/10 pt-3">
+        <div className="min-h-0 flex-1 border-t border-white/10 divider-neon pt-3">
           <GlobeScene />
         </div>
       </div>
-      <div className="w-2/3 border-l border-white/10 pl-3">
+      <div className="w-2/3 border-l border-white/10 divider-neon pl-3">
         <Map2D />
       </div>
     </div>
