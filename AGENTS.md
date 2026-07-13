@@ -70,7 +70,7 @@ Map data is bundled locally (no runtime/external API, per spec): `public/world-1
 
 ## Design tokens
 - Shared palette in `src/constants/designTokens.ts`: `BG = '#05050A'`; `NEON_BLUE = '#00e5ff'` (globe, coastlines, active text); `NEON_ORANGE = '#ff6a00'` (aux surface wireframe); `NEON_YELLOW = '#ffe600'` (light source + projection rays); `NEON_WHITE = '#ffffff'` (intersection disks). Import these — do not hard-code the hex values in components.
-- Glass panels: `bg-white/5 backdrop-blur-md border-white/10`. Body text `text-gray-300`; active `text-[#00e5ff]`. Aesthetic: dark "spaceship control panel" with high-contrast neon accents.
+- Glass panels: `bg-white/5 backdrop-blur-md border-white/10`. Body text `text-gray-300`; active `text-[#00e5ff]`. Aesthetic: dark "spaceship control panel" with high-contrast neon accents. The three top-level interface regions — `ControlPanel`, `GlobeScene` (left column) and `Map2D` (right) — have **no** glass panel background; they are separated only by thin `border-white/10` divider lines (`border-t` between `ControlPanel` and `GlobeScene`, `border-l` between the left column and `Map2D`). Only inner controls (Dropdown, EPSG modal) keep the glass look.
 
 ## CI
 `.github/workflows/ci.yml` runs `npm ci` → `lint` → `build` → `test` on push/PR (GitHub-hosted Linux, no DrvFS quirks). Tests run with `npm run test` (Vitest, jsdom).

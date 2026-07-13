@@ -12,17 +12,17 @@ export default function App() {
   }, [loadGeoData]);
 
   return (
-    <div className="flex h-full w-full gap-3 p-3">
-      <div className="flex w-1/3 flex-col gap-3">
-        <ControlPanel />
-        <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-white/10 bg-white/5 backdrop-blur-md">
+    <div className="flex h-full w-full p-3">
+      <div className="flex w-1/3 flex-col">
+        <div className="pb-3">
+          <ControlPanel />
+        </div>
+        <div className="min-h-0 flex-1 border-t border-white/10 pt-3">
           <GlobeScene />
         </div>
       </div>
-      <div className="w-2/3">
-        <div className="h-full w-full overflow-hidden rounded-lg border border-white/10">
-          <Map2D />
-        </div>
+      <div className="w-2/3 border-l border-white/10 pl-3">
+        <Map2D />
       </div>
     </div>
   );

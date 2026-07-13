@@ -3,7 +3,7 @@ import { useAppStore, type DistortionModel } from '../store/useAppStore';
 import EpsgCatalog from './EpsgCatalog';
 import Dropdown from './Dropdown';
 import { FamilyIcon, EpsgIcon, ResetIcon } from './ui/icons';
-import { panelClass, labelClass, activeTab, inactiveTab, iconBtn } from './ui/styles';
+import { labelClass, activeTab, inactiveTab, iconBtn } from './ui/styles';
 import { FAMILY_OPTIONS, DISTORTION_OPTIONS } from './ui/labels';
 
 const famBtn =
@@ -78,7 +78,7 @@ export default function ControlPanel() {
   const applyPreset = useAppStore((s) => s.applyPreset);
 
   return (
-    <div className={`flex flex-col gap-3.5 ${panelClass}`}>
+    <div className="flex flex-col gap-3.5">
       <div className="flex items-center gap-1">
         <div className="flex overflow-hidden rounded-md border border-neon-blue/50 bg-panel-bg drop-shadow-[0_0_3px_var(--color-neon-blue-soft)]">
           {FAMILY_OPTIONS.map((f, i) => (
