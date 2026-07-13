@@ -17,8 +17,8 @@ const DISTORTIONS: { value: DistortionModel; label: string }[] = [
 
 const panelClass = 'bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-2.5';
 const labelClass = 'text-[9px] uppercase tracking-wider text-neon-blue/80';
-const activeTab = 'bg-neon-blue/20 border-neon-blue text-neon-blue shadow-[0_0_10px_rgba(0,229,255,0.45)]';
-const inactiveTab = 'border-white/10 text-white/60 hover:text-neon-blue hover:shadow-[0_0_8px_rgba(0,229,255,0.25)]';
+const activeTab = 'z-10 bg-neon-blue/15 text-neon-blue shadow-[0_0_10px_rgba(0,229,255,0.5)]';
+const inactiveTab = 'text-neon-blue/70 hover:text-neon-blue hover:bg-neon-blue/5';
 
 function FamilyIcon({ family }: { family: ProjectionFamily }) {
   if (family === 'cylindrical') {
@@ -112,7 +112,7 @@ function Slider({
 }
 
 const iconBtn =
-  'flex h-9 w-[54px] items-center justify-center rounded border transition';
+  'flex h-9 w-[54px] items-center justify-center rounded border border-neon-blue/50 bg-[#0b0b14] text-neon-blue drop-shadow-[0_0_3px_rgba(0,229,255,0.5)] transition';
 
 const famBtn =
   'relative flex h-9 w-[54px] items-center justify-center transition';
@@ -150,16 +150,16 @@ export default function ControlPanel() {
   return (
     <div className={`flex flex-col gap-2.5 ${panelClass}`}>
       <div className="flex items-center gap-1">
-        <div className="flex overflow-hidden rounded-md border border-white/10">
+        <div className="flex overflow-hidden rounded-md border border-neon-blue/50 bg-[#0b0b14] drop-shadow-[0_0_3px_rgba(0,229,255,0.5)]">
           {FAMILIES.map((f, i) => (
             <button
               key={f.value}
               title={f.label}
               aria-label={f.label}
               onClick={() => setFamily(f.value)}
-              className={`${famBtn} rounded-none border-r border-white/10 last:border-r-0 ${
+              className={`${famBtn} rounded-none border-r border-neon-blue/30 last:border-r-0 ${
                 i > 0 ? '-ml-px' : ''
-              } ${family === f.value ? `${activeTab} z-10` : inactiveTab}`}
+              } ${family === f.value ? activeTab : inactiveTab}`}
             >
               <FamilyIcon family={f.value} />
             </button>
@@ -170,7 +170,7 @@ export default function ControlPanel() {
             title="Библиотека EPSG"
             aria-label="Библиотека EPSG"
             onClick={() => setCatalogOpen(true)}
-            className={`${iconBtn} border-white/10 text-white/60 hover:text-neon-orange hover:shadow-[0_0_8px_rgba(255,106,0,0.4)]`}
+            className={`${iconBtn} hover:bg-neon-blue/10 hover:shadow-[0_0_8px_rgba(0,229,255,0.5)]`}
           >
             <EpsgIcon />
           </button>
@@ -178,7 +178,7 @@ export default function ControlPanel() {
             title="Сбросить параметры"
             aria-label="Сбросить параметры"
             onClick={() => resetParams()}
-            className={`${iconBtn} border-white/10 text-white/60 hover:text-neon-blue hover:shadow-[0_0_8px_rgba(0,229,255,0.4)]`}
+            className={`${iconBtn} hover:bg-neon-blue/10 hover:shadow-[0_0_8px_rgba(0,229,255,0.5)]`}
           >
             <ResetIcon />
           </button>
@@ -188,8 +188,8 @@ export default function ControlPanel() {
             onClick={() => setShowTissot(!showTissot)}
             className={`${iconBtn} ${
               showTissot
-                ? 'border-neon-orange bg-neon-orange/15 text-neon-orange shadow-[0_0_10px_rgba(255,106,0,0.45)]'
-                : 'border-white/10 text-white/60 hover:text-neon-orange hover:shadow-[0_0_8px_rgba(255,106,0,0.4)]'
+                ? 'bg-neon-blue/15 shadow-[0_0_10px_rgba(0,229,255,0.5)]'
+                : 'hover:bg-neon-blue/10 hover:shadow-[0_0_8px_rgba(0,229,255,0.5)]'
             }`}
           >
             <TissotIcon />
