@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   RADIUS,
   RAY_COUNT,
+  AUX_PLANE_GAP_FACTOR,
   lonLatToVec3,
   computeTangentBasis,
   computeAuxSurfaceParams,
@@ -130,13 +131,15 @@ describe('computeCentralMeridianRays', () => {
     for (const [, end] of segs) closeTo(Math.hypot(end[0], end[2]), RADIUS * sf, 1e-6);
   });
 
-  it('azimuthal rays lie on the tangent plane', () => {
+  it('azimuthal rays lie on the offset aux plane (parallel to the tangent plane)', () => {
     const lambda0 = 15;
     const phiOrigin = 25;
     const segs = computeCentralMeridianRays({ ...base, family: 'azimuthal', lambda0, phiOrigin });
     const { center, normal } = computeTangentBasis(lambda0, phiOrigin, RADIUS);
+    const s = (RADIUS + AUX_PLANE_GAP_FACTOR * RADIUS) / RADIUS;
+    const planeCenter: [number, number, number] = [center[0] * s, center[1] * s, center[2] * s];
     for (const [, end] of segs) {
-      const d = [end[0] - center[0], end[1] - center[1], end[2] - center[2]];
+      const d = [end[0] - planeCenter[0], end[1] - planeCenter[1], end[2] - planeCenter[2]];
       const dot = d[0] * normal[0] + d[1] * normal[1] + d[2] * normal[2];
       closeTo(dot, 0, 1e-6);
     }

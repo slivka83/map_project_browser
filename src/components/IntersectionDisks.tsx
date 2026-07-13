@@ -1,20 +1,10 @@
 import { useMemo } from 'react';
-import { Line } from '@react-three/drei';
 import * as THREE from 'three';
 import { NEON_WHITE } from '../constants/designTokens';
-import { computeTangencyRing, type Vec3 } from '../utils/auxSurfaceGeometry';
+import { computeTangencyRing } from '../utils/auxSurfaceGeometry';
 import { quatFromNormal } from '../utils/threeHelpers';
-import { RADIUS, RING_RADIUS, RING_SEGMENTS } from '../constants/geometry';
+import { RADIUS, RING_RADIUS } from '../constants/geometry';
 import type { ProjectionParams } from '../store/useAppStore';
-
-const circleXY = (r: number, segments = RING_SEGMENTS): Vec3[] => {
-  const pts: Vec3[] = [];
-  for (let i = 0; i <= segments; i++) {
-    const t = (i / segments) * Math.PI * 2;
-    pts.push([r * Math.cos(t), r * Math.sin(t), 0]);
-  }
-  return pts;
-};
 
 // White neon disks marking where the auxiliary surface meets the globe. These
 // are the tangency / intersection locations of the developable figure with the
@@ -43,7 +33,10 @@ export default function IntersectionDisks({ params }: { params: ProjectionParams
             toneMapped={false}
           />
         </mesh>
-        <Line points={circleXY(radius)} color={NEON_WHITE} lineWidth={2} depthTest={false} />
+        <mesh>
+          <torusGeometry args={[radius, 0.22, 12, 64]} />
+          <meshBasicMaterial color={NEON_WHITE} toneMapped={false} />
+        </mesh>
       </group>
     );
   }
@@ -67,7 +60,10 @@ export default function IntersectionDisks({ params }: { params: ProjectionParams
             toneMapped={false}
           />
         </mesh>
-        <Line points={circleXY(diskRadius)} color={NEON_WHITE} lineWidth={2} depthTest={false} />
+        <mesh>
+          <torusGeometry args={[diskRadius, 0.22, 12, 96]} />
+          <meshBasicMaterial color={NEON_WHITE} toneMapped={false} />
+        </mesh>
       </group>
     </group>
   );
