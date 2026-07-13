@@ -12,8 +12,8 @@ export default function App() {
   }, [loadGeoData]);
 
   return (
-    <div className="flex h-full w-full p-3">
-      <div className="flex w-1/3 flex-col pr-12">
+    <div className="flex h-full w-full p-12">
+      <div className="flex w-1/3 flex-col pr-3">
         <div className="pb-3">
           <ControlPanel />
         </div>
