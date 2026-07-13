@@ -78,7 +78,7 @@ export default function ControlPanel() {
   const applyPreset = useAppStore((s) => s.applyPreset);
 
   return (
-    <div className="flex flex-col gap-3.5 px-3 pt-3">
+    <div className="flex flex-col gap-3.5 px-3 py-3">
       <div className="flex items-center gap-1">
         <div className="flex overflow-hidden rounded-md border border-neon-blue/50 bg-panel-bg drop-shadow-[0_0_3px_var(--color-neon-blue-soft)]">
           {FAMILY_OPTIONS.map((f, i) => (
@@ -115,7 +115,7 @@ export default function ControlPanel() {
         </div>
       </div>
 
-      <div className="flex items-center gap-[12px]">
+      <div className="flex items-center gap-[12px] mt-3">
         <span className={`${labelClass} w-40 shrink-0`}>Матмодель</span>
         <DistortionSelect value={distortion} onChange={(v) => setParam('distortion', v)} />
       </div>
