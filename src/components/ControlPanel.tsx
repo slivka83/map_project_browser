@@ -93,7 +93,7 @@ function Slider({
 }) {
   return (
     <div className="flex items-center gap-[2px]">
-      <span className={`${labelClass} w-48 shrink-0`}>{label}</span>
+      <span className={`${labelClass} shrink-0`}>{label}</span>
       <input
         type="range"
         min={min}
@@ -198,7 +198,7 @@ export default function ControlPanel() {
       </div>
 
       <div className="flex items-center gap-[2px]">
-        <span className={`${labelClass} w-48 shrink-0`}>Матмодель</span>
+        <span className={`${labelClass} shrink-0`}>Матмодель</span>
         <DistortionSelect value={distortion} onChange={(v) => setParam('distortion', v)} />
       </div>
 
