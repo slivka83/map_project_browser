@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { Line } from '@react-three/drei';
 import { NEON_BLUE, BG } from '../constants/designTokens';
 import { RADIUS, lonLatToVec3, type Vec3 } from '../utils/auxSurfaceGeometry';
+import { GLOBE_INFLATE } from '../constants/geometry';
 import type { FeatureCollection, Geometry } from 'geojson';
 
 function GlobeShell() {
@@ -50,10 +51,10 @@ function Coastlines({ geoJson }: { geoJson: FeatureCollection }) {
     const out: Vec3[][] = [];
     const collect = (geom: Geometry) => {
       if (geom.type === 'Polygon') {
-        for (const ring of geom.coordinates) out.push(ring.map(([lon, lat]) => lonLatToVec3(lon, lat, RADIUS * 1.002)));
+        for (const ring of geom.coordinates) out.push(ring.map(([lon, lat]) => lonLatToVec3(lon, lat, RADIUS * GLOBE_INFLATE)));
       } else if (geom.type === 'MultiPolygon') {
         for (const poly of geom.coordinates) {
-          for (const ring of poly) out.push(ring.map(([lon, lat]) => lonLatToVec3(lon, lat, RADIUS * 1.002)));
+          for (const ring of poly) out.push(ring.map(([lon, lat]) => lonLatToVec3(lon, lat, RADIUS * GLOBE_INFLATE)));
         }
       }
     };

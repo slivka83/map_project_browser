@@ -3,6 +3,7 @@ import type { GeoProjection, GeoConicProjection } from 'd3-geo';
 import type { Polygon } from 'geojson';
 import { geoCylindricalEqualArea } from './d3GeoProjection';
 import type { ProjectionParams } from '../store/useAppStore';
+import { MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y, CLIP_LAT, FIT_MARGIN, standardParallelDeg } from '../constants/geometry';
 
 export const getD3Projection = (state: ProjectionParams): GeoProjection => {
   const { family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing } = state;
@@ -19,8 +20,8 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
     else proj = d3Geo.geoConicEquidistant();
     // No standard parallels in the store: use a single tangent parallel at the
     // central latitude. Near the equator a cone is degenerate, so fall back to
-    // 30° — matching the aux-surface geometry in auxSurfaceGeometry.ts.
-    const parallel = Math.abs(phiOrigin) < 10 ? 30 : Math.abs(phiOrigin);
+    // STD_PARALLEL_FALLBACK — matching the aux-surface geometry in auxSurfaceGeometry.ts.
+    const parallel = standardParallelDeg(phiOrigin);
     proj = (proj as GeoConicProjection).parallels([parallel, parallel]);
   } else {
     if (distortion === 'conformal') proj = d3Geo.geoStereographic();
@@ -31,8 +32,8 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
   // Apply rotation / scale / translate from the full store state (spec §4).
   proj
     .rotate([-lambda0, -phiOrigin])
-    .scale(100 * scaleFactor)
-    .translate([400 + falseEasting, 300 + falseNorthing]);
+    .scale(MAP_SCALE * scaleFactor)
+    .translate([VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing]);
 
   return proj;
 };
@@ -41,7 +42,6 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
 // some projections (e.g. conic conformal, where the pole maps to infinity), so
 // `fitExtent` there collapses to a degenerate scale. Clipping the fit target to
 // a ±CLIP_LAT band keeps the bounds finite and the map filling the viewport.
-const CLIP_LAT = 85;
 function makeFitSphere(): Polygon {
   const top: [number, number][] = [];
   const bot: [number, number][] = [];
@@ -61,7 +61,7 @@ export function fitProjectionToView(
   width: number,
   height: number,
   scaleFactor: number,
-  margin = 16,
+  margin = FIT_MARGIN,
 ): GeoProjection {
   const cx = width / 2;
   const cy = height / 2;

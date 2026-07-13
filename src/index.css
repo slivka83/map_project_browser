@@ -2,8 +2,12 @@
 
 @theme {
   --color-space-bg: #05050a;
+  --color-panel-bg: #0b0b14;
   --color-neon-blue: #00e5ff;
   --color-neon-orange: #ff6a00;
+  --color-neon-blue-soft: rgba(0, 229, 255, 0.5);
+  --color-neon-blue-line: rgba(0, 229, 255, 0.55);
+  --color-neon-orange-soft: rgba(255, 106, 0, 0.4);
 }
 
 html,

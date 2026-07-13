@@ -1,0 +1,23 @@
+import type { ProjectionFamily, DistortionModel } from '../../store/useAppStore';
+
+// Single source for the Russian family / distortion labels, shared by the
+// ControlPanel option lists and the EpsgCatalog table headers.
+export const FAMILY_OPTIONS: { value: ProjectionFamily; label: string }[] = [
+  { value: 'cylindrical', label: 'Цилиндрическая' },
+  { value: 'conic', label: 'Коническая' },
+  { value: 'azimuthal', label: 'Азимутальная' },
+];
+
+export const DISTORTION_OPTIONS: { value: DistortionModel; label: string }[] = [
+  { value: 'conformal', label: 'Равноугольная' },
+  { value: 'equalArea', label: 'Равновеликая' },
+  { value: 'equidistant', label: 'Равнопромежуточная' },
+];
+
+export const FAMILY_LABEL: Record<ProjectionFamily, string> = Object.fromEntries(
+  FAMILY_OPTIONS.map((o) => [o.value, o.label]),
+) as Record<ProjectionFamily, string>;
+
+export const DISTORTION_LABEL: Record<DistortionModel, string> = Object.fromEntries(
+  DISTORTION_OPTIONS.map((o) => [o.value, o.label]),
+) as Record<DistortionModel, string>;

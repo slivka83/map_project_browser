@@ -24,8 +24,6 @@ export interface ProjectionParams {
   falseNorthing: number; // -1000...1000
 }
 
-export type EpsgPreset = ProjectionParams;
-
 export function defaultParamsForFamily(family: ProjectionFamily): ProjectionParams {
   return {
     family,
@@ -56,7 +54,7 @@ interface AppState extends ProjectionParams {
   setFamily: (family: ProjectionFamily) => void;
   resetParams: () => void;
   loadGeoData: () => Promise<void>;
-  applyPreset: (preset: Partial<AppState>) => void;
+  applyPreset: (preset: Partial<ProjectionParams>) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -74,7 +72,7 @@ export const useAppStore = create<AppState>((set) => ({
   setDetailedMap: (value) => set({ detailedMap: value }),
   setFamily: (family) => set({ ...defaultParamsForFamily(family) }),
   resetParams: () => set((s) => ({ ...defaultParamsForFamily(s.family) })),
-  applyPreset: (preset) => set({ ...preset }),
+  applyPreset: (preset: Partial<ProjectionParams>) => set({ ...preset }),
   loadGeoData: async () => {
     const load = async (url: string, object: string): Promise<FeatureCollection | null> => {
       try {

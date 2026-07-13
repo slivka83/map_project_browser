@@ -23,6 +23,8 @@ export default tseslint.config(
         'warn',
         { allowConstantExport: true },
       ],
+      // Enforce the AGENTS.md hard rule: no `any` in component props / source.
+      '@typescript-eslint/no-explicit-any': 'error',
     },
   },
 )

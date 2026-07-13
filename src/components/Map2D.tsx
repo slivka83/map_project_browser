@@ -4,10 +4,10 @@ import * as d3Geo from 'd3-geo';
 import type { FeatureCollection } from 'geojson';
 import { useAppStore } from '../store/useAppStore';
 import { getD3Projection, fitProjectionToView } from '../utils/projectionMapper';
-import { NEON_BLUE, NEON_ORANGE, BG } from '../constants/designTokens';
-import { iconBtn, TissotIcon, BorderIcon, DetailIcon } from './ControlPanel';
-
-const MARGIN = 16;
+import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT } from '../constants/designTokens';
+import { iconBtn } from './ui/styles';
+import { TissotIcon, BorderIcon, DetailIcon } from './ui/icons';
+import { FIT_MARGIN } from '../constants/geometry';
 
 function useElementSize() {
   const ref = useRef<HTMLDivElement>(null);
@@ -32,6 +32,8 @@ export default function Map2D() {
   const lambda0 = useAppStore((s) => s.lambda0);
   const phiOrigin = useAppStore((s) => s.phiOrigin);
   const scaleFactor = useAppStore((s) => s.scaleFactor);
+  const falseEasting = useAppStore((s) => s.falseEasting);
+  const falseNorthing = useAppStore((s) => s.falseNorthing);
   const showTissot = useAppStore((s) => s.showTissot);
   const setShowTissot = useAppStore((s) => s.setShowTissot);
   const showBorders = useAppStore((s) => s.showBorders);
@@ -58,14 +60,14 @@ export default function Map2D() {
       lambda0,
       phiOrigin,
       scaleFactor,
-      falseEasting: 0,
-      falseNorthing: 0,
+      falseEasting,
+      falseNorthing,
     });
     // Fit the whole globe into the viewport so the map always fills the
     // available area regardless of the chosen projection (small uniform margin).
-    fitProjectionToView(proj, width, height, scaleFactor, MARGIN);
+    fitProjectionToView(proj, width, height, scaleFactor, FIT_MARGIN);
     return d3Geo.geoPath().projection(proj);
-  }, [family, distortion, lambda0, phiOrigin, scaleFactor, width, height]);
+  }, [family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, width, height]);
 
   const graticulePath = useMemo(() => pathGenerator(d3Geo.geoGraticule10()) ?? '', [pathGenerator]);
 
@@ -116,7 +118,7 @@ export default function Map2D() {
                 key={`border-${i}`}
                 d={pathGenerator(feature) ?? ''}
                 fill="none"
-                stroke="rgba(0, 229, 255, 0.55)"
+                stroke={NEON_BLUE_LINE}
                 strokeWidth={0.6}
               />
             ))}
@@ -124,7 +126,7 @@ export default function Map2D() {
             <path
               key={`tissot-${i}`}
               d={pathGenerator(circle) ?? ''}
-              fill="rgba(255, 106, 0, 0.4)"
+              fill={NEON_ORANGE_SOFT}
               stroke={NEON_ORANGE}
             />
           ))}
@@ -137,8 +139,8 @@ export default function Map2D() {
           onClick={() => setShowTissot(!showTissot)}
           className={`${iconBtn} ${
             showTissot
-              ? 'border-neon-blue bg-neon-blue/15 text-neon-blue shadow-[0_0_10px_rgba(0,229,255,0.5)]'
-              : 'hover:bg-neon-blue/10 hover:shadow-[0_0_8px_rgba(0,229,255,0.5)]'
+              ? 'border-neon-blue bg-neon-blue/15 text-neon-blue shadow-[0_0_10px_var(--color-neon-blue-soft)]'
+              : 'hover:bg-neon-blue/10 hover:shadow-[0_0_8px_var(--color-neon-blue-soft)]'
           }`}
         >
           <TissotIcon />
@@ -150,8 +152,8 @@ export default function Map2D() {
             onClick={() => setDetailedMap(!detailedMap)}
             className={`${iconBtn} ${
               detailedMap
-                ? 'border-neon-blue bg-neon-blue/15 text-neon-blue shadow-[0_0_10px_rgba(0,229,255,0.5)]'
-                : 'hover:bg-neon-blue/10 hover:shadow-[0_0_8px_rgba(0,229,255,0.5)]'
+                ? 'border-neon-blue bg-neon-blue/15 text-neon-blue shadow-[0_0_10px_var(--color-neon-blue-soft)]'
+                : 'hover:bg-neon-blue/10 hover:shadow-[0_0_8px_var(--color-neon-blue-soft)]'
             }`}
           >
             <DetailIcon />
@@ -163,8 +165,8 @@ export default function Map2D() {
               onClick={() => setShowBorders(!showBorders)}
               className={`${iconBtn} ${
                 showBorders
-                  ? 'border-neon-blue bg-neon-blue/15 text-neon-blue shadow-[0_0_10px_rgba(0,229,255,0.5)]'
-                  : 'hover:bg-neon-blue/10 hover:shadow-[0_0_8px_rgba(0,229,255,0.5)]'
+                  ? 'border-neon-blue bg-neon-blue/15 text-neon-blue shadow-[0_0_10px_var(--color-neon-blue-soft)]'
+                  : 'hover:bg-neon-blue/10 hover:shadow-[0_0_8px_var(--color-neon-blue-soft)]'
               }`}
             >
               <BorderIcon />

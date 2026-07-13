@@ -4,5 +4,4 @@ export type {
   ProjectionFamily,
   DistortionModel,
   ProjectionParams,
-  EpsgPreset,
 } from '../store/useAppStore';

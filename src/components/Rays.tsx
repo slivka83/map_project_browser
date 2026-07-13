@@ -7,37 +7,15 @@ import type { ProjectionParams } from '../store/useAppStore';
 // Projection rays: a fan along the central meridian, globe -> aux surface.
 // Pure geometry (computeCentralMeridianRays) is analytic, so rays render
 // independently of whether the geo dataset has loaded.
-export default function Rays({
-  family,
-  distortion,
-  lambda0,
-  phiOrigin,
-  scaleFactor,
-  falseEasting,
-  falseNorthing,
-}: {
-  family: ProjectionParams['family'];
-  distortion: ProjectionParams['distortion'];
-  lambda0: number;
-  phiOrigin: number;
-  scaleFactor: number;
-  falseEasting: number;
-  falseNorthing: number;
-}) {
+export default function Rays({ params }: { params: ProjectionParams }) {
   const segments = useMemo<[Vec3, Vec3][]>(
     () =>
       computeCentralMeridianRays({
-        family,
-        distortion,
-        lambda0,
-        phiOrigin,
-        scaleFactor,
-        falseEasting,
-        falseNorthing,
+        ...params,
         radius: RADIUS,
         rayCount: RAY_COUNT,
       }),
-    [family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing],
+    [params],
   );
 
   return (

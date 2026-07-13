@@ -1,10 +1,21 @@
 import { getD3Projection } from './projectionMapper';
 import type { ProjectionParams } from '../store/useAppStore';
+import {
+  RADIUS,
+  RAY_COUNT,
+  MAP_SCALE,
+  AUX_LENGTH,
+  CONE_Y_BASE,
+  RING_RADIUS,
+  RING_SEGMENTS,
+  VIEW_CENTER_Y,
+  standardParallelDeg,
+} from '../constants/geometry';
 
 export type Vec3 = [number, number, number];
 
-export const RADIUS = 10;
-export const RAY_COUNT = 20;
+// Re-exported for 3D components that previously imported these from here.
+export { RADIUS, RAY_COUNT } from '../constants/geometry';
 
 export function lonLatToVec3(lon: number, lat: number, radius = RADIUS): Vec3 {
   const lonRad = (lon * Math.PI) / 180;
@@ -31,13 +42,13 @@ function cross(a: Vec3, b: Vec3): Vec3 {
 
 // pixels -> world units. Chosen so the unrolled map width (2π·100·scaleFactor px)
 // wraps exactly around the auxiliary cylinder (circumference 2π·RADIUS·scaleFactor).
-const worldPerPixel = (radius: number) => radius / 100;
+const worldPerPixel = (radius: number) => radius / MAP_SCALE;
 
-// The standard parallel (conic tangent latitude). Magnitude so a southern
-// phiOrigin yields a cone pointing south — consistent across surface/rings/rays.
+// The standard parallel (conic tangent latitude), in radians. Magnitude so a
+// southern phiOrigin yields a cone pointing south — consistent across
+// surface/rings/rays (delegates to the shared standardParallelDeg helper).
 function standardParallelRad(phiOrigin: number): number {
-  const deg = Math.abs(phiOrigin) < 10 ? 30 : Math.abs(phiOrigin);
-  return (deg * Math.PI) / 180;
+  return (standardParallelDeg(phiOrigin) * Math.PI) / 180;
 }
 
 // East / north tangent basis at the sphere point (lambda0, phiOrigin). The
@@ -50,7 +61,7 @@ export function computeTangentBasis(lambda0: number, phiOrigin: number, radius =
   return { center, normal, east, north };
 }
 
-export function circlePoints(radius: number, y: number, segments = 96): Vec3[] {
+export function circlePoints(radius: number, y: number, segments = RING_SEGMENTS): Vec3[] {
   const pts: Vec3[] = [];
   for (let i = 0; i <= segments; i++) {
     const t = (i / segments) * Math.PI * 2;
@@ -75,18 +86,18 @@ export function computeAuxSurfaceParams(
   const lonRad = (lambda0 * Math.PI) / 180;
 
   if (family === 'cylindrical') {
-    return { kind: 'cylinder', radius: radius * scaleFactor, height: 2.6 * radius, rotationY: lonRad };
+    return { kind: 'cylinder', radius: radius * scaleFactor, height: AUX_LENGTH * radius, rotationY: lonRad };
   }
 
   if (family === 'azimuthal') {
     const { center, normal } = computeTangentBasis(lambda0, phiOrigin, radius);
-    return { kind: 'plane', center, normal, size: 2.6 * radius * scaleFactor };
+    return { kind: 'plane', center, normal, size: AUX_LENGTH * radius * scaleFactor };
   }
 
   // conic: cone tangent to the sphere at the standard parallel
   const sp = standardParallelRad(phiOrigin);
   const apex = radius / Math.sin(sp);
-  const yBase = -0.35 * radius;
+  const yBase = -CONE_Y_BASE * radius;
   const height = apex - yBase;
   const coneRadius = scaleFactor * (apex - yBase) * Math.tan(sp);
   const flip: 1 | -1 = phiOrigin < 0 ? -1 : 1;
@@ -113,10 +124,10 @@ export function computeTangencyRing(
 
   if (family === 'azimuthal') {
     const { center, normal } = computeTangentBasis(lambda0, phiOrigin, radius);
-    const r = 0.45 * radius * scaleFactor;
+    const r = RING_RADIUS * radius * scaleFactor;
     const pts: Vec3[] = [];
-    for (let i = 0; i <= 96; i++) {
-      const t = (i / 96) * Math.PI * 2;
+    for (let i = 0; i <= RING_SEGMENTS; i++) {
+      const t = (i / RING_SEGMENTS) * Math.PI * 2;
       pts.push([r * Math.cos(t), r * Math.sin(t), 0]);
     }
     return { kind: 'plane', points: pts, rotateY: 0, center, normal };
@@ -170,7 +181,7 @@ export function computeCentralMeridianRays(params: RayParams): [Vec3, Vec3][] {
     rayCount = RAY_COUNT,
   } = params;
 
-  const cy = 300 + falseNorthing;
+  const cy = VIEW_CENTER_Y + falseNorthing;
   const wpp = worldPerPixel(radius);
   const lonRad = (lambda0 * Math.PI) / 180;
 

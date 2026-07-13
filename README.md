@@ -13,7 +13,7 @@
 - **Tailwind CSS v4** — стилизация (тёмная «космическая» тема)
 - **Zustand** — глобальное состояние
 - **three** + **@react-three/fiber** + **@react-three/drei** — 3D-сцена
-- **d3-geo**, **d3-geo-projection**, **d3-scale**, **topojson-client** — 2D-карта и проекционная математика
+- **d3-geo**, **d3-geo-projection**, **topojson-client** — 2D-карта и проекционная математика
 - **Vitest** + **React Testing Library** + **jsdom** — тесты
 
 Приложение полностью клиентское (SPA), без бэкенда и внешних API.
@@ -57,7 +57,11 @@ npm run dev      # дев-сервер (http://localhost:5173)
 | `src/components/TangencyRings.tsx` | Кольцо касания (стандартная параллель)                         |
 | `src/components/Rays.tsx`    | Веер лучей проекции вдоль центрального меридиана                    |
 | `src/components/EpsgCatalog.tsx` | Модальный каталог EPSG-пресетов (через `createPortal`)          |
-| `src/constants/designTokens.ts` | Общая палитра `NEON_BLUE` / `NEON_ORANGE` / `BG`                |
+| `src/constants/designTokens.ts` | Общая палитра `NEON_BLUE` / `NEON_ORANGE` / `BG` и производные  |
+| `src/constants/geometry.ts`  | Общие числовые константы (`MAP_SCALE`, `VIEW_CENTER_*`, `RADIUS`, `RAY_COUNT`, …) и `standardParallelDeg` |
+| `src/store/selectors.ts`     | `useProjectionParams()` / `useGeoData()` — мемоизированные селекторы стора |
+| `src/utils/threeHelpers.ts`  | `quatFromNormal` — кватернион поворота +Z на нормаль (3D-сцена) |
+| `src/components/ui/`         | Общие иконки (`icons.tsx`), стили (`styles.ts`) и подписи (`labels.ts`) |
 | `src/App.tsx`                | Компоновка из трёх панелей + загрузка геоданных при монтировании   |
 
 ### Математическое ядро
@@ -72,7 +76,7 @@ npm run dev      # дев-сервер (http://localhost:5173)
 | `azimuthal`          | Stereographic             | AzimuthalEqualArea        | AzimuthalEquidistant              |
 
 Вращение использует **отрицательные** знаки: `.rotate([-lambda0, -phiOrigin])`; для
-конических проекций берётся одна касательная параллель `parallels([phiOrigin, phiOrigin])`
+конических проекций берётся одна касательная параллель `parallels([|phiOrigin|, |phiOrigin|])`
 (при `|phiOrigin| < 10` параллель берётся `30°`, т.к. у экватора конус вырожден —
 совпадает с геометрией вспомогательной поверхности). 2D-карта дополнительно
 подгоняется под размер контейнера через `fitProjectionToView`, чтобы глобус всегда
@@ -88,10 +92,14 @@ npm run dev      # дев-сервер (http://localhost:5173)
 ### Дизайн-токены
 
 Экспортируются из `src/constants/designTokens.ts` — не хардкодьте hex в компонентах.
+Цвета продублированы как CSS-переменные в `src/index.css` (`@theme`), чтобы Tailwind
+генерировал утилиты вроде `bg-panel-bg` / `drop-shadow-[…var(--color-neon-blue-soft)]`.
 
 - `BG` — фон приложения: `#05050A`
 - `NEON_BLUE` `#00e5ff` — глобус, берега, текст
 - `NEON_ORANGE` `#ff6a00` — вспомогательная поверхность, лучи, кольца касания
+- `PANEL_BG` `#0b0b14` — фон стеклянных панелей
+- `NEON_BLUE_SOFT` / `NEON_BLUE_LINE` / `NEON_ORANGE_SOFT` — альфа-варианты неона
 - Стеклянные панели: `bg-white/5 backdrop-blur-md border-white/10`
 
 ## Тестирование

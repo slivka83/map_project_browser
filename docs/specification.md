@@ -17,19 +17,25 @@
 
 ```text
 src/
-├── assets/           # world-110m.topojson
-├── components/       # Плоская структура (без Scene3D/UI подпапок):
+├── components/       # Плоская структура (без Scene3D/ подпапок):
 │   ├── ControlPanel.tsx, Dropdown.tsx, EpsgCatalog.tsx  # UI/селекторы/EPSG
 │   ├── Globe.tsx, AuxSurface.tsx, TangencyRings.tsx, Rays.tsx, GlobeScene.tsx  # 3D
-│   └── Map2D.tsx     # SVG с картой
+│   ├── Map2D.tsx     # SVG с картой
+│   └── ui/           # Общие иконки (icons.tsx), стили (styles.ts), подписи (labels.ts)
 ├── store/
-│   └── useAppStore.ts # Единый источник истины
+│   ├── useAppStore.ts  # Единый источник истины
+│   └── selectors.ts    # useProjectionParams() / useGeoData()
 ├── utils/
-│   ├── projectionMapper.ts   # Маппинг параметров в D3 функции
-│   └── auxSurfaceGeometry.ts # Единый источник геометрии поверхности/колец/лучей
-└── constants/        # designTokens.ts, epsgPresets.ts
+│   ├── projectionMapper.ts     # Маппинг параметров в D3 функции
+│   ├── auxSurfaceGeometry.ts   # Единый источник геометрии поверхности/колец/лучей
+│   └── threeHelpers.ts         # quatFromNormal (кватернион поворота)
+├── constants/       # designTokens.ts, geometry.ts, epsgPresets.ts
+└── types/           # index.ts (реэкспорт типов), d3-geo-projection.d.ts (декларация)
 
 ```
+Геоданные лежат в `public/` (не в `src/assets/`): `world-110m.topojson`, `land-50m.json`,
+`countries-50m.json` — все три являются **TopoJSON** (`{type:'Topology'}`).
+
 
 ## 3. Модель данных (Zustand Store)
 
@@ -68,9 +74,10 @@ export const getD3Projection = (state: AppState) => {
   
   // ПРИМЕНЕНИЕ:
   proj = proj
-    .rotate([-state.lambda0, -state.phiOrigin]) // Вращение
-    .scale(100 * state.scaleFactor) // Масштаб
-    .translate([400 + state.falseEasting, 300 + state.falseNorthing]); // Смещение
+    .rotate([-state.lambda0, -state.phiOrigin]) // Вращение (отрицательные знаки)
+    .scale(MAP_SCALE * state.scaleFactor) // Масштаб (MAP_SCALE = 100)
+    .translate([VIEW_CENTER_X + state.falseEasting, VIEW_CENTER_Y + state.falseNorthing]); // Смещение
+    // Константы MAP_SCALE / VIEW_CENTER_X(400) / VIEW_CENTER_Y(300) — в src/constants/geometry.ts
     
   return proj;
 };

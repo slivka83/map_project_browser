@@ -1,30 +1,25 @@
-import * as THREE from 'three';
+import { useMemo } from 'react';
 import { Line } from '@react-three/drei';
 import { NEON_ORANGE } from '../constants/designTokens';
 import { computeTangencyRing } from '../utils/auxSurfaceGeometry';
+import { quatFromNormal } from '../utils/threeHelpers';
 import type { ProjectionParams } from '../store/useAppStore';
 
 // Tangency rings: the standard parallel highlighted on the aux figure.
-export default function TangencyRings({
-  family,
-  lambda0,
-  phiOrigin,
-  scaleFactor,
-}: {
-  family: ProjectionParams['family'];
-  lambda0: number;
-  phiOrigin: number;
-  scaleFactor: number;
-}) {
-  const ring = computeTangencyRing(family, lambda0, phiOrigin, scaleFactor);
+export default function TangencyRings({ params }: { params: ProjectionParams }) {
+  const { family, lambda0, phiOrigin, scaleFactor } = params;
+  const ring = useMemo(
+    () => computeTangencyRing(family, lambda0, phiOrigin, scaleFactor),
+    [family, lambda0, phiOrigin, scaleFactor],
+  );
+  const planeQuat = useMemo(
+    () => (ring.kind === 'plane' && ring.normal ? quatFromNormal(ring.normal) : null),
+    [ring],
+  );
 
-  if (ring.kind === 'plane' && ring.center && ring.normal) {
-    const quat = new THREE.Quaternion().setFromUnitVectors(
-      new THREE.Vector3(0, 0, 1),
-      new THREE.Vector3(...ring.normal),
-    );
+  if (ring.kind === 'plane' && ring.center && planeQuat) {
     return (
-      <group position={ring.center} quaternion={quat}>
+      <group position={ring.center} quaternion={planeQuat}>
         <Line points={ring.points} color={NEON_ORANGE} lineWidth={2} />
       </group>
     );

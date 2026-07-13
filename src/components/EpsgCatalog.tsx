@@ -1,20 +1,9 @@
 import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { EPSG_PRESETS } from '../constants/epsgPresets';
-import type { ProjectionParams, ProjectionFamily, DistortionModel } from '../store/useAppStore';
+import type { ProjectionParams } from '../store/useAppStore';
 import Dropdown from './Dropdown';
-
-const FAMILY_LABEL: Record<ProjectionFamily, string> = {
-  cylindrical: 'Цилиндрическая',
-  conic: 'Коническая',
-  azimuthal: 'Азимутальная',
-};
-
-const DISTORTION_LABEL: Record<DistortionModel, string> = {
-  conformal: 'Равноугольная',
-  equalArea: 'Равновеликая',
-  equidistant: 'Равнопромежуточная',
-};
+import { FAMILY_LABEL, DISTORTION_LABEL } from './ui/labels';
 
 type Col = 'code' | 'type' | 'distortion' | 'name' | 'units';
 type ColKind = 'text' | 'select';
@@ -91,7 +80,7 @@ export default function EpsgCatalog({ onClose, applyPreset }: Props) {
       onClick={onClose}
     >
       <div
-        className="flex h-[80vh] w-[920px] flex-col overflow-hidden rounded-lg border border-white/10 bg-[#0b0b14] p-4 shadow-2xl"
+        className="flex h-[80vh] w-[920px] flex-col overflow-hidden rounded-lg border border-white/10 bg-panel-bg p-4 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
@@ -114,7 +103,7 @@ export default function EpsgCatalog({ onClose, applyPreset }: Props) {
               <col />
               <col className="w-[120px]" />
             </colgroup>
-            <thead className="sticky top-0 z-10 bg-[#0b0b14] text-left text-xs uppercase tracking-wider text-neon-blue/80">
+            <thead className="sticky top-0 z-10 bg-panel-bg text-left text-xs uppercase tracking-wider text-neon-blue/80">
               <tr>
                 {COLS.map((c) => (
                   <th key={c.key} className="whitespace-nowrap px-2 py-2 align-middle">
@@ -129,7 +118,7 @@ export default function EpsgCatalog({ onClose, applyPreset }: Props) {
                             }
                             onBlur={() => setActive(null)}
                             placeholder={c.label}
-                            className="h-full w-full rounded border border-neon-blue/50 bg-[#0b0b14] px-1.5 text-[11px] normal-case text-neon-blue outline-none drop-shadow-[0_0_3px_rgba(0,229,255,0.5)]"
+                            className="h-full w-full rounded border border-neon-blue/50 bg-panel-bg px-1.5 text-[11px] normal-case text-neon-blue outline-none drop-shadow-[0_0_3px_var(--color-neon-blue-soft)]"
                           />
                          ) : (
                             <Dropdown
