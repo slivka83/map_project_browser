@@ -1,52 +1,57 @@
 import { useMemo } from 'react';
-import * as THREE from 'three';
+import { Line } from '@react-three/drei';
 import { NEON_ORANGE } from '../constants/designTokens';
-import { computeAuxSurfaceParams } from '../utils/auxSurfaceGeometry';
+import { computeAuxSurfaceParams, computeAuxGraticule } from '../utils/auxSurfaceGeometry';
 import { quatFromNormal } from '../utils/threeHelpers';
 import type { ProjectionParams } from '../store/useAppStore';
 
-const material = (
-  <meshBasicMaterial color={NEON_ORANGE} transparent opacity={0.08} side={THREE.DoubleSide} depthWrite={false} />
-);
-
-// Auxiliary (developable) surface, sized by scaleFactor (the "immersion").
+// Auxiliary (developable) surface, drawn as a fully transparent neon wireframe
+// of its own meridians and parallels (orange, matching the aux-surface palette).
 // Geometry comes from the single source of truth in auxSurfaceGeometry so it
-// can never drift from the rays or the tangency ring.
+// can never drift from the rays or the intersection disks.
 export default function AuxSurface({ params }: { params: ProjectionParams }) {
   const { family, lambda0, phiOrigin, scaleFactor } = params;
   const surface = useMemo(
     () => computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor),
     [family, lambda0, phiOrigin, scaleFactor],
   );
+  const { meridians, parallels } = useMemo(
+    () => computeAuxGraticule(surface),
+    [surface],
+  );
   const planeQuat = useMemo(
     () => (surface.kind === 'plane' ? quatFromNormal(surface.normal) : null),
     [surface],
   );
 
+  const lines = (
+    <group>
+      {parallels.map((pts, i) => (
+        <Line key={`p${i}`} points={pts} color={NEON_ORANGE} lineWidth={0.8} transparent opacity={0.5} />
+      ))}
+      {meridians.map((pts, i) => (
+        <Line key={`m${i}`} points={pts} color={NEON_ORANGE} lineWidth={0.8} transparent opacity={0.5} />
+      ))}
+    </group>
+  );
+
   if (surface.kind === 'cylinder') {
-    return (
-      <mesh rotation={[0, surface.rotationY, 0]}>
-        <cylinderGeometry args={[surface.radius, surface.radius, surface.height, 64, 1, true]} />
-        {material}
-      </mesh>
-    );
+    return <group rotation={[0, surface.rotationY, 0]}>{lines}</group>;
   }
 
   if (surface.kind === 'plane' && planeQuat) {
     return (
-      <mesh position={surface.center} quaternion={planeQuat}>
-        <planeGeometry args={[surface.size, surface.size]} />
-        {material}
-      </mesh>
+      <group position={surface.center} quaternion={planeQuat}>
+        {lines}
+      </group>
     );
   }
 
   if (surface.kind === 'cone') {
     return (
-      <mesh position={[0, surface.positionY, 0]} scale={[1, surface.flip, 1]}>
-        <coneGeometry args={[surface.radius, surface.height, 64, 1, true]} />
-        {material}
-      </mesh>
+      <group position={[0, surface.positionY, 0]} scale={[1, surface.flip, 1]}>
+        {lines}
+      </group>
     );
   }
 

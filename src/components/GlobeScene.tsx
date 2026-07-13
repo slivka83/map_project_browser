@@ -3,7 +3,8 @@ import { useAppStore } from '../store/useAppStore';
 import { useProjectionParams } from '../store/selectors';
 import Globe from './Globe';
 import AuxSurface from './AuxSurface';
-import TangencyRings from './TangencyRings';
+import IntersectionDisks from './IntersectionDisks';
+import LightSource from './LightSource';
 import Rays from './Rays';
 
 export default function GlobeScene() {
@@ -15,7 +16,8 @@ export default function GlobeScene() {
       <ambientLight intensity={0.8} />
       <Globe geoJson={geoJson} />
       <AuxSurface params={params} />
-      <TangencyRings params={params} />
+      <IntersectionDisks params={params} />
+      <LightSource />
       <Rays params={params} />
     </Canvas>
   );

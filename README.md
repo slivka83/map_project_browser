@@ -51,11 +51,12 @@ npm run dev      # дев-сервер (http://localhost:5173)
 | `src/components/Map2D.tsx`   | Адаптивная SVG-карта: проекция подгоняется под контейнер (`fitProjectionToView`), чтобы глобус всегда заполнял доступную площадь с небольшими отступами; гратула, берега, индикатрисы Тиссо |
 | `src/components/ControlPanel.tsx` | Панель управления: семейство, искажения, слайдеры, пресеты EPSG |
 | `src/components/Dropdown.tsx` | Кастомный тёмный дропдаун (варианты `button` / `inline`)            |
-| `src/components/GlobeScene.tsx` | 3D-сцена, компонует `Globe` / `AuxSurface` / `TangencyRings` / `Rays` |
+| `src/components/GlobeScene.tsx` | 3D-сцена, компонует `Globe` / `AuxSurface` / `IntersectionDisks` / `LightSource` / `Rays` |
 | `src/components/Globe.tsx`   | Прозрачный глобус с неоновыми 3D-линиями берегов и гратулы          |
-| `src/components/AuxSurface.tsx` | Вспомогательная поверхность (цилиндр / конус / плоскость)         |
-| `src/components/TangencyRings.tsx` | Кольцо касания (стандартная параллель)                         |
-| `src/components/Rays.tsx`    | Веер лучей проекции вдоль центрального меридиана                    |
+| `src/components/AuxSurface.tsx` | Вспомогательная поверхность — прозрачный неоновый каркас (цилиндр / конус / плоскость) |
+| `src/components/IntersectionDisks.tsx` | Белые неоновые диски на месте пересечения вспомогательной поверхности с глобусом |
+| `src/components/LightSource.tsx` | Жёлтый светящийся «источник света» в центре глобуса            |
+| `src/components/Rays.tsx`    | Жёлтый веер лучей проекции от центра глобуса к вспомогательной поверхности |
 | `src/components/EpsgCatalog.tsx` | Модальный каталог EPSG-пресетов (через `createPortal`)          |
 | `src/constants/designTokens.ts` | Общая палитра `NEON_BLUE` / `NEON_ORANGE` / `BG` и производные  |
 | `src/constants/geometry.ts`  | Общие числовые константы (`MAP_SCALE`, `VIEW_CENTER_*`, `RADIUS`, `RAY_COUNT`, …) и `standardParallelDeg` |
@@ -97,7 +98,9 @@ npm run dev      # дев-сервер (http://localhost:5173)
 
 - `BG` — фон приложения: `#05050A`
 - `NEON_BLUE` `#00e5ff` — глобус, берега, текст
-- `NEON_ORANGE` `#ff6a00` — вспомогательная поверхность, лучи, кольца касания
+- `NEON_ORANGE` `#ff6a00` — каркас вспомогательной поверхности
+- `NEON_YELLOW` `#ffe600` — источник света и лучи проекции
+- `NEON_WHITE` `#ffffff` — диски пересечения вспомогательной поверхности с глобусом
 - `PANEL_BG` `#0b0b14` — фон стеклянных панелей
 - `NEON_BLUE_SOFT` / `NEON_BLUE_LINE` / `NEON_ORANGE_SOFT` — альфа-варианты неона
 - Стеклянные панели: `bg-white/5 backdrop-blur-md border-white/10`

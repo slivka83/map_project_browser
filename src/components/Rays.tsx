@@ -1,12 +1,14 @@
 import { useMemo } from 'react';
 import { Line } from '@react-three/drei';
-import { NEON_ORANGE } from '../constants/designTokens';
+import { NEON_YELLOW } from '../constants/designTokens';
 import { RADIUS, RAY_COUNT, computeCentralMeridianRays, type Vec3 } from '../utils/auxSurfaceGeometry';
 import type { ProjectionParams } from '../store/useAppStore';
 
-// Projection rays: a fan along the central meridian, globe -> aux surface.
-// Pure geometry (computeCentralMeridianRays) is analytic, so rays render
-// independently of whether the geo dataset has loaded.
+// Projection light beams: a fan along the central meridian from the globe
+// centre (the light source) to the auxiliary surface. Pure geometry
+// (computeCentralMeridianRays) is analytic, so rays render independently of
+// whether the geo dataset has loaded. depthTest is disabled so the portion of
+// each beam inside the globe stays visible through the globe shell.
 export default function Rays({ params }: { params: ProjectionParams }) {
   const segments = useMemo<[Vec3, Vec3][]>(
     () =>
@@ -19,9 +21,17 @@ export default function Rays({ params }: { params: ProjectionParams }) {
   );
 
   return (
-    <group>
+    <group renderOrder={10}>
       {segments.map(([start, end], i) => (
-        <Line key={i} points={[start, end]} color={NEON_ORANGE} lineWidth={1} transparent opacity={0.55} />
+        <Line
+          key={i}
+          points={[start, end]}
+          color={NEON_YELLOW}
+          lineWidth={1.2}
+          transparent
+          opacity={0.85}
+          depthTest={false}
+        />
       ))}
     </group>
   );

@@ -6,6 +6,7 @@ import {
   computeTangentBasis,
   computeAuxSurfaceParams,
   computeTangencyRing,
+  computeAuxGraticule,
   computeCentralMeridianRays,
 } from './auxSurfaceGeometry';
 
@@ -79,11 +80,48 @@ describe('computeTangencyRing', () => {
   });
 });
 
+describe('computeAuxGraticule', () => {
+  it('cylinder graticule lies on the aux cylinder', () => {
+    const p = computeAuxSurfaceParams('cylindrical', 0, 0, 1.05);
+    if (p.kind !== 'cylinder') throw new Error('expected cylinder');
+    const { meridians, parallels } = computeAuxGraticule(p);
+    expect(meridians.length).toBeGreaterThan(0);
+    expect(parallels.length).toBeGreaterThan(0);
+    for (const line of [...meridians, ...parallels]) {
+      for (const [x, , z] of line) closeTo(Math.hypot(x, z), p.radius, 1e-6);
+    }
+  });
+
+  it('cone graticule apex lines meet at the cone tip', () => {
+    const p = computeAuxSurfaceParams('conic', 0, 30, 1);
+    if (p.kind !== 'cone') throw new Error('expected cone');
+    const { meridians } = computeAuxGraticule(p);
+    for (const line of meridians) {
+      closeTo(line[0][0], 0, 1e-6);
+      closeTo(line[0][2], 0, 1e-6);
+      closeTo(line[0][1], p.height / 2, 1e-6);
+    }
+  });
+
+  it('plane graticule spans the plane extents in local XY', () => {
+    const p = computeAuxSurfaceParams('azimuthal', 10, 20, 1);
+    if (p.kind !== 'plane') throw new Error('expected plane');
+    const { meridians, parallels } = computeAuxGraticule(p);
+    const half = p.size / 2;
+    for (const line of [...meridians, ...parallels]) {
+      for (const [x, y] of line) {
+        expect(Math.abs(x)).toBeLessThanOrEqual(half + 1e-6);
+        expect(Math.abs(y)).toBeLessThanOrEqual(half + 1e-6);
+      }
+    }
+  });
+});
+
 describe('computeCentralMeridianRays', () => {
-  it('returns RAY_COUNT segments starting at the south pole', () => {
+  it('returns RAY_COUNT segments starting at the globe centre (light source)', () => {
     const segs = computeCentralMeridianRays(base);
     expect(segs.length).toBe(RAY_COUNT);
-    expect(segs[0][0]).toEqual(lonLatToVec3(0, -90, RADIUS));
+    expect(segs[0][0]).toEqual([0, 0, 0]);
   });
 
   it('cylindrical rays touch the aux cylinder', () => {

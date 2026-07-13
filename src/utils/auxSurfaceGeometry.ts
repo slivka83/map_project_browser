@@ -61,6 +61,75 @@ export function computeTangentBasis(lambda0: number, phiOrigin: number, radius =
   return { center, normal, east, north };
 }
 
+function linspace(n: number, from: number, to: number): number[] {
+  if (n <= 0) return [from];
+  const out: number[] = [];
+  for (let i = 0; i <= n; i++) out.push(from + (i * (to - from)) / n);
+  return out;
+}
+
+// Wireframe (meridians + parallels) of the auxiliary surface, in the surface's
+// local frame. The component applies the same transform as the old solid mesh
+// (rotation for cylinder, position+flip for cone, basis for plane), so the
+// graticule always matches the developable figure it represents.
+export interface AuxGraticule {
+  meridians: Vec3[][];
+  parallels: Vec3[][];
+}
+
+export function computeAuxGraticule(
+  surface: AuxSurfaceParams,
+  meridians = 16,
+  parallelLevels = 7,
+): AuxGraticule {
+  if (surface.kind === 'cylinder') {
+    const { radius, height } = surface;
+    const parallels: Vec3[][] = linspace(parallelLevels, -height / 2, height / 2).map((y) =>
+      circlePoints(radius, y, 64),
+    );
+    const mers: Vec3[][] = [];
+    for (let i = 0; i < meridians; i++) {
+      const a = (i / meridians) * Math.PI * 2;
+      const pts: Vec3[] = linspace(48, -height / 2, height / 2).map((y) => [
+        radius * Math.cos(a),
+        y,
+        radius * Math.sin(a),
+      ]);
+      mers.push(pts);
+    }
+    return { meridians: mers, parallels };
+  }
+
+  if (surface.kind === 'cone') {
+    const { radius, height } = surface;
+    const rho = (y: number) => (radius * (height / 2 - y)) / height;
+    const parallels: Vec3[][] = linspace(parallelLevels, -height / 2, height / 2).map((y) =>
+      circlePoints(rho(y), y, 64),
+    );
+    const mers: Vec3[][] = [];
+    for (let i = 0; i < meridians; i++) {
+      const a = (i / meridians) * Math.PI * 2;
+      mers.push([
+        [0, height / 2, 0],
+        [radius * Math.cos(a), -height / 2, radius * Math.sin(a)],
+      ]);
+    }
+    return { meridians: mers, parallels };
+  }
+
+  // plane: a square grid in the local XY plane
+  const half = surface.size / 2;
+  const parallels: Vec3[][] = linspace(parallelLevels, -half, half).map((y) => [
+    [-half, y, 0],
+    [half, y, 0],
+  ]);
+  const mers: Vec3[][] = linspace(meridians, -half, half).map((x) => [
+    [x, -half, 0],
+    [x, half, 0],
+  ]);
+  return { meridians: mers, parallels };
+}
+
 export function circlePoints(radius: number, y: number, segments = RING_SEGMENTS): Vec3[] {
   const pts: Vec3[] = [];
   for (let i = 0; i <= segments; i++) {
@@ -204,9 +273,12 @@ export function computeCentralMeridianRays(params: RayParams): [Vec3, Vec3][] {
 
   const result: [Vec3, Vec3][] = [];
 
+  // Rays are light beams: they emanate from the globe centre (the light
+  // source) and strike the auxiliary surface, passing through the globe.
+  const start: Vec3 = [0, 0, 0];
+
   for (let i = 0; i < rayCount; i++) {
     const lat = -90 + (i * 180) / (rayCount - 1);
-    const start = lonLatToVec3(lambda0, lat, radius);
 
     let end: Vec3;
 
