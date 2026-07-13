@@ -36,11 +36,14 @@ describe('Map2D', () => {
     expect(container.querySelectorAll('path').length).toBeGreaterThan(0);
   });
 
-  it('renders extra Tissot indicatrix paths when enabled', async () => {
-    useAppStore.setState({ showTissot: true });
+  it('renders many Tissot indicatrix paths when enabled but none when disabled', async () => {
+    useAppStore.setState({ showTissot: false });
     const { container } = render(<Map2D />);
+    const base = container.querySelectorAll('path').length;
+    useAppStore.setState({ showTissot: true });
     await waitFor(() => {
-      expect(container.querySelectorAll('path').length).toBeGreaterThan(1);
+      // a 30° grid of 5°-radius circles adds far more than a handful of paths
+      expect(container.querySelectorAll('path').length).toBeGreaterThan(base + 5);
     });
   });
 
@@ -68,7 +71,8 @@ describe('Map2D', () => {
   });
 
   it('renders the map svg only once geo data is loaded', () => {
-    useAppStore.setState({ land50GeoJson: null, detailedMap: true });
+    // No usable land dataset at all (neither 110m nor 50m) → no svg.
+    useAppStore.setState({ geoJsonData: null, land50GeoJson: null, detailedMap: true });
     const { container } = render(<Map2D />);
     expect(container.querySelector('svg[data-map="true"]')).toBeNull();
   });

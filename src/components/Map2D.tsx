@@ -5,6 +5,7 @@ import type { FeatureCollection } from 'geojson';
 import { useAppStore } from '../store/useAppStore';
 import { useProjectionParams } from '../store/selectors';
 import { getD3Projection, fitProjectionToView, computeAreaDistortion } from '../utils/projectionMapper';
+import { computeTissotCircles } from '../utils/tissot';
 import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT } from '../constants/designTokens';
 import { iconBtnPlain, iconGlow } from './ui/styles';
 import { TissotIcon, BorderIcon, DetailIcon } from './ui/icons';
@@ -42,8 +43,10 @@ export default function Map2D() {
 
   // Detailed 2D map (50m land + 50m country borders) when enabled; otherwise the
   // lightweight 110m land shared with the 3D globe, drawn with 110m borders.
-  const baseLand = detailedMap ? land50GeoJson : geoJsonData;
-  const borders = detailedMap ? countriesGeoJson : countries110GeoJson;
+  // If the detailed 50m land failed to load, fall back to the lightweight 110m
+  // land so enabling "Детализация карты" never blanks the whole map.
+  const baseLand = detailedMap ? (land50GeoJson ?? geoJsonData) : geoJsonData;
+  const borders = detailedMap ? (countriesGeoJson ?? countries110GeoJson) : countries110GeoJson;
 
   const { ref, size } = useElementSize();
   const width = size.width || 800;
@@ -72,18 +75,10 @@ export default function Map2D() {
     [family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing],
   );
 
-  const tissotCircles = useMemo(() => {
-    if (!showTissot) return [] as GeoJSON.Polygon[];
-    const circles: GeoJSON.Polygon[] = [];
-    for (let lat = -60; lat <= 60; lat += 30) {
-      const lonOffset = (lat / 30) % 2 === 0 ? 0 : 15;
-      for (let lon = -150 + lonOffset; lon <= 150; lon += 30) {
-        const circle = d3Geo.geoCircle().center([lon, lat]).radius(5)();
-        if (circle.type === 'Polygon') circles.push(circle);
-      }
-    }
-    return circles;
-  }, [showTissot]);
+  const tissotCircles = useMemo(
+    () => (showTissot ? computeTissotCircles() : []),
+    [showTissot],
+  );
 
   const containerStyle: CSSProperties = {
     position: 'relative',
