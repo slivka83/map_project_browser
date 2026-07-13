@@ -36,4 +36,10 @@ describe('Map2D', () => {
       expect(container.querySelectorAll('path').length).toBeGreaterThan(1);
     });
   });
+
+  it('renders nothing when geo data is not loaded yet', () => {
+    useAppStore.setState({ geoJsonData: null });
+    const { container } = render(<Map2D />);
+    expect(container.querySelector('svg')).toBeNull();
+  });
 });

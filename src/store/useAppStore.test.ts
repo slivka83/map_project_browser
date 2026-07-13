@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useAppStore } from './useAppStore';
+import type { Topology } from 'topojson-specification';
 
 describe('useAppStore', () => {
   beforeEach(() => {
@@ -62,5 +63,41 @@ describe('useAppStore', () => {
     expect(s.falseNorthing).toBe(-50);
     // UI flags preserved
     expect(s.showTissot).toBe(false);
+  });
+
+  it('toggles showTissot via setShowTissot', () => {
+    useAppStore.getState().setShowTissot(true);
+    expect(useAppStore.getState().showTissot).toBe(true);
+    useAppStore.getState().setShowTissot(false);
+    expect(useAppStore.getState().showTissot).toBe(false);
+  });
+
+  it('loadGeoData fetches the topojson and stores a FeatureCollection', async () => {
+    const topology = {
+      type: 'Topology',
+      transform: { scale: [1, 1], translate: [0, 0] },
+      objects: {
+        land: {
+          type: 'GeometryCollection',
+          geometries: [{ type: 'Polygon', arcs: [[0]] }],
+        },
+      },
+      arcs: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+    } as unknown as Topology;
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ json: () => Promise.resolve(topology) }),
+    );
+
+    await useAppStore.getState().loadGeoData();
+    const data = useAppStore.getState().geoJsonData;
+
+    expect(data).not.toBeNull();
+    expect(data?.type).toBe('FeatureCollection');
+    expect(Array.isArray(data?.features)).toBe(true);
+    expect((data?.features.length ?? 0)).toBeGreaterThan(0);
+
+    vi.unstubAllGlobals();
   });
 });

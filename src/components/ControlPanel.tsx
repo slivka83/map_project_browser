@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAppStore, type ProjectionFamily, type DistortionModel } from '../store/useAppStore';
 import EpsgCatalog from './EpsgCatalog';
 
@@ -82,14 +82,8 @@ function Slider({
   suffix?: string;
 }) {
   return (
-    <div>
-      <div className={`${labelClass} flex justify-between`}>
-        <span>{label}</span>
-        <span className="text-neon-blue">
-          {value}
-          {suffix}
-        </span>
-      </div>
+    <div className="flex items-center gap-2">
+      <span className={`${labelClass} w-32 shrink-0`}>{label}</span>
       <input
         type="range"
         min={min}
@@ -97,14 +91,80 @@ function Slider({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full accent-[#00e5ff]"
+        className="h-1 flex-1 accent-[#00e5ff]"
       />
+      <span className="w-10 shrink-0 text-right text-[10px] text-neon-blue">
+        {value}
+        {suffix}
+      </span>
     </div>
   );
 }
 
 const iconBtn =
-  'flex-1 flex h-9 items-center justify-center rounded border transition';
+  'flex h-9 w-[54px] items-center justify-center rounded border transition';
+
+const famBtn =
+  'relative flex h-9 w-[54px] items-center justify-center transition';
+
+function DistortionSelect({
+  value,
+  onChange,
+}: {
+  value: DistortionModel;
+  onChange: (v: DistortionModel) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [open]);
+
+  const current = DISTORTIONS.find((d) => d.value === value) ?? DISTORTIONS[0];
+
+  return (
+    <div ref={ref} className="relative w-full flex-1">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between rounded border border-neon-blue/50 bg-[#0b0b14] px-2 py-1 text-[11px] font-medium text-neon-blue outline-none transition drop-shadow-[0_0_3px_rgba(0,229,255,0.5)] focus:border-neon-blue focus:bg-neon-blue/10"
+      >
+        <span>{current.label}</span>
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-transform ${open ? 'rotate-180' : ''}`}>
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+      {open && (
+        <ul className="absolute z-20 mt-1 w-full overflow-hidden rounded border border-neon-blue/50 bg-[#0b0b14] py-1 shadow-2xl shadow-black/60">
+          {DISTORTIONS.map((d) => (
+            <li key={d.value}>
+              <button
+                type="button"
+                onClick={() => {
+                  onChange(d.value);
+                  setOpen(false);
+                }}
+                className={`block w-full px-2 py-1 text-left text-[11px] transition ${
+                  d.value === value
+                    ? 'bg-neon-blue/20 text-neon-blue'
+                    : 'text-white/80 hover:bg-neon-blue/10 hover:text-neon-blue'
+                }`}
+              >
+                {d.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 export default function ControlPanel() {
   const [catalogOpen, setCatalogOpen] = useState(false);
@@ -120,58 +180,54 @@ export default function ControlPanel() {
 
   return (
     <div className={`flex flex-col gap-2.5 ${panelClass}`}>
-      <div className="flex gap-1">
-        {FAMILIES.map((f) => (
+      <div className="flex items-center gap-1">
+        <div className="flex overflow-hidden rounded-md border border-white/10">
+          {FAMILIES.map((f, i) => (
+            <button
+              key={f.value}
+              title={f.label}
+              aria-label={f.label}
+              onClick={() => setParam('family', f.value)}
+              className={`${famBtn} rounded-none border-r border-white/10 last:border-r-0 ${
+                i > 0 ? '-ml-px' : ''
+              } ${family === f.value ? `${activeTab} z-10` : inactiveTab}`}
+            >
+              <FamilyIcon family={f.value} />
+            </button>
+          ))}
+        </div>
+        <div className="ml-auto flex items-center gap-1">
           <button
-            key={f.value}
-            title={f.label}
-            aria-label={f.label}
-            onClick={() => setParam('family', f.value)}
-            className={`${iconBtn} ${family === f.value ? activeTab : inactiveTab}`}
+            title="Библиотека EPSG"
+            aria-label="Библиотека EPSG"
+            onClick={() => setCatalogOpen(true)}
+            className={`${iconBtn} border-white/10 text-white/60 hover:text-neon-orange`}
           >
-            <FamilyIcon family={f.value} />
+            <EpsgIcon />
           </button>
-        ))}
-        <button
-          title="Библиотека EPSG"
-          aria-label="Библиотека EPSG"
-          onClick={() => setCatalogOpen(true)}
-          className={`${iconBtn} border-neon-orange/50 text-neon-orange hover:bg-neon-orange/10`}
-        >
-          <EpsgIcon />
-        </button>
-        <button
-          title="Индикатрисы Тиссо"
-          aria-label="Индикатрисы Тиссо"
-          onClick={() => setShowTissot(!showTissot)}
-          className={`${iconBtn} ${
-            showTissot
-              ? 'border-neon-orange bg-neon-orange/15 text-neon-orange'
-              : 'border-white/10 text-white/60 hover:text-neon-orange'
-          }`}
-        >
-          <TissotIcon />
-        </button>
+          <button
+            title="Индикатрисы Тиссо"
+            aria-label="Индикатрисы Тиссо"
+            onClick={() => setShowTissot(!showTissot)}
+            className={`${iconBtn} ${
+              showTissot
+                ? 'border-neon-orange bg-neon-orange/15 text-neon-orange'
+                : 'border-white/10 text-white/60 hover:text-neon-orange'
+            }`}
+          >
+            <TissotIcon />
+          </button>
+        </div>
       </div>
 
-      <div>
-        <div className={labelClass}>Математическая модель</div>
-        <select
-          value={distortion}
-          onChange={(e) => setParam('distortion', e.target.value as DistortionModel)}
-          className="mt-0.5 w-full rounded border border-white/10 bg-black/40 px-2 py-0.5 text-[11px] text-white/80"
-        >
-          {DISTORTIONS.map((d) => (
-            <option key={d.value} value={d.value}>
-              {d.label}
-            </option>
-          ))}
-        </select>
+      <div className="flex items-center gap-2">
+        <span className={`${labelClass} w-32 shrink-0`}>Матмодель</span>
+        <DistortionSelect value={distortion} onChange={(v) => setParam('distortion', v)} />
       </div>
 
       <Slider label="Центральный меридиан" value={lambda0} min={-180} max={180} step={1} onChange={(v) => setParam('lambda0', v)} />
       <Slider label="Широта начала отсчета" value={phiOrigin} min={-90} max={90} step={1} onChange={(v) => setParam('phiOrigin', v)} />
-      <Slider label="Масштабный коэффициент" value={scaleFactor} min={0.9} max={1.1} step={0.01} onChange={(v) => setParam('scaleFactor', v)} suffix="" />
+      <Slider label="Масштаб" value={scaleFactor} min={0.9} max={1.1} step={0.01} onChange={(v) => setParam('scaleFactor', v)} suffix="" />
 
       {catalogOpen && <EpsgCatalog onClose={() => setCatalogOpen(false)} applyPreset={applyPreset} />}
     </div>

@@ -53,4 +53,34 @@ describe('getD3Projection (spec §9.2)', () => {
     const ref = d3Geo.geoAzimuthalEqualArea().rotate([0, 0]).scale(100).translate([400, 300]);
     expect(p([0, 0])).toEqual(ref([0, 0]));
   });
+
+  it('returns geoEquirectangular for cylindrical + equidistant', () => {
+    const p = getD3Projection(makeState({ family: 'cylindrical', distortion: 'equidistant' }));
+    const ref = d3Geo.geoEquirectangular().rotate([0, 0]).scale(100).translate([400, 300]);
+    expect(p([0, 0])).toEqual(ref([0, 0]));
+  });
+
+  it('returns conic equal-area using parallels([phiOrigin, phiOrigin])', () => {
+    const p = getD3Projection(makeState({ family: 'conic', distortion: 'equalArea', phiOrigin: 35 }));
+    const ref = d3Geo.geoConicEqualArea().parallels([35, 35]).rotate([0, -35]).scale(100).translate([400, 300]);
+    expect(p([0, 0])).toEqual(ref([0, 0]));
+  });
+
+  it('returns conic equidistant using parallels([phiOrigin, phiOrigin])', () => {
+    const p = getD3Projection(makeState({ family: 'conic', distortion: 'equidistant', phiOrigin: 40 }));
+    const ref = d3Geo.geoConicEquidistant().parallels([40, 40]).rotate([0, -40]).scale(100).translate([400, 300]);
+    expect(p([0, 0])).toEqual(ref([0, 0]));
+  });
+
+  it('returns geoStereographic for azimuthal + conformal', () => {
+    const p = getD3Projection(makeState({ family: 'azimuthal', distortion: 'conformal' }));
+    const ref = d3Geo.geoStereographic().rotate([0, 0]).scale(100).translate([400, 300]);
+    expect(p([0, 0])).toEqual(ref([0, 0]));
+  });
+
+  it('returns geoAzimuthalEquidistant for azimuthal + equidistant', () => {
+    const p = getD3Projection(makeState({ family: 'azimuthal', distortion: 'equidistant' }));
+    const ref = d3Geo.geoAzimuthalEquidistant().rotate([0, 0]).scale(100).translate([400, 300]);
+    expect(p([0, 0])).toEqual(ref([0, 0]));
+  });
 });

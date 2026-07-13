@@ -18,11 +18,11 @@ describe('ControlPanel', () => {
     });
   });
 
-  it('renders family tabs, distortion select and the EPSG button', () => {
+  it('renders family tabs, distortion control and the EPSG button', () => {
     render(<ControlPanel />);
     expect(screen.getByRole('button', { name: 'Цилиндрическая' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Азимутальная' })).toBeTruthy();
-    expect(screen.getByText('Математическая модель')).toBeTruthy();
+    expect(screen.getByText('Матмодель')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Библиотека EPSG' })).toBeTruthy();
   });
 
@@ -41,7 +41,9 @@ describe('ControlPanel', () => {
 
   it('updates store.distortion when a distortion option is selected', () => {
     render(<ControlPanel />);
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'equalArea' } });
+    // custom dark dropdown (DistortionSelect), not a native <select>
+    fireEvent.click(screen.getByRole('button', { name: 'Равноугольная' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Равновеликая' }));
     expect(useAppStore.getState().distortion).toBe('equalArea');
   });
 
