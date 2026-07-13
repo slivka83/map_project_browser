@@ -4,6 +4,9 @@ import ControlPanel from './components/ControlPanel';
 import Map2D from './components/Map2D';
 import GlobeScene from './components/GlobeScene';
 
+const NEON = 'rgba(0, 229, 255, 0.55)';
+const NEON_GLOW = '0 0 6px rgba(0, 229, 255, 0.9), 0 0 12px rgba(0, 229, 255, 0.5)';
+
 export default function App() {
   const loadGeoData = useAppStore((s) => s.loadGeoData);
 
@@ -13,22 +16,22 @@ export default function App() {
 
   return (
     <div className="relative flex h-full w-full p-3">
-      <div className="flex w-1/3 flex-col pr-3">
+      <div className="relative flex w-1/3 flex-col pr-3">
         <div className="pb-3">
           <ControlPanel />
         </div>
-        <div className="h-px border-t border-white/10" style={{ boxShadow: '0 0 8px rgba(0, 229, 255, 0.6)' }} />
+        <div className="h-px" style={{ background: NEON, boxShadow: NEON_GLOW }} />
         <div className="min-h-0 flex-1 pt-3">
           <GlobeScene />
         </div>
+        <div
+          className="pointer-events-none absolute top-0 bottom-0"
+          style={{ left: '100%', width: 1, background: NEON, boxShadow: NEON_GLOW }}
+        />
       </div>
-      <div className="w-2/3 border-l border-white/10 pl-3">
+      <div className="w-2/3 pl-3">
         <Map2D />
       </div>
-      <div
-        className="pointer-events-none absolute top-0 bottom-0"
-        style={{ left: '33.333%', width: 1, borderLeft: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 0 8px rgba(0, 229, 255, 0.6)' }}
-      />
     </div>
   );
 }
