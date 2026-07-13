@@ -4,8 +4,8 @@ import ControlPanel from './components/ControlPanel';
 import Map2D from './components/Map2D';
 import GlobeScene from './components/GlobeScene';
 
-const NEON = 'rgba(0, 229, 255, 0.28)';
-const NEON_GLOW = '0 0 4px rgba(0, 229, 255, 0.45), 0 0 8px rgba(0, 229, 255, 0.25)';
+const NEON = 'rgba(0, 229, 255, 0.16)';
+const NEON_GLOW = '0 0 3px rgba(0, 229, 255, 0.28), 0 0 6px rgba(0, 229, 255, 0.15)';
 
 export default function App() {
   const loadGeoData = useAppStore((s) => s.loadGeoData);
