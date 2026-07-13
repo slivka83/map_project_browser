@@ -53,6 +53,20 @@ describe('Map2D', () => {
     });
   });
 
+  it('renders 110m borders in lightweight mode when enabled', async () => {
+    useAppStore.setState({
+      detailedMap: false,
+      showBorders: true,
+      geoJsonData: sampleFc,
+      countries110GeoJson: sampleFc,
+    });
+    const { container } = render(<Map2D />);
+    await waitFor(() => {
+      // graticule + 1 land path + 1 border path
+      expect(container.querySelectorAll('path').length).toBeGreaterThan(2);
+    });
+  });
+
   it('renders the map svg only once geo data is loaded', () => {
     useAppStore.setState({ land50GeoJson: null, detailedMap: true });
     const { container } = render(<Map2D />);

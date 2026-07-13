@@ -22,6 +22,7 @@ export interface GeoData {
   geoJsonData: FeatureCollection | null;
   land50GeoJson: FeatureCollection | null;
   countriesGeoJson: FeatureCollection | null;
+  countries110GeoJson: FeatureCollection | null;
 }
 
 export const useGeoData = (): GeoData =>
@@ -30,5 +31,6 @@ export const useGeoData = (): GeoData =>
       geoJsonData: s.geoJsonData,
       land50GeoJson: s.land50GeoJson,
       countriesGeoJson: s.countriesGeoJson,
+      countries110GeoJson: s.countries110GeoJson,
     })),
   );

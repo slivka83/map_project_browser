@@ -43,6 +43,8 @@ interface AppState extends ProjectionParams {
   geoJsonData: FeatureCollection | null;
   land50GeoJson: FeatureCollection | null;
   countriesGeoJson: FeatureCollection | null;
+  // 110m country borders, used by the lightweight (non-detailed) 2D map.
+  countries110GeoJson: FeatureCollection | null;
   // When true the 2D map uses the detailed 50m land + country borders; otherwise the
   // lightweight 110m land (shared with the 3D globe) is drawn without borders.
   detailedMap: boolean;
@@ -64,6 +66,7 @@ export const useAppStore = create<AppState>((set) => ({
   geoJsonData: null,
   land50GeoJson: null,
   countriesGeoJson: null,
+  countries110GeoJson: null,
   detailedMap: false,
 
   setParam: (key, value) => set({ [key]: value } as Pick<AppState, typeof key>),
@@ -86,11 +89,17 @@ export const useAppStore = create<AppState>((set) => ({
         return null;
       }
     };
-    const [land110, land50, countries] = await Promise.all([
+    const [land110, land50, countries, countries110] = await Promise.all([
       load('/world-110m.topojson', 'land'),
       load('/land-50m.json', 'land'),
       load('/countries-50m.json', 'countries'),
+      load('/countries-110m.json', 'countries'),
     ]);
-    set({ geoJsonData: land110, land50GeoJson: land50, countriesGeoJson: countries });
+    set({
+      geoJsonData: land110,
+      land50GeoJson: land50,
+      countriesGeoJson: countries,
+      countries110GeoJson: countries110,
+    });
   },
 }));
