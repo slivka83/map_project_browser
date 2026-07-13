@@ -104,17 +104,26 @@ describe('computeAuxGraticule', () => {
     }
   });
 
-  it('plane graticule spans the plane extents in local XY', () => {
+  it('plane graticule is a polar disk grid within the plane radius', () => {
     const p = computeAuxSurfaceParams('azimuthal', 10, 20, 1);
     if (p.kind !== 'plane') throw new Error('expected plane');
     const { meridians, parallels } = computeAuxGraticule(p);
-    const half = p.size / 2;
+    const radius = p.size / 2;
+    // all points lie within the disk radius and in the local XY plane (z=0)
     for (const line of [...meridians, ...parallels]) {
-      for (const [x, y] of line) {
-        expect(Math.abs(x)).toBeLessThanOrEqual(half + 1e-6);
-        expect(Math.abs(y)).toBeLessThanOrEqual(half + 1e-6);
+      for (const [x, y, z] of line) {
+        expect(Math.hypot(x, y)).toBeLessThanOrEqual(radius + 1e-6);
+        closeTo(z, 0, 1e-6);
       }
     }
+    // radial spokes (meridians) start at the disk centre
+    for (const line of meridians) {
+      closeTo(line[0][0], 0, 1e-6);
+      closeTo(line[0][1], 0, 1e-6);
+    }
+    // the outermost parallel is a full circle of the disk radius
+    const outer = parallels[parallels.length - 1];
+    for (const [x, y] of outer) closeTo(Math.hypot(x, y), radius, 1e-6);
   });
 });
 

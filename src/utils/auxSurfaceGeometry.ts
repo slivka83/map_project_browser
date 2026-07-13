@@ -118,16 +118,27 @@ export function computeAuxGraticule(
     return { meridians: mers, parallels };
   }
 
-  // plane: a square grid in the local XY plane
-  const half = surface.size / 2;
-  const parallels: Vec3[][] = linspace(parallelLevels, -half, half).map((y) => [
-    [-half, y, 0],
-    [half, y, 0],
-  ]);
-  const mers: Vec3[][] = linspace(meridians, -half, half).map((x) => [
-    [x, -half, 0],
-    [x, half, 0],
-  ]);
+  // plane: a polar (disk) grid in the local XY plane — the azimuthal
+  // projection maps onto a disk, so concentric circles + radial spokes.
+  const radius = surface.size / 2;
+  const parallels: Vec3[][] = [];
+  for (let k = 1; k <= parallelLevels; k++) {
+    const r = (radius * k) / parallelLevels;
+    const ring: Vec3[] = [];
+    for (let i = 0; i <= 64; i++) {
+      const t = (i / 64) * Math.PI * 2;
+      ring.push([r * Math.cos(t), r * Math.sin(t), 0]);
+    }
+    parallels.push(ring);
+  }
+  const mers: Vec3[][] = [];
+  for (let i = 0; i < meridians; i++) {
+    const a = (i / meridians) * Math.PI * 2;
+    mers.push([
+      [0, 0, 0],
+      [radius * Math.cos(a), radius * Math.sin(a), 0],
+    ]);
+  }
   return { meridians: mers, parallels };
 }
 
