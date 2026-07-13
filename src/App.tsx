@@ -13,7 +13,7 @@ export default function App() {
 
   return (
     <div className="flex h-full w-full p-3">
-      <div className="flex w-1/3 flex-col">
+      <div className="flex w-1/3 flex-col pr-3">
         <div className="pb-3">
           <ControlPanel />
         </div>
