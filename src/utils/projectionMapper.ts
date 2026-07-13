@@ -1,5 +1,6 @@
 import * as d3Geo from 'd3-geo';
 import type { GeoProjection, GeoConicProjection } from 'd3-geo';
+import type { Polygon } from 'geojson';
 import { geoCylindricalEqualArea } from './d3GeoProjection';
 import type { ProjectionParams } from '../store/useAppStore';
 
@@ -36,7 +37,21 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
   return proj;
 };
 
-// Fit a configured projection so the whole globe fills the viewport `width`×
+// Fit object used to size the 2D map. A full {type:'Sphere'} is infinite for
+// some projections (e.g. conic conformal, where the pole maps to infinity), so
+// `fitExtent` there collapses to a degenerate scale. Clipping the fit target to
+// a ±CLIP_LAT band keeps the bounds finite and the map filling the viewport.
+const CLIP_LAT = 85;
+function makeFitSphere(): Polygon {
+  const top: [number, number][] = [];
+  const bot: [number, number][] = [];
+  for (let lon = -180; lon <= 180; lon += 10) top.push([lon, CLIP_LAT]);
+  for (let lon = 180; lon >= -180; lon -= 10) bot.push([lon, -CLIP_LAT]);
+  return { type: 'Polygon', coordinates: [[...top, ...bot, [-180, CLIP_LAT]]] };
+}
+export const FIT_SPHERE: Polygon = makeFitSphere();
+
+// Fit a configured projection so the globe fills the viewport `width`×
 // `height` with a uniform `margin`. `scaleFactor` acts as a zoom (1 = fill,
 // >1 zoom in, <1 zoom out), kept centred by shrinking/growing the fit box
 // around the viewport centre. The 3D scene keeps the fixed `scale(100)` from
@@ -59,7 +74,7 @@ export function fitProjectionToView(
       [bx0, by0],
       [bx1, by1],
     ],
-    { type: 'Sphere' },
+    FIT_SPHERE,
   );
   return proj;
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as d3Geo from 'd3-geo';
-import { getD3Projection, fitProjectionToView } from './projectionMapper';
+import { getD3Projection, fitProjectionToView, FIT_SPHERE } from './projectionMapper';
 import { geoCylindricalEqualArea } from './d3GeoProjection';
 import type { ProjectionParams, ProjectionFamily, DistortionModel } from '../store/useAppStore';
 
@@ -92,7 +92,7 @@ describe('fitProjectionToView (map always fills the viewport)', () => {
   const families: ProjectionFamily[] = ['cylindrical', 'conic', 'azimuthal'];
   const distortions: DistortionModel[] = ['conformal', 'equalArea', 'equidistant'];
 
-  const sphereBounds = (p: d3Geo.GeoProjection) => d3Geo.geoPath(p).bounds({ type: 'Sphere' });
+  const fitBounds = (p: d3Geo.GeoProjection) => d3Geo.geoPath(p).bounds(FIT_SPHERE);
 
   for (const family of families) {
     for (const distortion of distortions) {
@@ -104,7 +104,7 @@ describe('fitProjectionToView (map always fills the viewport)', () => {
           1,
           M,
         );
-        const b = sphereBounds(p);
+        const b = fitBounds(p);
         expect(b[0][0]).toBeGreaterThanOrEqual(M - 1);
         expect(b[0][1]).toBeGreaterThanOrEqual(M - 1);
         expect(b[1][0]).toBeLessThanOrEqual(W - M + 1);
@@ -113,7 +113,7 @@ describe('fitProjectionToView (map always fills the viewport)', () => {
     }
   }
 
-  it('keeps conic projections non-degenerate near the equator (phiOrigin = 0)', () => {
+  it('keeps conic conformal non-degenerate near the equator (phiOrigin = 0)', () => {
     const p = fitProjectionToView(
       getD3Projection(makeState({ family: 'conic', distortion: 'conformal', phiOrigin: 0 })),
       W,
@@ -121,19 +121,19 @@ describe('fitProjectionToView (map always fills the viewport)', () => {
       1,
       M,
     );
-    // a degenerate conic would collapse to near-zero scale; assert a usable fill
-    const b = sphereBounds(p);
-    const w = b[1][0] - b[0][0];
-    const h = b[1][1] - b[0][1];
-    expect(w).toBeGreaterThan(W * 0.3);
-    expect(h).toBeGreaterThan(H * 0.3);
+    // a degenerate fit would collapse to a near-zero scale; assert a usable scale
+    expect(p.scale()).toBeGreaterThan(10);
+    // latitudes must spread vertically (not collapse to a line)
+    const xy = (lon: number, lat: number): [number, number] => p([lon, lat]) as [number, number];
+    const spread = Math.abs(xy(0, 60)[1] - xy(0, -60)[1]);
+    expect(spread).toBeGreaterThan(H * 0.2);
   });
 
   it('zooms in (overflows the margin) when scaleFactor > 1 and out when < 1', () => {
     const zoomed = fitProjectionToView(getD3Projection(makeState()), W, H, 1.1, M);
     const normal = fitProjectionToView(getD3Projection(makeState()), W, H, 1, M);
-    const wZoom = sphereBounds(zoomed)[1][0] - sphereBounds(zoomed)[0][0];
-    const wNorm = sphereBounds(normal)[1][0] - sphereBounds(normal)[0][0];
+    const wZoom = fitBounds(zoomed)[1][0] - fitBounds(zoomed)[0][0];
+    const wNorm = fitBounds(normal)[1][0] - fitBounds(normal)[0][0];
     expect(wZoom).toBeGreaterThan(wNorm);
   });
 });
