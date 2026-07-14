@@ -94,6 +94,15 @@ describe('Map2D', () => {
     expect(getByTestId('area-distortion-label').textContent).toMatch(/^Искажение площади: \d+%$/);
   });
 
+  it('renders the Stepik course link in the bottom-left corner', () => {
+    const { getByTestId } = render(<Map2D />);
+    const link = getByTestId('stepik-link') as HTMLAnchorElement;
+    expect(link.getAttribute('href')).toBe('https://stepik.org/a/258792');
+    expect(link.textContent).toContain('Геопространственный анализ данных на Python');
+    expect(link.getAttribute('target')).toBe('_blank');
+    expect(link.getAttribute('rel')).toContain('noopener');
+  });
+
   it('shows all five overlay buttons in a row, always visible', () => {
     const { getByRole, container } = render(<Map2D />);
     const tissot = getByRole('button', { name: 'Индикатрисы Тиссо' });

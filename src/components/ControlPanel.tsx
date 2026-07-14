@@ -1,13 +1,13 @@
 import { useState } from 'react';
-import { useAppStore, type DistortionModel, type AzimuthalLight, type CylindricalLight, type ProjectionFamily, type ProjectionParams } from '../store/useAppStore';
+import { useAppStore, type DistortionModel, type AzimuthalLight, type CylindricalLight, type ProjectionFamily } from '../store/useAppStore';
 import { useProjectionParams } from '../store/selectors';
 import EpsgCatalog from './EpsgCatalog';
+import ProjectionSummary from './ProjectionSummary';
 import Dropdown from './Dropdown';
 import { FamilyIcon, EpsgIcon, ResetIcon, InfoIcon } from './ui/icons';
-import { labelClass, activeTab, inactiveTab, iconBtn, panelClass } from './ui/styles';
-import { FAMILY_OPTIONS, DISTORTION_OPTIONS, FAMILY_LABEL, DISTORTION_LABEL, AZIMUTHAL_LIGHT_OPTIONS, CYLINDRICAL_LIGHT_OPTIONS } from './ui/labels';
+import { labelClass, activeTab, inactiveTab, iconBtn } from './ui/styles';
+import { FAMILY_OPTIONS, DISTORTION_OPTIONS, AZIMUTHAL_LIGHT_OPTIONS, CYLINDRICAL_LIGHT_OPTIONS } from './ui/labels';
 import { signedStandardParallelDeg } from '../constants/geometry';
-import Hint from './ui/Hint';
 
 const famBtn =
   'relative flex h-9 w-[54px] items-center justify-center transition';
@@ -50,7 +50,6 @@ function Slider({
   step,
   onChange,
   suffix = '°',
-  hint,
 }: {
   label: string;
   value: number;
@@ -59,14 +58,10 @@ function Slider({
   step: number;
   onChange: (v: number) => void;
   suffix?: string;
-  hint?: string;
 }) {
   return (
     <div className="flex items-center gap-[12px]">
-      <span className={`${labelClass} w-40 shrink-0`}>
-        {label}
-        {hint && <Hint text={hint} />}
-      </span>
+      <span className={`${labelClass} w-40 shrink-0`}>{label}</span>
       <div className="flex flex-1 items-center gap-[4px]">
         <input
           type="range"
@@ -92,20 +87,15 @@ function LightSelect<T extends string>({
   value,
   options,
   onChange,
-  hint,
 }: {
   label: string;
   value: T;
   options: { value: T; label: string }[];
   onChange: (v: T) => void;
-  hint?: string;
 }) {
   return (
     <div className="flex items-center gap-[12px]">
-      <span className={`${labelClass} w-40 shrink-0`}>
-        {label}
-        {hint && <Hint text={hint} />}
-      </span>
+      <span className={`${labelClass} w-40 shrink-0`}>{label}</span>
       <Dropdown<T> value={value} options={options} onChange={onChange} />
     </div>
   );
@@ -170,36 +160,6 @@ function StdParallel2Control({
   );
 }
 
-const latLabel = (deg: number): string => {
-  if (deg === 0) return '0°';
-  return `${Math.abs(deg)}° ${deg > 0 ? 'с.ш.' : 'ю.ш.'}`;
-};
-
-function describeProjection(p: ProjectionParams): string {
-  const fam = FAMILY_LABEL[p.family];
-  const dist = DISTORTION_LABEL[p.distortion];
-  if (p.family === 'azimuthal') {
-    const az: Record<AzimuthalLight, string> = {
-      center: 'Гномоническая',
-      antipode: 'Стереографическая',
-      infinity: 'Ортографическая',
-      math: dist,
-    };
-    return `${az[p.azLight]} (азимутальная)`;
-  }
-  const secant = p.family === 'conic' ? p.stdParallel2 != null : p.scaleFactor !== 1;
-  return `${secant ? 'Секущая' : 'Касательная'} ${fam} ${dist}`;
-}
-
-function SummaryRow({ k, v }: { k: string; v: string }) {
-  return (
-    <div className="flex justify-between gap-3">
-      <span className="text-gray-400">{k}</span>
-      <span className="text-neon-blue">{v}</span>
-    </div>
-  );
-}
-
 export default function ControlPanel() {
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
@@ -240,11 +200,8 @@ export default function ControlPanel() {
           <button
             title="Точные параметры проекции"
             aria-label="Точные параметры проекции"
-            aria-pressed={showSummary}
-            onClick={() => setShowSummary((s) => !s)}
-            className={`${iconBtn} hover:bg-neon-blue/10 hover:shadow-[0_0_8px_var(--color-neon-blue-soft)] ${
-              showSummary ? 'bg-neon-blue/15 text-neon-blue shadow-[0_0_10px_var(--color-neon-blue-soft)]' : ''
-            }`}
+            onClick={() => setShowSummary(true)}
+            className={`${iconBtn} hover:bg-neon-blue/10 hover:shadow-[0_0_8px_var(--color-neon-blue-soft)]`}
           >
             <InfoIcon />
           </button>
@@ -262,30 +219,22 @@ export default function ControlPanel() {
       <div className="mt-1 text-[11px] uppercase tracking-wider text-neon-blue/90">{FAMILY_SECTION[family]}</div>
 
       <div className="flex items-center gap-[12px]">
-        <span className={`${labelClass} w-40 shrink-0`}>
-          Матмодель
-          <Hint text="Тип сохраняемого свойства: равноугольность (углы и формы), равновеликость (площади) или равнопромежуточность (расстояния)." />
-        </span>
+        <span className={`${labelClass} w-40 shrink-0`}>Матмодель</span>
         <DistortionSelect value={distortion} onChange={(v) => setParam('distortion', v)} />
       </div>
 
-      <Slider label={PARAM_LABELS[family].lambda0} value={lambda0} min={-180} max={180} step={1} onChange={(v) => setParam('lambda0', v)} hint="Поворот вспомогательной поверхности вокруг Земли — задаёт долготу, с которой «разворачивается» карта." />
-      <Slider label={PARAM_LABELS[family].phiOrigin} value={phiOrigin} min={-90} max={90} step={1} onChange={(v) => setParam('phiOrigin', v)} hint="Точка касания (азимутальная), параллель касания (коническая) или смещение цилиндра по оси Y — стандартная параллель (цилиндрическая)." />
-      <Slider label={PARAM_LABELS[family].gamma} value={gamma} min={-180} max={180} step={1} onChange={(v) => setParam('gamma', v)} hint="Наклон вспомогательной поверхности — создаёт косые и трансверсальные проекции." />
-      <Slider
-        label={PARAM_LABELS[family].scaleFactor}
-        value={scaleFactor}
-        min={family === 'cylindrical' ? 0.5 : 0.9}
-        max={family === 'cylindrical' ? 1.0 : 1.1}
-        step={0.01}
-        onChange={(v) => setParam('scaleFactor', v)}
-        suffix=""
-        hint={
-          family === 'cylindrical'
-            ? 'Диаметр цилиндра как доля диаметра Земли: 1.0 — цилиндр касается Земли, 0.5 — половина диаметра (погружён).'
-            : 'Диаметр / погружение вспомогательной фигуры. Чем больше, тем крупнее карта и сильнее искажения.'
-        }
-      />
+      <Slider label={PARAM_LABELS[family].lambda0} value={lambda0} min={-180} max={180} step={1} onChange={(v) => setParam('lambda0', v)} />
+      <Slider label={PARAM_LABELS[family].phiOrigin} value={phiOrigin} min={-90} max={90} step={1} onChange={(v) => setParam('phiOrigin', v)} />
+      <Slider label={PARAM_LABELS[family].gamma} value={gamma} min={-180} max={180} step={1} onChange={(v) => setParam('gamma', v)} />
+        <Slider
+          label={PARAM_LABELS[family].scaleFactor}
+          value={scaleFactor}
+          min={family === 'cylindrical' ? 0.5 : 0.9}
+          max={family === 'cylindrical' ? 1.0 : 1.1}
+          step={0.01}
+          onChange={(v) => setParam('scaleFactor', v)}
+          suffix=""
+        />
 
       {family === 'conic' && (
         <StdParallel2Control value={stdParallel2} phiOrigin={phiOrigin} onChange={(v) => setParam('stdParallel2', v)} />
@@ -296,7 +245,6 @@ export default function ControlPanel() {
           value={azLight}
           options={AZIMUTHAL_LIGHT_OPTIONS}
           onChange={(v) => setParam('azLight', v)}
-          hint="Положение «лампочки»: из центра → гномоническая, из антипода → стереографическая, из бесконечности → ортографическая."
         />
       )}
       {family === 'cylindrical' && (
@@ -305,27 +253,11 @@ export default function ControlPanel() {
           value={cylLight}
           options={CYLINDRICAL_LIGHT_OPTIONS}
           onChange={(v) => setParam('cylLight', v)}
-          hint="Ось линейного источника: С–Ю → нормальная, через экватор → трансверсальная, наклон → косая."
         />
       )}
 
-      {showSummary && (
-        <div className={`${panelClass} flex flex-col gap-1 text-[12px]`}>
-          <div className="mb-1 text-[11px] uppercase tracking-wider text-neon-blue">Точные параметры проекции</div>
-          <SummaryRow k="Центральный меридиан (λ₀)" v={`${lambda0}°`} />
-          <SummaryRow k="Широта начала отсчёта (φ₀)" v={latLabel(phiOrigin)} />
-          <SummaryRow k="Стандартная параллель 1 (φ₁)" v={latLabel(signedStandardParallelDeg(phiOrigin))} />
-          <SummaryRow
-            k="Стандартная параллель 2 (φ₂)"
-            v={family === 'conic' && stdParallel2 != null ? latLabel(stdParallel2) : '—'}
-          />
-          <SummaryRow k="Масштабный коэффициент" v={scaleFactor.toFixed(2)} />
-          <SummaryRow k="Наклон (γ)" v={`${gamma}°`} />
-          <SummaryRow k="Класс проекции" v={describeProjection(params)} />
-        </div>
-      )}
-
       {catalogOpen && <EpsgCatalog onClose={() => setCatalogOpen(false)} applyPreset={applyPreset} />}
+      {showSummary && <ProjectionSummary params={params} onClose={() => setShowSummary(false)} />}
     </div>
   );
 }

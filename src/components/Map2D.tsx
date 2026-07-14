@@ -235,6 +235,15 @@ export default function Map2D() {
         Искажение площади:{' '}
         <span className="text-[#ffe600]">{formatDistortion(areaDistortion)}</span>%
       </div>
+      <a
+        href="https://stepik.org/a/258792"
+        target="_blank"
+        rel="noopener noreferrer"
+        data-testid="stepik-link"
+        className="absolute left-2 bottom-2 z-10 rounded border border-neon-blue/30 bg-white/5 px-2 py-1 text-[11px] text-neon-blue backdrop-blur-md transition hover:bg-neon-blue/10 hover:text-neon-blue"
+      >
+        Геопространственный анализ данных на Python
+      </a>
     </div>
   );
 }
