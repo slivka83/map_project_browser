@@ -81,3 +81,13 @@ export function InfoIcon() {
     </svg>
   );
 }
+
+export function IntersectionIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3.4 8.6c3 1.2 14 1.2 17 0" />
+      <path d="M3.4 15.4c3 -1.2 14 -1.2 17 0" />
+    </svg>
+  );
+}

@@ -564,6 +564,22 @@ export function computeAuxSphereIntersections(
   return circles;
 }
 
+// Convenience wrapper for the 2D map: returns the aux-surface↔globe intersection
+// loops as [lon, lat] (degrees) rings, ready to be fed to the D3 path generator.
+// The returned points lie on the sphere (magnitude = radius), so projecting them
+// with the same projection used by Map2D reproduces the white rings drawn in 3D.
+export function computeAuxSphereIntersectionsLonLat(
+  family: ProjectionParams['family'],
+  lambda0: number,
+  phiOrigin: number,
+  scaleFactor: number,
+  radius = RADIUS,
+  stdParallel2: number | null = null,
+): [number, number][][] {
+  const rings = computeAuxSphereIntersections(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2);
+  return rings.map((ring) => ring.map((p) => vec3ToLonLat(p)));
+}
+
 // axial height of latitude `latRad` on the developable cone (tangent at sp)
 
 // A single projection ray: from the light `start`, through the point `globe`

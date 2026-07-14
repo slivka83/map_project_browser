@@ -58,6 +58,9 @@ export function defaultParamsForFamily(family: ProjectionFamily): ProjectionPara
 interface AppState extends ProjectionParams {
   showTissot: boolean;
   showBorders: boolean;
+  // White lines marking where the auxiliary (developable) surface intersects
+  // the globe, drawn on the 2D map (the 3D scene always draws them).
+  showIntersection: boolean;
   // 3D globe keeps the lightweight 110m land; 2D map uses the detailed 50m datasets.
   geoJsonData: FeatureCollection | null;
   land50GeoJson: FeatureCollection | null;
@@ -76,6 +79,7 @@ interface AppState extends ProjectionParams {
   setParam: <K extends keyof ProjectionParams>(key: K, value: ProjectionParams[K]) => void;
   setShowTissot: (value: boolean) => void;
   setShowBorders: (value: boolean) => void;
+  setShowIntersection: (value: boolean) => void;
   setDetailedMap: (value: boolean) => void;
   setFamily: (family: ProjectionFamily) => void;
   resetParams: () => void;
@@ -87,6 +91,7 @@ export const useAppStore = create<AppState>((set) => ({
   ...defaultParamsForFamily('cylindrical'),
   showTissot: false,
   showBorders: false,
+  showIntersection: true,
   geoJsonData: null,
   land50GeoJson: null,
   countriesGeoJson: null,
@@ -98,6 +103,7 @@ export const useAppStore = create<AppState>((set) => ({
   setParam: (key, value) => set({ [key]: value } as Pick<AppState, typeof key>),
   setShowTissot: (value) => set({ showTissot: value }),
   setShowBorders: (value) => set({ showBorders: value }),
+  setShowIntersection: (value) => set({ showIntersection: value }),
   setDetailedMap: (value) => set({ detailedMap: value }),
   setFamily: (family) => set({ ...defaultParamsForFamily(family) }),
   resetParams: () => set((s) => ({ ...defaultParamsForFamily(s.family) })),

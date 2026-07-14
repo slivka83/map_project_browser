@@ -6,9 +6,10 @@ import { useAppStore } from '../store/useAppStore';
 import { useProjectionParams } from '../store/selectors';
 import { getD3Projection, fitProjectionToView, computeAreaDistortion } from '../utils/projectionMapper';
 import { computeTissotCircles } from '../utils/tissot';
-import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT, NEON_YELLOW } from '../constants/designTokens';
+import { computeAuxSphereIntersectionsLonLat } from '../utils/auxSurfaceGeometry';
+import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT, NEON_YELLOW, NEON_WHITE } from '../constants/designTokens';
 import { iconBtnPlain, iconGlow } from './ui/styles';
-import { TissotIcon, BorderIcon, DetailIcon } from './ui/icons';
+import { TissotIcon, BorderIcon, DetailIcon, IntersectionIcon } from './ui/icons';
 import { FIT_MARGIN } from '../constants/geometry';
 
 function useElementSize() {
@@ -30,11 +31,13 @@ function useElementSize() {
 
 export default function Map2D() {
   const params = useProjectionParams();
-  const { scaleFactor } = params;
+  const { scaleFactor, family, lambda0, phiOrigin, stdParallel2 } = params;
   const showTissot = useAppStore((s) => s.showTissot);
   const setShowTissot = useAppStore((s) => s.setShowTissot);
   const showBorders = useAppStore((s) => s.showBorders);
   const setShowBorders = useAppStore((s) => s.setShowBorders);
+  const showIntersection = useAppStore((s) => s.showIntersection);
+  const setShowIntersection = useAppStore((s) => s.setShowIntersection);
   const detailedMap = useAppStore((s) => s.detailedMap);
   const setDetailedMap = useAppStore((s) => s.setDetailedMap);
   const land50GeoJson = useAppStore((s) => s.land50GeoJson);
@@ -70,6 +73,18 @@ export default function Map2D() {
   const tissotCircles = useMemo(
     () => (showTissot ? computeTissotCircles() : []),
     [showTissot],
+  );
+
+  // White lines where the auxiliary (developable) surface meets the globe —
+  // the same rings the 3D scene draws, projected onto the 2D map. Each ring is
+  // a [lon, lat] loop fed to the shared path generator (auto-clipped to the
+  // antimeridian and the fitted ±85° sphere).
+  const intersectionRings = useMemo(
+    () =>
+      showIntersection
+        ? computeAuxSphereIntersectionsLonLat(family, lambda0, phiOrigin, scaleFactor, undefined, stdParallel2)
+        : [],
+    [showIntersection, family, lambda0, phiOrigin, scaleFactor, stdParallel2],
   );
 
   const containerStyle: CSSProperties = {
@@ -140,6 +155,16 @@ export default function Map2D() {
               stroke={NEON_ORANGE}
             />
           ))}
+          {intersectionRings.map((ring, i) => (
+            <path
+              key={`intersection-${i}`}
+              d={pathGenerator({ type: 'LineString', coordinates: ring }) ?? ''}
+              fill="none"
+              stroke={NEON_WHITE}
+              strokeWidth={1.3}
+              opacity={0.9}
+            />
+          ))}
           {hoverPoint && (
             <circle cx={hoverPoint[0]} cy={hoverPoint[1]} r={5} fill="none" stroke={NEON_YELLOW} strokeWidth={1.5} />
           )}
@@ -172,6 +197,15 @@ export default function Map2D() {
           style={{ color: showBorders ? '#00e5ff' : undefined, filter: iconGlow(showBorders) }}
         >
           <BorderIcon />
+        </button>
+        <button
+          title="Линии пересечения поверхности с глобусом"
+          aria-label="Линии пересечения поверхности с глобусом"
+          onClick={() => setShowIntersection(!showIntersection)}
+          className={iconBtnPlain}
+          style={{ color: showIntersection ? NEON_WHITE : undefined, filter: iconGlow(showIntersection) }}
+        >
+          <IntersectionIcon />
         </button>
       </div>
       <div

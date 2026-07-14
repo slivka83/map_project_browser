@@ -91,16 +91,18 @@ describe('Map2D', () => {
     expect(getByTestId('area-distortion-label').textContent).toMatch(/^Искажение площади: \d+%$/);
   });
 
-  it('shows all three overlay buttons in a row, always visible', () => {
+  it('shows all four overlay buttons in a row, always visible', () => {
     const { getByRole, container } = render(<Map2D />);
     const tissot = getByRole('button', { name: 'Индикатрисы Тиссо' });
     const detail = getByRole('button', { name: 'Детализация карты' });
     const borders = getByRole('button', { name: 'Границы стран' });
+    const intersection = getByRole('button', { name: 'Линии пересечения поверхности с глобусом' });
     expect(tissot).toBeTruthy();
     expect(detail).toBeTruthy();
     expect(borders).toBeTruthy();
-    // Three buttons total, rendered as a single horizontal row.
-    expect(container.querySelectorAll('button').length).toBe(3);
+    expect(intersection).toBeTruthy();
+    // Four buttons total, rendered as a single horizontal row.
+    expect(container.querySelectorAll('button').length).toBe(4);
     expect(useAppStore.getState().detailedMap).toBe(false);
     expect(useAppStore.getState().showBorders).toBe(false);
 
@@ -109,5 +111,8 @@ describe('Map2D', () => {
 
     fireEvent.click(borders);
     expect(useAppStore.getState().showBorders).toBe(true);
+
+    fireEvent.click(intersection);
+    expect(useAppStore.getState().showIntersection).toBe(false);
   });
 });

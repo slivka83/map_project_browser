@@ -9,6 +9,7 @@ import {
   computeTangencyRing,
   computeAuxGraticule,
   computeAuxSphereIntersections,
+  computeAuxSphereIntersectionsLonLat,
   computeCentralMeridianRays,
   projectToAuxWorld,
   computeConicRayEnd,
@@ -523,6 +524,35 @@ describe('computeAuxSphereIntersections', () => {
     for (const [x, y, z] of ring) {
       expect(Math.hypot(x - v[0], y - v[1], z - v[2])).toBeLessThanOrEqual(maxChord + 1e-6);
     }
+  });
+});
+
+describe('computeAuxSphereIntersectionsLonLat', () => {
+  it('returns the same number of rings as the 3D helper, with [lon, lat] pairs', () => {
+    const rings = computeAuxSphereIntersectionsLonLat('cylindrical', 0, 0, 0.9);
+    expect(rings.length).toBe(2);
+    for (const ring of rings) {
+      expect(ring.length).toBeGreaterThan(2);
+      for (const [lon, lat] of ring) {
+        expect(lon).toBeGreaterThanOrEqual(-180);
+        expect(lon).toBeLessThanOrEqual(180);
+        expect(lat).toBeGreaterThanOrEqual(-90);
+        expect(lat).toBeLessThanOrEqual(90);
+      }
+    }
+  });
+
+  it('cylinder tangent yields a single latitude ring at the equator', () => {
+    const rings = computeAuxSphereIntersectionsLonLat('cylindrical', 0, 0, 1);
+    expect(rings.length).toBe(1);
+    for (const [, lat] of rings[0]) closeTo(lat, 0, 1e-6);
+  });
+
+  it('a cylindrical ring at scaleFactor 0.5 sits at latitude ±60°', () => {
+    const rings = computeAuxSphereIntersectionsLonLat('cylindrical', 0, 0, 0.5);
+    expect(rings.length).toBe(2);
+    const lats = rings.flat().map(([, lat]) => Math.abs(lat));
+    for (const lat of lats) closeTo(lat, 60, 1e-6);
   });
 });
 

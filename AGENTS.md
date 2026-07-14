@@ -52,6 +52,7 @@ azLight: 'center' | 'antipode' | 'infinity' | 'math';   // azimuthal light-sourc
 cylLight: 'ns' | 'transverse' | 'oblique' | 'math';     // cylindrical rod-source mode
 showTissot: boolean;
 showBorders: boolean;                 // 2D country-border layer toggle (default false)
+showIntersection: boolean;            // 2D white lines where the aux surface meets the globe (default true; the 3D scene always draws them)
 geoJsonData: FeatureCollection | null;      // land-110m, source for the 3D globe
 land50GeoJson: FeatureCollection | null;    // land-50m, 2D base map
 countriesGeoJson: FeatureCollection | null; // countries-50m, 2D border layer (detailed mode)
