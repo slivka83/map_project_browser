@@ -116,6 +116,15 @@ describe('getD3Projection — light source & visual params (spec концепт)
     expect(rot[2]).toBeCloseTo(-40);
   });
 
+  it('cylindrical cylLight rotates the central meridian (transverse +90, oblique +45)', () => {
+    const transverse = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', lambda0: 15, cylLight: 'transverse' }));
+    expect(transverse.rotate()[0]).toBeCloseTo(-(15 + 90));
+    const oblique = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', lambda0: 15, cylLight: 'oblique' }));
+    expect(oblique.rotate()[0]).toBeCloseTo(-(15 + 45));
+    const ns = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', lambda0: 15, cylLight: 'ns' }));
+    expect(ns.rotate()[0]).toBeCloseTo(-15);
+  });
+
   it('azimuthal gnomonic honours lambda0/phiOrigin/gamma in its rotation', () => {
     const p = getD3Projection(makeState({ family: 'azimuthal', azLight: 'center', lambda0: 20, phiOrigin: 10, gamma: 30 }));
     const rot = p.rotate();
