@@ -23,7 +23,7 @@ export const FIT_MARGIN = 16;
 export const RADIUS = 10;
 
 // Number of rays in the central-meridian fan.
-export const RAY_COUNT = 20;
+export const RAY_COUNT = 10;
 
 // Auxiliary-surface sizing, expressed relative to RADIUS.
 export const AUX_LENGTH = 2.6; // cylinder height / plane size factor
