@@ -343,6 +343,10 @@ export function computeCentralMeridianRays(params: RayParams): [Vec3, Vec3][] {
     scaleFactor,
     falseEasting,
     falseNorthing,
+    gamma,
+    stdParallel2,
+    azLight,
+    cylLight,
     radius = RADIUS,
     rayCount = RAY_COUNT,
   } = params;
@@ -359,6 +363,10 @@ export function computeCentralMeridianRays(params: RayParams): [Vec3, Vec3][] {
     scaleFactor,
     falseEasting,
     falseNorthing,
+    gamma,
+    stdParallel2,
+    azLight,
+    cylLight,
   });
 
   const cone = computeCone(phiOrigin, radius, scaleFactor);

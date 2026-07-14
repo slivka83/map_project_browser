@@ -13,6 +13,10 @@ const base: Omit<ProjectionParams, 'family' | 'distortion' | 'phiOrigin'> = {
   scaleFactor: 1,
   falseEasting: 0,
   falseNorthing: 0,
+  gamma: 0,
+  stdParallel2: null,
+  azLight: 'math',
+  cylLight: 'math',
 };
 
 const p = (

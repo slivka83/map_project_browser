@@ -15,6 +15,10 @@ export const useProjectionParams = (): ProjectionParams =>
       scaleFactor: s.scaleFactor,
       falseEasting: s.falseEasting,
       falseNorthing: s.falseNorthing,
+      gamma: s.gamma,
+      stdParallel2: s.stdParallel2,
+      azLight: s.azLight,
+      cylLight: s.cylLight,
     })),
   );
 
