@@ -3,7 +3,7 @@ import type { GeoProjection, GeoConicProjection } from 'd3-geo';
 import type { Polygon } from 'geojson';
 import { geoCylindricalEqualArea } from './d3GeoProjection';
 import type { ProjectionParams } from '../store/useAppStore';
-import { MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y, CLIP_LAT, FIT_MARGIN, standardParallelDeg } from '../constants/geometry';
+import { MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y, CLIP_LAT, FIT_MARGIN, signedStandardParallelDeg } from '../constants/geometry';
 
 export const getD3Projection = (state: ProjectionParams): GeoProjection => {
   const { family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, azLight } = state;
@@ -20,9 +20,10 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
     else proj = d3Geo.geoConicEquidistant();
     // Secant cone: two standard parallels φ1 (the central-latitude tangent
     // parallel) and φ2 (the store's stdParallel2, when set). A tangent cone has
-    // φ1 = φ2. The equatorial fallback keeps the cone non-degenerate, matching
-    // the aux-surface geometry in auxSurfaceGeometry.ts.
-    const phi1 = standardParallelDeg(phiOrigin);
+    // φ1 = φ2. The signed parallel keeps phiOrigin's hemisphere, so a southern
+    // phiOrigin yields a southern standard parallel matching the 3D aux cone;
+    // the equatorial fallback keeps the cone non-degenerate.
+    const phi1 = signedStandardParallelDeg(phiOrigin);
     const phi2 = state.stdParallel2 != null ? state.stdParallel2 : phi1;
     proj = (proj as GeoConicProjection).parallels([phi1, phi2]);
   } else {

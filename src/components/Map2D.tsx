@@ -29,7 +29,8 @@ function useElementSize() {
 }
 
 export default function Map2D() {
-  const { family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing } = useProjectionParams();
+  const params = useProjectionParams();
+  const { scaleFactor } = params;
   const showTissot = useAppStore((s) => s.showTissot);
   const setShowTissot = useAppStore((s) => s.setShowTissot);
   const showBorders = useAppStore((s) => s.showBorders);
@@ -53,27 +54,16 @@ export default function Map2D() {
   const height = size.height || 600;
 
   const pathGenerator = useMemo(() => {
-    const proj = getD3Projection({
-      family,
-      distortion,
-      lambda0,
-      phiOrigin,
-      scaleFactor,
-      falseEasting,
-      falseNorthing,
-    });
+    const proj = getD3Projection(params);
     // Fit the whole globe into the viewport so the map always fills the
     // available area regardless of the chosen projection (small uniform margin).
     fitProjectionToView(proj, width, height, scaleFactor, FIT_MARGIN);
     return d3Geo.geoPath().projection(proj);
-  }, [family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, width, height]);
+  }, [params, scaleFactor, width, height]);
 
   const graticulePath = useMemo(() => pathGenerator(d3Geo.geoGraticule10()) ?? '', [pathGenerator]);
 
-  const areaDistortion = useMemo(
-    () => computeAreaDistortion({ family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing }),
-    [family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing],
-  );
+  const areaDistortion = useMemo(() => computeAreaDistortion(params), [params]);
 
   const tissotCircles = useMemo(
     () => (showTissot ? computeTissotCircles() : []),

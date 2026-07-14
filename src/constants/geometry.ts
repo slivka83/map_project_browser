@@ -44,5 +44,17 @@ export const RING_SEGMENTS = 96;
 export const STD_PARALLEL_MIN_ABS = 10;
 export const STD_PARALLEL_FALLBACK = 30;
 
+// The (unsigned) standard-parallel latitude magnitude used by the 3D cone
+// geometry. Keep this as a magnitude — the cone's hemisphere comes from the
+// *sign* of phiOrigin, applied separately.
 export const standardParallelDeg = (phiOrigin: number): number =>
   Math.abs(phiOrigin) < STD_PARALLEL_MIN_ABS ? STD_PARALLEL_FALLBACK : Math.abs(phiOrigin);
+
+// The signed standard-parallel latitude for the 2D conic projection: same
+// magnitude as `standardParallelDeg` but keeps phiOrigin's sign, so a southern
+// phiOrigin yields a southern standard parallel that matches the 3D aux cone.
+export const signedStandardParallelDeg = (phiOrigin: number): number => {
+  const mag = Math.abs(phiOrigin);
+  const base = mag < STD_PARALLEL_MIN_ABS ? STD_PARALLEL_FALLBACK : mag;
+  return phiOrigin < 0 ? -base : base;
+};

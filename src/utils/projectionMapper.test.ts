@@ -135,6 +135,18 @@ describe('getD3Projection — light source & visual params (spec концепт)
     const ref = d3Geo.geoConicEqualArea().parallels([35, 35]).rotate([0, -35]).scale(100).translate([400, 300]);
     expect(p([0, 0])).toEqual(ref([0, 0]));
   });
+
+  it('keeps the sign of phiOrigin for a southern conic tangent parallel', () => {
+    const p = getD3Projection(makeState({ family: 'conic', distortion: 'conformal', phiOrigin: -45 }));
+    const ref = d3Geo.geoConicConformal().parallels([-45, -45]).rotate([0, 45]).scale(100).translate([400, 300]);
+    expect(p([0, 0])).toEqual(ref([0, 0]));
+  });
+
+  it('southern secant conic uses the signed phi1 and the supplied phi2', () => {
+    const p = getD3Projection(makeState({ family: 'conic', distortion: 'conformal', phiOrigin: -45, stdParallel2: -60 }));
+    const ref = d3Geo.geoConicConformal().parallels([-45, -60]).rotate([0, 45]).scale(100).translate([400, 300]);
+    expect(p([0, 0])).toEqual(ref([0, 0]));
+  });
 });
 
 describe('computeAreaDistortion', () => {

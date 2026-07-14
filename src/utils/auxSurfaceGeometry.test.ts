@@ -10,6 +10,7 @@ import {
   computeCentralMeridianRays,
   computeCone,
   coneAxialHeight,
+  applyEuler,
 } from './auxSurfaceGeometry';
 
 const closeTo = (a: number, b: number, eps = 1e-6) =>
@@ -263,10 +264,20 @@ describe('secant cone (stdParallel2)', () => {
 });
 
 describe('gamma tilt (oblique / transverse)', () => {
-  it('preserves the cylindrical ray radial distance under tilt', () => {
+  it('keeps cylindrical rays on the tilted cylinder (distance from the tilted axis = r)', () => {
     const sf = 1.02;
-    const segs = computeCentralMeridianRays({ ...base, family: 'cylindrical', scaleFactor: sf, gamma: 45 });
-    for (const [, end] of segs) closeTo(Math.hypot(end[0], end[2]), RADIUS * sf, 1e-6);
+    const g = 45;
+    const segs = computeCentralMeridianRays({ ...base, family: 'cylindrical', scaleFactor: sf, gamma: g, lambda0: 0 });
+    // cylinder axis = the world Y axis taken through the same Euler (gamma about X, lambda0 about Y)
+    const axisDir = applyEuler([0, 1, 0], (g * Math.PI) / 180, 0);
+    for (const [, end] of segs) {
+      const cross = [
+        end[1] * axisDir[2] - end[2] * axisDir[1],
+        end[2] * axisDir[0] - end[0] * axisDir[2],
+        end[0] * axisDir[1] - end[1] * axisDir[0],
+      ];
+      closeTo(Math.hypot(...cross), RADIUS * sf, 1e-6);
+    }
   });
 
   it('gamma = 0 reproduces the untilted geometry (sanity)', () => {

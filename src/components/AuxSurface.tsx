@@ -37,17 +37,18 @@ export default function AuxSurface({ params }: { params: ProjectionParams }) {
   );
 
   if (surface.kind === 'cylinder') {
-    return <group rotation={[surface.tilt, surface.rotationY, 0]}>{lines}</group>;
+    return <group rotation={[(surface.tilt * Math.PI) / 180, surface.rotationY, 0]}>{lines}</group>;
   }
 
   if (surface.kind === 'plane' && planeQuat) {
     // Rotate the grid points directly by the tangent-basis quaternion so the
     // plane is oriented in 3D regardless of how the group `quaternion` prop is
-    // handled. The `tilt` (gamma) rotates the map about the plane normal. Then
-    // translate to the (offset) tangent point.
+    // handled. The `tilt` (gamma, in degrees) rotates the map about the plane
+    // normal — convert to radians for Three.js. Then translate to the tangent point.
+    const tiltRad = (surface.tilt * Math.PI) / 180;
     const rot = (pts: Vec3[]): Vec3[] =>
       pts.map(([x, y, z]) => {
-        const t: Vec3 = surface.tilt ? rotateAroundAxis([x, y, z], surface.normal, surface.tilt) : [x, y, z];
+        const t: Vec3 = tiltRad ? rotateAroundAxis([x, y, z], surface.normal, tiltRad) : [x, y, z];
         const v = new THREE.Vector3(t[0], t[1], t[2]).applyQuaternion(planeQuat);
         return [v.x, v.y, v.z];
       });
@@ -65,7 +66,7 @@ export default function AuxSurface({ params }: { params: ProjectionParams }) {
 
   if (surface.kind === 'cone') {
     return (
-      <group position={[0, surface.positionY, 0]} rotation={[surface.tilt, surface.rotationY, 0]} scale={[1, surface.flip, 1]}>
+      <group position={[0, surface.positionY, 0]} rotation={[(surface.tilt * Math.PI) / 180, 0, 0]} scale={[1, surface.flip, 1]}>
         {lines}
       </group>
     );

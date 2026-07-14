@@ -57,12 +57,13 @@ function rotateAroundX(v: Vec3, a: number): Vec3 {
 }
 
 // Replicate Three.js Euler 'XYZ' order (R = Rx * Ry, Rz = 0): apply Ry then Rx.
-function applyEuler(v: Vec3, rotX: number, rotY: number): Vec3 {
+// `rotX`/`rotY` are in radians.
+export function applyEuler(v: Vec3, rotX: number, rotY: number): Vec3 {
   return rotateAroundX(rotateAroundY(v, rotY), rotX);
 }
 
 // Rotate `v` about an arbitrary unit `axis` by `a` radians (Rodrigues).
-function rotateAroundAxis(v: Vec3, axis: Vec3, a: number): Vec3 {
+export function rotateAroundAxis(v: Vec3, axis: Vec3, a: number): Vec3 {
   const [x, y, z] = axis;
   const c = Math.cos(a);
   const s = Math.sin(a);
@@ -271,10 +272,11 @@ export function computeAuxSurfaceParams(
     return { kind: 'plane', center, normal, size: AUX_LENGTH * radius * scaleFactor, tilt: gamma };
   }
 
-  // conic: cone tangent (or secant) to the sphere at the standard parallel(s)
-  const phi1 = standardParallelDeg(phiOrigin);
-  const phi2 = stdParallel2 != null ? stdParallel2 : phi1;
-  const cone = computeCone(phi1, phi2, radius, scaleFactor);
+  // conic: cone tangent (or secant) to the sphere at the standard parallel(s).
+  // `phiOrigin` keeps its sign so the cone sits in the correct hemisphere; the
+  // parallel magnitude uses the equatorial fallback on |phiOrigin| internally.
+  const phi2 = stdParallel2 != null ? stdParallel2 : phiOrigin;
+  const cone = computeCone(phiOrigin, phi2, radius, scaleFactor);
   return {
     kind: 'cone',
     radius: cone.baseRadius,
@@ -375,10 +377,10 @@ export function computeAuxSphereIntersections(
     return [circlePoints(r, y, RING_SEGMENTS), circlePoints(r, -y, RING_SEGMENTS)];
   }
 
-  // conic: cone–sphere intersection — quadratic in the axial height y
-  const phi1 = standardParallelDeg(phiOrigin);
-  const phi2 = stdParallel2 != null ? stdParallel2 : phi1;
-  const cone = computeCone(phi1, phi2, radius, scaleFactor);
+  // conic: cone–sphere intersection — quadratic in the axial height y.
+  // `phiOrigin` keeps its sign so the cone sits in the correct hemisphere.
+  const phi2 = stdParallel2 != null ? stdParallel2 : phiOrigin;
+  const cone = computeCone(phiOrigin, phi2, radius, scaleFactor);
   const t = cone.tanA;
   const a = cone.sign * cone.apex; // apex height (signed)
   const A = scaleFactor * scaleFactor * t * t + 1;
@@ -427,6 +429,7 @@ export function computeCentralMeridianRays(params: RayParams): [Vec3, Vec3][] {
 
   const cy = VIEW_CENTER_Y + falseNorthing;
   const wpp = worldPerPixel(radius);
+  const gammaRad = (gamma * Math.PI) / 180;
   const lonRad = (lambda0 * Math.PI) / 180;
 
   const proj = getD3Projection({
@@ -446,7 +449,7 @@ export function computeCentralMeridianRays(params: RayParams): [Vec3, Vec3][] {
   const phi1 = standardParallelDeg(phiOrigin);
   const phi2 = stdParallel2 != null ? stdParallel2 : phi1;
   const cone = computeCone(phi1, phi2, radius, scaleFactor);
-  const { center, east, north } = computeTangentBasis(lambda0, phiOrigin, radius);
+  const { center, east, north, normal } = computeTangentBasis(lambda0, phiOrigin, radius);
   const u = east;
   const w = north;
 
@@ -471,7 +474,7 @@ export function computeCentralMeridianRays(params: RayParams): [Vec3, Vec3][] {
       const dy = p ? p[1] - cy : 0;
       const r = radius * scaleFactor;
       // local frame (central meridian along +X), then tilt + longitude rotation
-      end = applyEuler([r, -dy * wpp, 0], gamma, lonRad);
+      end = applyEuler([r, -dy * wpp, 0], gammaRad, lonRad);
       start = [0, 0, 0];
     } else if (family === 'azimuthal') {
       const c = proj([lambda0, phiOrigin]);
@@ -484,13 +487,13 @@ export function computeCentralMeridianRays(params: RayParams): [Vec3, Vec3][] {
         u[2] * dx * wpp - w[2] * dy * wpp,
       ];
       // rotate the map about the plane normal by gamma (oblique azimuthal)
-      end = rotateAroundAxis(local, north, gamma);
+      end = rotateAroundAxis(local, north, gammaRad);
       end = [center[0] + end[0], center[1] + end[1], center[2] + end[2]];
       if (azLight === 'antipode') {
         start = [-center[0], -center[1], -center[2]];
       } else if (azLight === 'infinity') {
-        // light at infinity → parallel beams arriving along +normal (orthographic)
-        start = [end[0] + north[0] * PARALLEL_LEN, end[1] + north[1] * PARALLEL_LEN, end[2] + north[2] * PARALLEL_LEN];
+        // light at infinity → parallel beams arriving along the radial normal (orthographic)
+        start = [end[0] + normal[0] * PARALLEL_LEN, end[1] + normal[1] * PARALLEL_LEN, end[2] + normal[2] * PARALLEL_LEN];
       } else {
         start = [0, 0, 0];
       }
@@ -498,7 +501,7 @@ export function computeCentralMeridianRays(params: RayParams): [Vec3, Vec3][] {
       const latRad = (lat * Math.PI) / 180;
       const yCone = coneAxialHeight(latRad, cone, radius);
       const rad = scaleFactor * Math.abs(cone.sign * cone.apex - yCone) * cone.tanA;
-      end = applyEuler([rad, yCone, 0], gamma, lonRad);
+      end = applyEuler([rad, yCone, 0], gammaRad, lonRad);
       start = [0, 0, 0];
     }
 
