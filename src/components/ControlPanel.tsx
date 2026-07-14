@@ -5,8 +5,9 @@ import EpsgCatalog from './EpsgCatalog';
 import Dropdown from './Dropdown';
 import { FamilyIcon, EpsgIcon, ResetIcon, InfoIcon } from './ui/icons';
 import { labelClass, activeTab, inactiveTab, iconBtn, panelClass } from './ui/styles';
-import { FAMILY_OPTIONS, DISTORTION_OPTIONS, FAMILY_LABEL, DISTORTION_LABEL, AZIMUTHAL_LIGHT_OPTIONS, CYLINDRICAL_LIGHT_OPTIONS } from './ui/labels';
+import { FAMILY_OPTIONS, DISTORTION_OPTIONS, FAMILY_LABEL, DISTORTION_LABEL, AZIMUTHAL_LIGHT_OPTIONS, CYLINDRICAL_LIGHT_OPTIONS, PROJECTION_PRESETS } from './ui/labels';
 import { signedStandardParallelDeg } from '../constants/geometry';
+import Hint from './ui/Hint';
 
 const famBtn =
   'relative flex h-9 w-[54px] items-center justify-center transition';
@@ -19,6 +20,7 @@ function Slider({
   step,
   onChange,
   suffix = '°',
+  hint,
 }: {
   label: string;
   value: number;
@@ -27,10 +29,14 @@ function Slider({
   step: number;
   onChange: (v: number) => void;
   suffix?: string;
+  hint?: string;
 }) {
   return (
     <div className="flex items-center gap-[12px]">
-      <span className={`${labelClass} w-40 shrink-0`}>{label}</span>
+      <span className={`${labelClass} w-40 shrink-0`}>
+        {label}
+        {hint && <Hint text={hint} />}
+      </span>
       <div className="flex flex-1 items-center gap-[4px]">
         <input
           type="range"
@@ -56,15 +62,20 @@ function LightSelect<T extends string>({
   value,
   options,
   onChange,
+  hint,
 }: {
   label: string;
   value: T;
   options: { value: T; label: string }[];
   onChange: (v: T) => void;
+  hint?: string;
 }) {
   return (
     <div className="flex items-center gap-[12px]">
-      <span className={`${labelClass} w-40 shrink-0`}>{label}</span>
+      <span className={`${labelClass} w-40 shrink-0`}>
+        {label}
+        {hint && <Hint text={hint} />}
+      </span>
       <Dropdown<T> value={value} options={options} onChange={onChange} />
     </div>
   );
@@ -110,6 +121,7 @@ function StdParallel2Control({
         aria-label="Секущий конус"
         onClick={() => onChange(secant ? null : defaultMag)}
         className={`${secant ? activeTab : inactiveTab} rounded px-2 py-1 text-[11px] uppercase`}
+        title="Секущий конус касается Земли по двум параллелям вместо одной — две линии нулевых искажений"
       >
         {secant ? 'Секущий' : 'Касательный'}
       </button>
@@ -168,6 +180,12 @@ export default function ControlPanel() {
   const resetParams = useAppStore((s) => s.resetParams);
   const applyPreset = useAppStore((s) => s.applyPreset);
 
+  const applyProjectionPreset = (preset: (typeof PROJECTION_PRESETS)[number]) => {
+    setFamily(preset.params.family ?? family);
+    applyPreset(preset.params);
+  };
+  const familyPresets = PROJECTION_PRESETS.filter((p) => p.params.family === family);
+
   return (
     <div className="flex flex-col gap-3.5 px-3 py-3">
       <div className="flex items-center gap-1">
@@ -218,14 +236,17 @@ export default function ControlPanel() {
       </div>
 
       <div className="flex items-center gap-[12px] mt-3">
-        <span className={`${labelClass} w-40 shrink-0`}>Матмодель</span>
+        <span className={`${labelClass} w-40 shrink-0`}>
+          Матмодель
+          <Hint text="Тип сохраняемого свойства: равноугольность (углы и формы), равновеликость (площади) или равнопромежуточность (расстояния)." />
+        </span>
         <DistortionSelect value={distortion} onChange={(v) => setParam('distortion', v)} />
       </div>
 
-      <Slider label="Центральный меридиан" value={lambda0} min={-180} max={180} step={1} onChange={(v) => setParam('lambda0', v)} />
-      <Slider label="Широта начала отсчета" value={phiOrigin} min={-90} max={90} step={1} onChange={(v) => setParam('phiOrigin', v)} />
-      <Slider label="Наклон (γ)" value={gamma} min={-180} max={180} step={1} onChange={(v) => setParam('gamma', v)} />
-      <Slider label="Масштаб" value={scaleFactor} min={0.9} max={1.1} step={0.01} onChange={(v) => setParam('scaleFactor', v)} suffix="" />
+      <Slider label="Центральный меридиан" value={lambda0} min={-180} max={180} step={1} onChange={(v) => setParam('lambda0', v)} hint="Поворот вспомогательной поверхности вокруг Земли — задаёт долготу, с которой «разворачивается» карта." />
+      <Slider label="Широта начала отсчета" value={phiOrigin} min={-90} max={90} step={1} onChange={(v) => setParam('phiOrigin', v)} hint="Точка касания (азимутальная), параллель касания (коническая) или сдвиг оси (цилиндрическая)." />
+      <Slider label="Наклон (γ)" value={gamma} min={-180} max={180} step={1} onChange={(v) => setParam('gamma', v)} hint="Наклон вспомогательной поверхности — создаёт косые и трансверсальные проекции." />
+      <Slider label="Масштаб" value={scaleFactor} min={0.9} max={1.1} step={0.01} onChange={(v) => setParam('scaleFactor', v)} suffix="" hint="Диаметр / погружение вспомогательной фигуры. Чем больше, тем крупнее карта и сильнее искажения." />
 
       {family === 'conic' && (
         <StdParallel2Control value={stdParallel2} phiOrigin={phiOrigin} onChange={(v) => setParam('stdParallel2', v)} />
@@ -236,6 +257,7 @@ export default function ControlPanel() {
           value={azLight}
           options={AZIMUTHAL_LIGHT_OPTIONS}
           onChange={(v) => setParam('azLight', v)}
+          hint="Положение «лампочки»: из центра → гномоническая, из антипода → стереографическая, из бесконечности → ортографическая."
         />
       )}
       {family === 'cylindrical' && (
@@ -244,8 +266,23 @@ export default function ControlPanel() {
           value={cylLight}
           options={CYLINDRICAL_LIGHT_OPTIONS}
           onChange={(v) => setParam('cylLight', v)}
+          hint="Ось линейного источника: С–Ю → нормальная, через экватор → трансверсальная, наклон → косая."
         />
       )}
+
+      <div className="flex flex-wrap gap-1.5 pt-1">
+        <span className={`${labelClass} w-full`}>Пресеты проекций</span>
+        {familyPresets.map((p) => (
+          <button
+            key={p.label}
+            type="button"
+            onClick={() => applyProjectionPreset(p)}
+            className={`rounded border border-neon-blue/40 px-2 py-1 text-[11px] text-neon-blue/80 transition hover:bg-neon-blue/10 hover:text-neon-blue`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
 
       {showSummary && (
         <div className={`${panelClass} flex flex-col gap-1 text-[12px]`}>

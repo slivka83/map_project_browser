@@ -68,6 +68,11 @@ interface AppState extends ProjectionParams {
   // lightweight 110m land (shared with the 3D globe) is drawn without borders.
   detailedMap: boolean;
 
+  // The point currently hovered in either the 2D map or the 3D globe, shared so
+  // the other view can mirror the highlight (docs/new_spec.md §2 cross-linking).
+  hoverLonLat: [number, number] | null;
+  setHoverLonLat: (v: [number, number] | null) => void;
+
   setParam: <K extends keyof ProjectionParams>(key: K, value: ProjectionParams[K]) => void;
   setShowTissot: (value: boolean) => void;
   setShowBorders: (value: boolean) => void;
@@ -87,6 +92,8 @@ export const useAppStore = create<AppState>((set) => ({
   countriesGeoJson: null,
   countries110GeoJson: null,
   detailedMap: false,
+  hoverLonLat: null,
+  setHoverLonLat: (v) => set({ hoverLonLat: v }),
 
   setParam: (key, value) => set({ [key]: value } as Pick<AppState, typeof key>),
   setShowTissot: (value) => set({ showTissot: value }),

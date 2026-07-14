@@ -25,6 +25,14 @@ export function lonLatToVec3(lon: number, lat: number, radius = RADIUS): Vec3 {
   ];
 }
 
+// Inverse of `lonLatToVec3`: world-space point (any radius) → [lon, lat] degrees.
+export function vec3ToLonLat(v: Vec3): [number, number] {
+  const r = Math.hypot(v[0], v[1], v[2]) || 1;
+  const lat = Math.asin(Math.max(-1, Math.min(1, v[1] / r))) * (180 / Math.PI);
+  const lon = Math.atan2(-v[2], v[0]) * (180 / Math.PI);
+  return [lon, lat];
+}
+
 function normalize(v: Vec3): Vec3 {
   const len = Math.hypot(v[0], v[1], v[2]) || 1;
   return [v[0] / len, v[1] / len, v[2] / len];

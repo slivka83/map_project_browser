@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { RADIUS, RAY_COUNT } from '../constants/geometry';
 import {
   lonLatToVec3,
+  vec3ToLonLat,
   computeTangentBasis,
   computeAuxSurfaceParams,
   computeTangencyRing,
@@ -441,6 +442,18 @@ describe('lonLatToVec3 edge cases', () => {
     closeTo(x, 0);
     closeTo(z, 0);
     closeTo(y, RADIUS);
+  });
+
+  it('vec3ToLonLat inverts lonLatToVec3 (round-trip)', () => {
+    for (const [lon, lat] of [[0, 0], [123, -45], [-77, 60], [180, 0], [-200, 10]] as [number, number][]) {
+      const v = lonLatToVec3(lon, lat, RADIUS);
+      const [lon2, lat2] = vec3ToLonLat(v);
+      // longitudes normalise to (-180, 180]; latitude must match closely
+      const normLon = ((lon % 360) + 360) % 360;
+      const expLon = normLon > 180 ? normLon - 360 : normLon;
+      closeTo(lon2, expLon, 1e-6);
+      closeTo(lat2, lat, 1e-6);
+    }
   });
 
   it('maps the south pole to -Y regardless of longitude', () => {

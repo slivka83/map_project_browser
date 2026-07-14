@@ -293,4 +293,12 @@ describe('useAppStore', () => {
     expect(s.countries110GeoJson).toBeNull();
     vi.unstubAllGlobals();
   });
+
+  it('starts with no hover point and updates it via setHoverLonLat', () => {
+    expect(useAppStore.getState().hoverLonLat).toBeNull();
+    useAppStore.getState().setHoverLonLat([12.5, -34.2]);
+    expect(useAppStore.getState().hoverLonLat).toEqual([12.5, -34.2]);
+    useAppStore.getState().setHoverLonLat(null);
+    expect(useAppStore.getState().hoverLonLat).toBeNull();
+  });
 });

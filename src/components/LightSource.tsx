@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Line } from '@react-three/drei';
+import { Line, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { NEON_YELLOW } from '../constants/designTokens';
 import { RADIUS } from '../constants/geometry';
@@ -11,6 +11,24 @@ import {
   type Vec3,
 } from '../utils/auxSurfaceGeometry';
 import type { ProjectionParams } from '../store/useAppStore';
+
+// Short Russian label for the active light source, shown next to the marker in
+// 3D (docs/new_spec.md §3). `math` / `infinity` have no point lamp to label.
+function lightLabel(params: ProjectionParams): string | null {
+  if (params.family === 'cylindrical') {
+    if (params.cylLight === 'ns') return 'Ось С–Ю';
+    if (params.cylLight === 'transverse') return 'Трансверсаль';
+    if (params.cylLight === 'oblique') return 'Косая';
+    return null;
+  }
+  if (params.family === 'azimuthal') {
+    if (params.azLight === 'center') return 'Центр';
+    if (params.azLight === 'antipode') return 'Антипод';
+    if (params.azLight === 'infinity') return '∞ (параллельные лучи)';
+    return null;
+  }
+  return 'Вершина конуса';
+}
 
 // The projection "light source" rendered in 3D, mirroring the physical model in
 // docs/new_spec.md §3:
@@ -38,6 +56,9 @@ export default function LightSource({ params }: { params: ProjectionParams }) {
     return surface.kind === 'cone' ? coneApexWorld(surface, gamma) : null;
   }, [family, lambda0, phiOrigin, scaleFactor, stdParallel2, gamma]);
 
+  const label = lightLabel(params);
+  const labelPos: Vec3 | null = rod ? [(rod.start[0] + rod.end[0]) / 2, (rod.start[1] + rod.end[1]) / 2, (rod.start[2] + rod.end[2]) / 2] : lamp ?? apex;
+
   return (
     <group renderOrder={11}>
       {rod && (
@@ -45,6 +66,13 @@ export default function LightSource({ params }: { params: ProjectionParams }) {
       )}
       {lamp && <LampMarker position={lamp} />}
       {apex && <LampMarker position={apex} />}
+      {label && labelPos && (
+        <Html position={labelPos} center style={{ pointerEvents: 'none' }}>
+          <div className="whitespace-nowrap rounded border border-neon-yellow/40 bg-black/70 px-1.5 py-0.5 text-[10px] text-neon-yellow">
+            {label}
+          </div>
+        </Html>
+      )}
     </group>
   );
 }

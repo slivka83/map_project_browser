@@ -6,7 +6,7 @@ import { useAppStore } from '../store/useAppStore';
 import { useProjectionParams } from '../store/selectors';
 import { getD3Projection, fitProjectionToView, computeAreaDistortion } from '../utils/projectionMapper';
 import { computeTissotCircles } from '../utils/tissot';
-import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT } from '../constants/designTokens';
+import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT, NEON_YELLOW } from '../constants/designTokens';
 import { iconBtnPlain, iconGlow } from './ui/styles';
 import { TissotIcon, BorderIcon, DetailIcon } from './ui/icons';
 import { FIT_MARGIN } from '../constants/geometry';
@@ -41,6 +41,8 @@ export default function Map2D() {
   const countriesGeoJson = useAppStore((s) => s.countriesGeoJson);
   const countries110GeoJson = useAppStore((s) => s.countries110GeoJson);
   const geoJsonData = useAppStore((s) => s.geoJsonData);
+  const hoverLonLat = useAppStore((s) => s.hoverLonLat);
+  const setHoverLonLat = useAppStore((s) => s.setHoverLonLat);
 
   // Detailed 2D map (50m land + 50m country borders) when enabled; otherwise the
   // lightweight 110m land shared with the 3D globe, drawn with 110m borders.
@@ -77,6 +79,25 @@ export default function Map2D() {
     background: BG,
   };
 
+  // Convert a pointer event to SVG viewBox coordinates, accounting for the
+  // uniform letterbox scaling of preserveAspectRatio="xMidYMid meet", then
+  // invert the projection to read off the (lon, lat) under the cursor.
+  const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const scale = Math.min(rect.width / width, rect.height / height);
+    const offX = (rect.width - width * scale) / 2;
+    const offY = (rect.height - height * scale) / 2;
+    const x = (e.clientX - rect.left - offX) / scale;
+    const y = (e.clientY - rect.top - offY) / scale;
+    const proj = pathGenerator.projection() as d3Geo.GeoProjection | null;
+    const inv = proj?.invert?.([x, y]);
+    if (inv) setHoverLonLat([inv[0], inv[1]]);
+  };
+
+  const hoverPoint = hoverLonLat
+    ? ((pathGenerator.projection() as d3Geo.GeoProjection | null)?.([hoverLonLat[0], hoverLonLat[1]]) ?? null)
+    : null;
+
   return (
     <div ref={ref} style={containerStyle}>
       {baseLand && (
@@ -87,6 +108,8 @@ export default function Map2D() {
           preserveAspectRatio="xMidYMid meet"
           data-map="true"
           style={{ display: 'block' }}
+          onPointerMove={handlePointerMove}
+          onPointerLeave={() => setHoverLonLat(null)}
         >
           <path d={graticulePath} fill="none" stroke="#334155" strokeWidth={0.5} />
           {(baseLand as FeatureCollection).features.map((feature, i) => (
@@ -117,6 +140,9 @@ export default function Map2D() {
               stroke={NEON_ORANGE}
             />
           ))}
+          {hoverPoint && (
+            <circle cx={hoverPoint[0]} cy={hoverPoint[1]} r={5} fill="none" stroke={NEON_YELLOW} strokeWidth={1.5} />
+          )}
         </svg>
       )}
       <div className="absolute right-3 top-3 z-10 flex gap-1 items-start">
