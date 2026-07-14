@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render, waitFor, fireEvent } from '@testing-library/react';
+import { render, waitFor, fireEvent, act } from '@testing-library/react';
 import Map2D from './Map2D';
 import { useAppStore } from '../store/useAppStore';
 import type { FeatureCollection } from 'geojson';
@@ -20,6 +20,9 @@ describe('Map2D', () => {
     useAppStore.setState({
       showTissot: false,
       showBorders: false,
+      showHoverRay: true,
+      hoverLonLat: null,
+      hoverSource: null,
       geoJsonData: sampleFc,
       land50GeoJson: sampleFc,
       countriesGeoJson: null,
@@ -121,5 +124,34 @@ describe('Map2D', () => {
 
     fireEvent.click(hoverRay);
     expect(useAppStore.getState().showHoverRay).toBe(false);
+  });
+
+  it('shows the hover marker only for a 2D-map hover with the feature enabled', async () => {
+    const { queryByTestId } = render(<Map2D />);
+
+    // Reset any leaked hover state from earlier tests, then enable the feature.
+    act(() => {
+      useAppStore.getState().setShowHoverRay(true);
+      useAppStore.getState().setHoverLonLat(null);
+    });
+
+    // Hovering the 2D map → marker visible.
+    act(() => {
+      useAppStore.getState().setHoverLonLat([10, 20], 'map');
+    });
+    expect(queryByTestId('hover-marker')).not.toBeNull();
+
+    // Hovering the 3D globe (source 'globe') → no marker.
+    act(() => {
+      useAppStore.getState().setHoverLonLat([10, 20], 'globe');
+    });
+    expect(queryByTestId('hover-marker')).toBeNull();
+
+    // Feature disabled → no marker even when the map is hovered.
+    act(() => {
+      useAppStore.getState().setShowHoverRay(false);
+      useAppStore.getState().setHoverLonLat([10, 20], 'map');
+    });
+    expect(queryByTestId('hover-marker')).toBeNull();
   });
 });

@@ -15,6 +15,8 @@ export default function GlobeScene() {
   const params = useProjectionParams();
   const geoJson = useAppStore((s) => s.geoJsonData);
   const hoverLonLat = useAppStore((s) => s.hoverLonLat);
+  const hoverSource = useAppStore((s) => s.hoverSource);
+  const showHoverRay = useAppStore((s) => s.showHoverRay);
   const setHoverLonLat = useAppStore((s) => s.setHoverLonLat);
 
   // Shared hover linkage (docs/new_spec.md §2): hovering the globe reads the
@@ -38,7 +40,7 @@ export default function GlobeScene() {
         <sphereGeometry args={[RADIUS, 48, 48]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
-      {hoverLonLat && (
+      {showHoverRay && hoverSource === 'map' && hoverLonLat && (
         <mesh position={lonLatToVec3(hoverLonLat[0], hoverLonLat[1], RADIUS)} renderOrder={12}>
           <sphereGeometry args={[0.35, 16, 16]} />
           <meshBasicMaterial color={NEON_YELLOW} toneMapped={false} depthTest={false} />

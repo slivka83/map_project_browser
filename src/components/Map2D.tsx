@@ -47,6 +47,7 @@ export default function Map2D() {
   const countries110GeoJson = useAppStore((s) => s.countries110GeoJson);
   const geoJsonData = useAppStore((s) => s.geoJsonData);
   const hoverLonLat = useAppStore((s) => s.hoverLonLat);
+  const hoverSource = useAppStore((s) => s.hoverSource);
   const setHoverLonLat = useAppStore((s) => s.setHoverLonLat);
 
   // Detailed 2D map (50m land + 50m country borders) when enabled; otherwise the
@@ -111,7 +112,10 @@ export default function Map2D() {
     if (inv) setHoverLonLat([inv[0], inv[1]], 'map');
   };
 
-  const hoverPoint = hoverLonLat
+  // The cursor marker on the map is shown only while the 2D map is hovered and
+  // the hover-ray feature is enabled (hovering the 3D globe does nothing).
+  const showHoverMarker = showHoverRay && hoverSource === 'map';
+  const hoverPoint = showHoverMarker && hoverLonLat
     ? ((pathGenerator.projection() as d3Geo.GeoProjection | null)?.([hoverLonLat[0], hoverLonLat[1]]) ?? null)
     : null;
 
@@ -168,7 +172,7 @@ export default function Map2D() {
             />
           ))}
           {hoverPoint && (
-            <circle cx={hoverPoint[0]} cy={hoverPoint[1]} r={5} fill="none" stroke={NEON_YELLOW} strokeWidth={1.5} />
+            <circle data-testid="hover-marker" cx={hoverPoint[0]} cy={hoverPoint[1]} r={5} fill="none" stroke={NEON_YELLOW} strokeWidth={1.5} />
           )}
         </svg>
       )}
