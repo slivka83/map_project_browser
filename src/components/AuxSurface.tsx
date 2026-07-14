@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Line } from '@react-three/drei';
 import { NEON_ORANGE } from '../constants/designTokens';
+import { RADIUS } from '../constants/geometry';
 import { computeAuxSurfaceParams, computeAuxGraticule, auxPointToWorld, type Vec3 } from '../utils/auxSurfaceGeometry';
 import type { ProjectionParams } from '../store/useAppStore';
 
@@ -10,10 +11,10 @@ import type { ProjectionParams } from '../store/useAppStore';
 // pushed through `auxPointToWorld` — the exact transform the rays use — so the
 // wireframe and the light rays can never drift apart.
 export default function AuxSurface({ params }: { params: ProjectionParams }) {
-  const { family, lambda0, phiOrigin, scaleFactor } = params;
+  const { family, lambda0, phiOrigin, scaleFactor, distortion, azLight, cylLight, stdParallel2, gamma } = params;
   const surface = useMemo(
-    () => computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor),
-    [family, lambda0, phiOrigin, scaleFactor],
+    () => computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, RADIUS, stdParallel2, gamma, distortion, azLight, cylLight),
+    [family, lambda0, phiOrigin, scaleFactor, distortion, azLight, cylLight, stdParallel2, gamma],
   );
   const { meridians, parallels } = useMemo(
     () => computeAuxGraticule(surface),

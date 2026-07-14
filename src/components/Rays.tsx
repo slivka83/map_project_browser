@@ -61,7 +61,7 @@ export default function Rays({ params }: { params: ProjectionParams }) {
       {hoverRay && (
         <group>
           <Line
-            points={[hoverRay.start, hoverRay.globe, hoverRay.end]}
+            points={[hoverRay.start, hoverRay.end]}
             color={NEON_YELLOW}
             lineWidth={2.4}
             transparent

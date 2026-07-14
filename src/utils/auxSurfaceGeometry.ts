@@ -5,6 +5,7 @@ import {
   RAY_COUNT,
   MAP_SCALE,
   AUX_LENGTH,
+  CLIP_LAT,
   CONE_Y_BASE,
   RING_RADIUS,
   RING_SEGMENTS,
@@ -152,6 +153,35 @@ function linspace(n: number, from: number, to: number): number[] {
   const out: number[] = [];
   for (let i = 0; i <= n; i++) out.push(from + (i * (to - from)) / n);
   return out;
+}
+
+// Max aux-surface extent: AUX_SIZE_CAP · AUX_LENGTH · radius. Caps a gnomonic
+// (azimuthal `center`) plane whose projection runs to infinity, so the rendered
+// disk stays finite while still containing the visible map band.
+const AUX_SIZE_CAP = 4;
+
+// Clamp a local-frame aux-surface point to the rendered surface's finite extent
+// so a projection ray always lands ON the surface (never into empty space).
+// cylinder → local Y within ±height/2; plane → radial distance ≤ size/2;
+// cone → radially scale toward the apex so the point stays on the LATERAL
+// surface (a pure Y-clamp would flatten the cone into a cap and break geometry).
+function clampLocalToSurface(surface: AuxSurfaceParams, p: Vec3): Vec3 {
+  if (surface.kind === 'cylinder') {
+    const h = surface.height / 2;
+    return [p[0], Math.max(-h, Math.min(h, p[1])), p[2]];
+  }
+  if (surface.kind === 'cone') {
+    const rho = surface.radius; // radius of the (tangent/secant) cone at its base
+    const r = Math.hypot(p[0], p[2]);
+    if (r <= rho || r === 0) return p;
+    const s = rho / r;
+    return [p[0] * s, p[1], p[2] * s];
+  }
+  const r = surface.size / 2;
+  const len = Math.hypot(p[0], p[1]);
+  if (len <= r || len === 0) return p;
+  const s = r / len;
+  return [p[0] * s, p[1] * s, p[2]];
 }
 
 // Wireframe (meridians + parallels) of the auxiliary surface, in the surface's
@@ -308,16 +338,40 @@ export function computeAuxSurfaceParams(
   radius = RADIUS,
   stdParallel2: number | null = null,
   gamma = 0,
+  distortion: ProjectionParams['distortion'] = 'equalArea',
+  azLight: ProjectionParams['azLight'] = 'math',
+  cylLight: ProjectionParams['cylLight'] = 'math',
 ): AuxSurfaceParams {
   const lonRad = (lambda0 * Math.PI) / 180;
 
   if (family === 'cylindrical') {
-    return { kind: 'cylinder', radius: radius * scaleFactor, height: AUX_LENGTH * radius, rotationY: lonRad, tilt: gamma };
+    // Size the cylinder height to the central-meridian extent of the fitted
+    // ±CLIP_LAT band so the projection rays land on the rendered surface
+    // (Mercator/equirectangular would otherwise overshoot a fixed height).
+    const proj = getD3Projection({ family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2, azLight, cylLight });
+    const yTop = proj([lambda0, CLIP_LAT])?.[1] ?? 0;
+    const yBot = proj([lambda0, -CLIP_LAT])?.[1] ?? 0;
+    const band = Math.abs(yTop - yBot) * worldPerPixel(radius);
+    const height = Math.min(AUX_LENGTH * radius * AUX_SIZE_CAP, Math.max(AUX_LENGTH * radius * 0.5, band));
+    return { kind: 'cylinder', radius: radius * scaleFactor, height, rotationY: lonRad, tilt: gamma };
   }
 
   if (family === 'azimuthal') {
     const { center, normal } = computeTangentBasis(lambda0, phiOrigin, radius);
-    return { kind: 'plane', center, normal, size: AUX_LENGTH * radius * scaleFactor, tilt: gamma };
+    // Size the tangent-plane disk to contain the fitted ±CLIP_LAT band of the
+    // projection, so every ray lands on the visible disk (capped for gnomonic,
+    // where the projection runs to infinity).
+    const proj = getD3Projection({ family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2, azLight, cylLight });
+    const c = proj([lambda0, phiOrigin]);
+    let maxR = 0;
+    for (let lat = -CLIP_LAT; lat <= CLIP_LAT; lat += 10) {
+      const p = proj([lambda0, lat]);
+      if (p && isFinite(p[0]) && isFinite(p[1]) && c) {
+        maxR = Math.max(maxR, Math.hypot(p[0] - c[0], p[1] - c[1]));
+      }
+    }
+    const size = Math.min(AUX_LENGTH * radius * AUX_SIZE_CAP, Math.max(AUX_LENGTH * radius * 0.5, 2 * maxR * worldPerPixel(radius)));
+    return { kind: 'plane', center, normal, size, tilt: gamma };
   }
 
   // conic: cone tangent (or secant) to the sphere at the standard parallel(s).
@@ -549,7 +603,7 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
     rayCount = RAY_COUNT,
   } = params;
 
-  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma);
+  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, cylLight);
   const cy = VIEW_CENTER_Y + falseNorthing;
   const wpp = worldPerPixel(radius);
   const PARALLEL_LEN = AUX_LENGTH * radius;
@@ -611,7 +665,7 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
       start = coneApexWorld(coneSurface, gamma);
     }
 
-    const end = auxPointToWorld(surface, localEnd);
+    const end = auxPointToWorld(surface, clampLocalToSurface(surface, localEnd));
 
     // light at infinity → parallel beams arriving along the radial normal (orthographic)
     if (family === 'azimuthal' && azLight === 'infinity') {
@@ -624,6 +678,31 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
   return result;
 }
 
+// Local-frame conic ray endpoint: the point on the cone lateral surface that the
+// ray from the apex through the globe point (lon=λ0, lat) lands on. With `clamp`
+// it applies the same finite-extent clamp used by the rendered surface, so tests
+// can verify the exact `localEnd` the source transforms onto the cone.
+export function computeConicRayEnd(
+  lambda0: number,
+  lat: number,
+  phiOrigin: number,
+  scaleFactor: number,
+  radius = RADIUS,
+  stdParallel2: number | null = null,
+  gamma = 0,
+  clamp = false,
+): Vec3 {
+  const phi2 = stdParallel2 != null ? stdParallel2 : phiOrigin;
+  const cone = computeCone(phiOrigin, phi2, radius, scaleFactor);
+  const latRad = (lat * Math.PI) / 180;
+  const yCone = coneAxialHeight(latRad, cone, radius);
+  const radCone = scaleFactor * Math.abs(cone.sign * cone.apex - yCone) * cone.tanA;
+  const local: Vec3 = [radCone, yCone, 0];
+  if (!clamp) return local;
+  const surface = computeAuxSurfaceParams('conic', lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma);
+  return clampLocalToSurface(surface, local);
+}
+
 // Project an ARBITRARY (lon, lat) onto the auxiliary surface and return the full
 // ray (light source → globe point → surface shadow). Used by the hover demo so
 // the user can see, for any point they point at, how it is projected onto the
@@ -632,7 +711,7 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
 export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: number, radius = RADIUS): RaySegment | null {
   const { family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight, cylLight } = params;
 
-  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma);
+  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, cylLight);
   const proj = getD3Projection({ family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight, cylLight });
   const cy = VIEW_CENTER_Y + falseNorthing;
   const wpp = worldPerPixel(radius);
@@ -688,7 +767,7 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
   }
 
   if (!localEnd) return null;
-  const end = auxPointToWorld(surface, localEnd);
+  const end = auxPointToWorld(surface, clampLocalToSurface(surface, localEnd));
 
   if (family === 'azimuthal' && azLight === 'infinity') {
     start = [end[0] + normal[0] * PARALLEL_LEN, end[1] + normal[1] * PARALLEL_LEN, end[2] + normal[2] * PARALLEL_LEN];

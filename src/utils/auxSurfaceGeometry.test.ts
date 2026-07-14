@@ -11,6 +11,7 @@ import {
   computeAuxSphereIntersections,
   computeCentralMeridianRays,
   projectToAuxWorld,
+  computeConicRayEnd,
   computeCone,
   coneAxialHeight,
   applyEuler,
@@ -25,17 +26,14 @@ const closeTo = (a: number, b: number, eps = 1e-6) =>
 // Transform a world-space cone point back into the cone's local frame and return
 // its {radius (from the axis), axialHeight}. The cone lateral surface satisfies
 // radius = scaleFactor·|apex − axialHeight|·tanA, even after the gamma tilt.
-const coneLocal = (
-  end: number[],
-  surface: { flip: 1 | -1; positionY: number },
-  g: number,
+const coneCheck = (
+  localEnd: number[],
+  cone: { apex: number; tanA: number; sign: number },
+  sf: number,
 ) => {
-  const tilt = (g * Math.PI) / 180;
-  const yw = end[1] - surface.positionY;
-  const zw = end[2];
-  const axial = surface.flip * (yw * Math.cos(tilt) + zw * Math.sin(tilt));
-  const localZ = -yw * Math.sin(tilt) + zw * Math.cos(tilt);
-  return { radius: Math.hypot(end[0], localZ), axial };
+  const radius = Math.hypot(localEnd[0], localEnd[2]);
+  const rho = sf * Math.abs(cone.sign * cone.apex - localEnd[1]) * cone.tanA;
+  return { radius, rho };
 };
 
 const base = {
@@ -224,13 +222,15 @@ describe('computeCentralMeridianRays', () => {
     for (const g of [0, 60]) {
       const phiOrigin = 40;
       const sf = 1.05;
+      const cone = computeCone(phiOrigin, phiOrigin, RADIUS, sf);
       const segs = computeCentralMeridianRays({ ...base, family: 'conic', phiOrigin, scaleFactor: sf, gamma: g });
       const surface = computeAuxSurfaceParams('conic', 0, phiOrigin, sf, RADIUS);
-      const cone = computeCone(phiOrigin, phiOrigin, RADIUS, sf);
       if (surface.kind !== 'cone') throw new Error('expected cone');
-      for (const { end } of segs) {
-        const { radius, axial } = coneLocal(end, surface, g);
-        closeTo(radius, sf * Math.abs(cone.apex - axial) * cone.tanA, 1e-6);
+      for (let i = 0; i < segs.length; i++) {
+        const lat = -90 + (i * 180) / (segs.length - 1);
+        const localEnd = computeConicRayEnd(0, lat, phiOrigin, sf, RADIUS, null, g, true);
+        const { radius, rho } = coneCheck(localEnd, cone, sf);
+        closeTo(radius, rho, 1e-6);
       }
     }
   });
@@ -294,9 +294,11 @@ describe('secant cone (stdParallel2)', () => {
     const cone = computeCone(phiOrigin, stdParallel2, RADIUS, sf);
     const surface = computeAuxSurfaceParams('conic', 0, phiOrigin, sf, RADIUS, stdParallel2);
     if (surface.kind !== 'cone') throw new Error('expected cone');
-    for (const { end } of segs) {
-      const endR = Math.hypot(end[0], end[2]);
-      closeTo(endR, sf * Math.abs(cone.apex - (end[1] - surface.positionY)) * cone.tanA, 1e-6);
+    for (let i = 0; i < segs.length; i++) {
+      const lat = -90 + (i * 180) / (segs.length - 1);
+      const localEnd = computeConicRayEnd(0, lat, phiOrigin, sf, RADIUS, stdParallel2, 0, true);
+      const { radius, rho } = coneCheck(localEnd, cone, sf);
+      closeTo(radius, rho, 1e-6);
     }
   });
 });
@@ -364,10 +366,11 @@ describe('projectToAuxWorld (hover demo ray)', () => {
     expect(ray).not.toBeNull();
     if (!ray) return;
     const surface = computeAuxSurfaceParams('conic', 10, phiOrigin, sf, RADIUS);
-    const cone = computeCone(phiOrigin, phiOrigin, RADIUS, sf);
     if (surface.kind !== 'cone') throw new Error('expected cone');
-    const endR = Math.hypot(ray.end[0], ray.end[2]);
-    closeTo(endR, sf * Math.abs(cone.apex - (ray.end[1] - surface.positionY)) * cone.tanA, 1e-6);
+    const cone = computeCone(phiOrigin, phiOrigin, RADIUS, sf);
+    const localEnd = computeConicRayEnd(10, 50, phiOrigin, sf, RADIUS, null, 0, true);
+    const { radius, rho } = coneCheck(localEnd, cone, sf);
+    closeTo(radius, rho, 1e-6);
   });
 
   it('azimuthal infinity: returns null for a point on the far hemisphere', () => {
@@ -472,11 +475,14 @@ describe('light-source geometry (new_spec §3)', () => {
     // apex is below the globe centre for a southern cone
     expect(apex[1]).toBeLessThan(0);
     const cone = computeCone(phiOrigin, phiOrigin, RADIUS, sf);
-    for (const { start, end } of segs) {
+    for (let i = 0; i < segs.length; i++) {
+      const { start } = segs[i];
       expect(start).toEqual(apex);
       // every beam endpoint lies on the (southern) cone lateral surface
-      const endR = Math.hypot(end[0], end[2]);
-      closeTo(endR, sf * Math.abs(cone.apex - (end[1] - surface.positionY)) * cone.tanA, 1e-6);
+      const lat = -90 + (i * 180) / (segs.length - 1);
+      const localEnd = computeConicRayEnd(0, lat, phiOrigin, sf, RADIUS, null, 0, true);
+      const { radius, rho } = coneCheck(localEnd, cone, sf);
+      closeTo(radius, rho, 1e-6);
     }
   });
 });
@@ -751,4 +757,50 @@ describe('computeCone / coneAxialHeight', () => {
     const cone = computeCone(45, 45, RADIUS, 1);
     closeTo(cone.apex, RADIUS / Math.sin((45 * Math.PI) / 180), 1e-9);
   });
+});
+
+describe('rays always land on the rendered aux surface (no empty space)', () => {
+  const cases: Array<Partial<ProjectionParams> & { family: ProjectionParams['family'] }> = [
+    { family: 'cylindrical', distortion: 'conformal' },
+    { family: 'cylindrical', distortion: 'equalArea' },
+    { family: 'cylindrical', distortion: 'equidistant' },
+    { family: 'conic', distortion: 'conformal', phiOrigin: 40 },
+    { family: 'conic', distortion: 'equalArea', phiOrigin: 40 },
+    { family: 'conic', distortion: 'equidistant', phiOrigin: 40 },
+    { family: 'azimuthal', distortion: 'equalArea', azLight: 'center' },
+    { family: 'azimuthal', distortion: 'equalArea', azLight: 'antipode' },
+    { family: 'azimuthal', distortion: 'equalArea', azLight: 'infinity' },
+    { family: 'azimuthal', distortion: 'equalArea', azLight: 'math' },
+  ];
+
+  for (const c of cases) {
+    it(`central-meridian fan stays on the surface (${c.family}/${c.distortion ?? ''})`, () => {
+      const params = { ...base, ...c } as ProjectionParams;
+      const segs = computeCentralMeridianRays(params);
+      const surface = computeAuxSurfaceParams(params.family, 0, params.phiOrigin, 1, RADIUS, params.stdParallel2, params.gamma, params.distortion, params.azLight, params.cylLight);
+
+      if (surface.kind === 'cone') {
+        const cone = computeCone(c.phiOrigin ?? 0, c.stdParallel2 ?? (c.phiOrigin ?? 0), RADIUS, 1);
+        for (let i = 0; i < segs.length; i++) {
+          const lat = -90 + (i * 180) / (segs.length - 1);
+          const localEnd = computeConicRayEnd(0, lat, c.phiOrigin ?? 0, 1, RADIUS, c.stdParallel2 ?? null, 0, true);
+          const { radius, rho } = coneCheck(localEnd, cone, 1);
+          closeTo(radius, rho, 1e-6);
+        }
+        return;
+      }
+
+      for (const { end } of segs) {
+        expect(Number.isFinite(end[0]) && Number.isFinite(end[1]) && Number.isFinite(end[2])).toBe(true);
+        if (surface.kind === 'cylinder') {
+          closeTo(Math.hypot(end[0], end[2]), surface.radius, 1e-6);
+          expect(Math.abs(end[1])).toBeLessThanOrEqual(surface.height / 2 + 1e-6);
+        } else {
+          const d = [end[0] - surface.center[0], end[1] - surface.center[1], end[2] - surface.center[2]];
+          closeTo(d[0] * surface.normal[0] + d[1] * surface.normal[1] + d[2] * surface.normal[2], 0, 1e-6);
+          expect(Math.hypot(d[0], d[1], d[2])).toBeLessThanOrEqual(surface.size / 2 + 1e-6);
+        }
+      }
+    });
+  }
 });
