@@ -40,25 +40,25 @@ describe('lonLatToVec3', () => {
 
 describe('computeCone', () => {
   it('apex = radius / sin(sp) with the equator fallback (30°)', () => {
-    const cone = computeCone(0, RADIUS, 1);
+    const cone = computeCone(0, 0, RADIUS, 1);
     closeTo(cone.sp, (30 * Math.PI) / 180);
     closeTo(cone.apex, RADIUS / Math.sin((30 * Math.PI) / 180), 1e-9);
     expect(cone.sign).toBe(1);
   });
   it('uses |phiOrigin| as the standard parallel above the fallback threshold', () => {
-    const cone = computeCone(40, RADIUS, 1);
+    const cone = computeCone(40, 40, RADIUS, 1);
     closeTo(cone.sp, (40 * Math.PI) / 180);
   });
   it('sign is negative for a southern phiOrigin', () => {
-    expect(computeCone(-30, RADIUS, 1).sign).toBe(-1);
+    expect(computeCone(-30, -30, RADIUS, 1).sign).toBe(-1);
   });
   it('baseRadius scales linearly with scaleFactor', () => {
-    const a = computeCone(40, RADIUS, 1).baseRadius;
-    const b = computeCone(40, RADIUS, 1.1).baseRadius;
+    const a = computeCone(40, 40, RADIUS, 1).baseRadius;
+    const b = computeCone(40, 40, RADIUS, 1.1).baseRadius;
     closeTo(b / a, 1.1, 1e-9);
   });
   it('matches the cone fields exposed by computeAuxSurfaceParams', () => {
-    const cone = computeCone(30, RADIUS, 1.05);
+    const cone = computeCone(30, 30, RADIUS, 1.05);
     const surface = computeAuxSurfaceParams('conic', 0, 30, 1.05);
     if (surface.kind !== 'cone') throw new Error('expected cone');
     closeTo(surface.radius, cone.baseRadius, 1e-9);
@@ -70,7 +70,7 @@ describe('computeCone', () => {
 
 describe('coneAxialHeight', () => {
   it('at the standard parallel the axial height equals radius·sin(sp)', () => {
-    const cone = computeCone(40, RADIUS, 1);
+    const cone = computeCone(40, 40, RADIUS, 1);
     const y = coneAxialHeight(cone.sp, cone, RADIUS);
     closeTo(y, cone.sign * RADIUS * Math.sin(cone.sp), 1e-9);
   });
@@ -214,6 +214,96 @@ describe('computeCentralMeridianRays', () => {
       expect(b[i][1][0]).toBeCloseTo(a[i][1][0], 9);
       expect(b[i][1][1]).toBeCloseTo(a[i][1][1], 9);
       expect(b[i][1][2]).toBeCloseTo(a[i][1][2], 9);
+    }
+  });
+});
+
+describe('secant cone (stdParallel2)', () => {
+  it('tangent cone is recovered when phi2 === phi1', () => {
+    const tangent = computeCone(40, 40, RADIUS, 1);
+    const phi1 = 40 * (Math.PI / 180);
+    closeTo(tangent.tanA, Math.tan(phi1), 1e-9);
+    closeTo(tangent.apex, RADIUS / Math.sin(phi1), 1e-9);
+  });
+
+  it('passes through both standard parallels on the sphere', () => {
+    const cone = computeCone(20, 40, RADIUS, 1);
+    for (const phiDeg of [20, 40]) {
+      const phi = phiDeg * (Math.PI / 180);
+      const y = coneAxialHeight(phi, cone, RADIUS);
+      const rad = (cone.apex - y) * cone.tanA;
+      closeTo(rad, RADIUS * Math.cos(phi), 1e-6);
+    }
+  });
+
+  it('cone surface params expose the secant half-angle (tanA)', () => {
+    const cone = computeCone(20, 40, RADIUS, 1);
+    const surface = computeAuxSurfaceParams('conic', 0, 20, 1, RADIUS, 40);
+    if (surface.kind !== 'cone') throw new Error('expected cone');
+    closeTo(surface.radius, cone.baseRadius, 1e-9);
+    closeTo(surface.height, cone.height, 1e-9);
+  });
+
+  it('secant cone intersecting the sphere yields two circles', () => {
+    const rings = computeAuxSphereIntersections('conic', 0, 20, 1, RADIUS, 40);
+    expect(rings.length).toBe(2);
+    for (const ring of rings) for (const [x, y, z] of ring) closeTo(Math.hypot(x, y, z), RADIUS, 1e-6);
+  });
+
+  it('conic rays lie on the secant cone lateral surface', () => {
+    const phiOrigin = 20;
+    const stdParallel2 = 40;
+    const segs = computeCentralMeridianRays({ ...base, family: 'conic', phiOrigin, stdParallel2 });
+    const cone = computeCone(phiOrigin, stdParallel2, RADIUS, 1);
+    for (const [, end] of segs) {
+      const endR = Math.hypot(end[0], end[2]);
+      closeTo(endR, Math.abs(cone.apex - end[1]) * cone.tanA, 1e-6);
+    }
+  });
+});
+
+describe('gamma tilt (oblique / transverse)', () => {
+  it('preserves the cylindrical ray radial distance under tilt', () => {
+    const sf = 1.02;
+    const segs = computeCentralMeridianRays({ ...base, family: 'cylindrical', scaleFactor: sf, gamma: 45 });
+    for (const [, end] of segs) closeTo(Math.hypot(end[0], end[2]), RADIUS * sf, 1e-6);
+  });
+
+  it('gamma = 0 reproduces the untilted geometry (sanity)', () => {
+    const a = computeCentralMeridianRays({ ...base, gamma: 0 });
+    const b = computeCentralMeridianRays(base);
+    for (let i = 0; i < a.length; i++) {
+      expect(a[i][1][0]).toBeCloseTo(b[i][1][0], 9);
+      expect(a[i][1][1]).toBeCloseTo(b[i][1][1], 9);
+      expect(a[i][1][2]).toBeCloseTo(b[i][1][2], 9);
+    }
+  });
+});
+
+describe('azimuthal light-source modes', () => {
+  const lam = 15;
+  const phi = 25;
+  const center = lonLatToVec3(lam, phi, RADIUS);
+
+  it("'center' / 'math' beams emanate from the globe centre", () => {
+    for (const mode of ['center', 'math'] as const) {
+      const segs = computeCentralMeridianRays({ ...base, family: 'azimuthal', lambda0: lam, phiOrigin: phi, azLight: mode });
+      for (const [start] of segs) expect(start).toEqual([0, 0, 0]);
+    }
+  });
+
+  it("'antipode' beams start at the point opposite the tangent point", () => {
+    const segs = computeCentralMeridianRays({ ...base, family: 'azimuthal', lambda0: lam, phiOrigin: phi, azLight: 'antipode' });
+    for (const [start] of segs) expect(start).toEqual([-center[0], -center[1], -center[2]]);
+  });
+
+  it("'infinity' beams are parallel to the plane normal", () => {
+    const segs = computeCentralMeridianRays({ ...base, family: 'azimuthal', lambda0: lam, phiOrigin: phi, azLight: 'infinity' });
+    const { normal } = computeTangentBasis(lam, phi, RADIUS);
+    for (const [start, end] of segs) {
+      const dir = [end[0] - start[0], end[1] - start[1], end[2] - start[2]];
+      // dir is antiparallel to the outward normal (beams come from outside)
+      closeTo(dir[0] * normal[0] + dir[1] * normal[1] + dir[2] * normal[2], -Math.hypot(...dir), 1e-6);
     }
   });
 });
@@ -456,24 +546,24 @@ describe('computeAuxSphereIntersections edge cases', () => {
 describe('computeCone / coneAxialHeight', () => {
   it('coneAxialHeight at the standard parallel equals the sphere height there', () => {
     const sp = (30 * Math.PI) / 180;
-    const cone = computeCone(30, RADIUS, 1);
+    const cone = computeCone(30, 30, RADIUS, 1);
     closeTo(coneAxialHeight(sp, cone, RADIUS), RADIUS * Math.sin(sp), 1e-6);
   });
 
   it('southern standard parallel yields a downward (negative) cone position', () => {
-    const cone = computeCone(-45, RADIUS, 1);
+    const cone = computeCone(-45, -45, RADIUS, 1);
     expect(cone.sign).toBe(-1);
     expect(cone.positionY).toBeLessThan(0);
   });
 
   it('cone base radius scales linearly with scaleFactor', () => {
-    const c1 = computeCone(45, RADIUS, 1);
-    const c2 = computeCone(45, RADIUS, 1.1);
+    const c1 = computeCone(45, 45, RADIUS, 1);
+    const c2 = computeCone(45, 45, RADIUS, 1.1);
     expect(c2.baseRadius).toBeCloseTo(c1.baseRadius * 1.1, 6);
   });
 
   it('cone apex magnitude is radius / sin(standard parallel)', () => {
-    const cone = computeCone(45, RADIUS, 1);
+    const cone = computeCone(45, 45, RADIUS, 1);
     closeTo(cone.apex, RADIUS / Math.sin((45 * Math.PI) / 180), 1e-9);
   });
 });

@@ -38,6 +38,45 @@ function cross(a: Vec3, b: Vec3): Vec3 {
   ];
 }
 
+const DEG = Math.PI / 180;
+
+// Rotate a world point about the Y axis by `a` radians (used to place the
+// surface's central meridian at longitude lambda0).
+function rotateAroundY(v: Vec3, a: number): Vec3 {
+  const c = Math.cos(a);
+  const s = Math.sin(a);
+  return [v[0] * c + v[2] * s, v[1], -v[0] * s + v[2] * c];
+}
+
+// Rotate a world point about the X axis by `a` radians (the `gamma` tilt that
+// produces oblique / transverse aspects).
+function rotateAroundX(v: Vec3, a: number): Vec3 {
+  const c = Math.cos(a);
+  const s = Math.sin(a);
+  return [v[0], v[1] * c - v[2] * s, v[1] * s + v[2] * c];
+}
+
+// Replicate Three.js Euler 'XYZ' order (R = Rx * Ry, Rz = 0): apply Ry then Rx.
+function applyEuler(v: Vec3, rotX: number, rotY: number): Vec3 {
+  return rotateAroundX(rotateAroundY(v, rotY), rotX);
+}
+
+// Rotate `v` about an arbitrary unit `axis` by `a` radians (Rodrigues).
+function rotateAroundAxis(v: Vec3, axis: Vec3, a: number): Vec3 {
+  const [x, y, z] = axis;
+  const c = Math.cos(a);
+  const s = Math.sin(a);
+  const dot = v[0] * x + v[1] * y + v[2] * z;
+  const cx = y * v[2] - z * v[1];
+  const cy = z * v[0] - x * v[2];
+  const cz = x * v[1] - y * v[0];
+  return [
+    v[0] * c + cx * s + x * dot * (1 - c),
+    v[1] * c + cy * s + y * dot * (1 - c),
+    v[2] * c + cz * s + z * dot * (1 - c),
+  ];
+}
+
 // pixels -> world units. Chosen so the unrolled map width (2π·100·scaleFactor px)
 // wraps exactly around the auxiliary cylinder (circumference 2π·RADIUS·scaleFactor).
 const worldPerPixel = (radius: number) => radius / MAP_SCALE;
@@ -150,45 +189,66 @@ export function circlePoints(radius: number, y: number, segments = RING_SEGMENTS
 
 // ---- Auxiliary (developable) surface parameters (pure; no Three.js) ----
 export type AuxSurfaceParams =
-  | { kind: 'cylinder'; radius: number; height: number; rotationY: number }
-  | { kind: 'plane'; center: Vec3; normal: Vec3; size: number }
-  | { kind: 'cone'; radius: number; height: number; positionY: number; flip: 1 | -1 };
+  | { kind: 'cylinder'; radius: number; height: number; rotationY: number; tilt: number }
+  | { kind: 'plane'; center: Vec3; normal: Vec3; size: number; tilt: number }
+  | { kind: 'cone'; radius: number; height: number; positionY: number; flip: 1 | -1; tilt: number };
 
-// Pure geometry of the tangent cone (shared by the aux surface, the
+// Pure geometry of the (developable) cone (shared by the aux surface, the
 // intersection rings and the central-meridian rays so they can never drift
-// apart). The cone is tangent to the sphere at the standard parallel `sp`
-// (magnitude of phiOrigin, with the equirectangular fallback), has its apex at
-// height `apex = radius / sin(sp)` on the +Y (or −Y for a southern phiOrigin)
-// axis, and `scaleFactor` scales its horizontal (radius) extent.
+// apart). A cone tangent at a single standard parallel `phi1` (the fallback of
+// |phiOrigin| near the equator) has its apex at `apex = radius / sin(phi1)` and
+// half-angle `tanA = tan(phi1)`. A secant cone touching the sphere at two
+// parallels `phi1` and `phi2` (same hemisphere) passes through both latitudes;
+// its half-angle and apex follow from the two sphere points. Both cases reduce
+// to the same formula, so a single routine covers tangent and secant cones.
 export interface ConeParams {
-  sp: number; // standard parallel in radians (magnitude)
-  apex: number; // apex height magnitude = radius / sin(sp)
-  sign: 1 | -1; // hemisphere sign derived from phiOrigin
+  sp: number; // half-angle (radians) used for the axial-height mapping
+  tanA: number; // cone half-angle tangent (radius growth per unit height)
+  apex: number; // apex height magnitude
+  sign: 1 | -1; // hemisphere sign derived from phi1
   yBase: number; // cone base offset = -CONE_Y_BASE * radius
   height: number; // apex - yBase
-  baseRadius: number; // scaleFactor * (apex - yBase) * tan(sp)
+  baseRadius: number; // scaleFactor * (apex - yBase) * tanA
   positionY: number; // sign * (apex - height / 2)
   flip: 1 | -1; // = sign
 }
 
 export function computeCone(
-  phiOrigin: number,
+  phi1: number,
+  phi2: number,
   radius = RADIUS,
   scaleFactor = 1,
 ): ConeParams {
-  const sp = standardParallelRad(phiOrigin);
-  const apex = radius / Math.sin(sp);
-  const sign: 1 | -1 = phiOrigin < 0 ? -1 : 1;
+  const a1 = Math.abs(phi1) * DEG;
+  const a2 = Math.abs(phi2) * DEG;
+  const sign: 1 | -1 = phi1 < 0 ? -1 : 1;
+  let tanA: number;
+  let apex: number;
+  if (Math.abs(a1 - a2) < 1e-9) {
+    // tangent cone at the single standard parallel (with the equatorial fallback)
+    const spDeg = standardParallelDeg(phi1);
+    const sp = spDeg * DEG;
+    tanA = Math.tan(sp);
+    apex = radius / Math.sin(sp);
+  } else {
+    // secant cone through the two standard parallels: solve for half-angle and
+    // apex from the two sphere points (r = R·cos φ at height y = R·sin φ).
+    tanA = (Math.cos(a1) - Math.cos(a2)) / (Math.sin(a2) - Math.sin(a1));
+    apex = radius * Math.sin(a1) + (radius * Math.cos(a1)) / tanA;
+  }
+  const sp = Math.atan(tanA); // half-angle, kept for the axial mapping
   const yBase = -CONE_Y_BASE * radius;
   const height = apex - yBase;
-  const baseRadius = scaleFactor * (apex - yBase) * Math.tan(sp);
+  const baseRadius = scaleFactor * (apex - yBase) * tanA;
   const positionY = sign * (apex - height / 2);
-  return { sp, apex, sign, yBase, height, baseRadius, positionY, flip: sign };
+  return { sp, tanA, apex, sign, yBase, height, baseRadius, positionY, flip: sign };
 }
 
-// Axial (Y) height of the latitude `latRad` circle on the tangent cone.
+// Axial (Y) height of the latitude `latRad` circle on the cone. The cone radius
+// at axial height `y` is `(apex - y)·tanA`, and the sphere parallel at `latRad`
+// has radius `radius·cos(latRad)`; equating them gives the mapping below.
 export function coneAxialHeight(latRad: number, cone: ConeParams, radius: number): number {
-  return cone.sign * (radius * Math.sin(cone.sp) + radius * Math.cos(cone.sp) * (cone.sign * latRad - cone.sp));
+  return cone.sign * (cone.apex - (radius * Math.cos(latRad)) / cone.tanA);
 }
 
 export function computeAuxSurfaceParams(
@@ -197,21 +257,32 @@ export function computeAuxSurfaceParams(
   phiOrigin: number,
   scaleFactor: number,
   radius = RADIUS,
+  stdParallel2: number | null = null,
+  gamma = 0,
 ): AuxSurfaceParams {
   const lonRad = (lambda0 * Math.PI) / 180;
 
   if (family === 'cylindrical') {
-    return { kind: 'cylinder', radius: radius * scaleFactor, height: AUX_LENGTH * radius, rotationY: lonRad };
+    return { kind: 'cylinder', radius: radius * scaleFactor, height: AUX_LENGTH * radius, rotationY: lonRad, tilt: gamma };
   }
 
   if (family === 'azimuthal') {
     const { center, normal } = computeTangentBasis(lambda0, phiOrigin, radius);
-    return { kind: 'plane', center, normal, size: AUX_LENGTH * radius * scaleFactor };
+    return { kind: 'plane', center, normal, size: AUX_LENGTH * radius * scaleFactor, tilt: gamma };
   }
 
-  // conic: cone tangent to the sphere at the standard parallel
-  const cone = computeCone(phiOrigin, radius, scaleFactor);
-  return { kind: 'cone', radius: cone.baseRadius, height: cone.height, positionY: cone.positionY, flip: cone.flip };
+  // conic: cone tangent (or secant) to the sphere at the standard parallel(s)
+  const phi1 = standardParallelDeg(phiOrigin);
+  const phi2 = stdParallel2 != null ? stdParallel2 : phi1;
+  const cone = computeCone(phi1, phi2, radius, scaleFactor);
+  return {
+    kind: 'cone',
+    radius: cone.baseRadius,
+    height: cone.height,
+    positionY: cone.positionY,
+    flip: cone.flip,
+    tilt: gamma,
+  };
 }
 
 // ---- Tangency ring (standard parallel) parameters ----
@@ -270,6 +341,7 @@ export function computeAuxSphereIntersections(
   phiOrigin: number,
   scaleFactor: number,
   radius = RADIUS,
+  stdParallel2: number | null = null,
 ): Vec3[][] {
   if (family === 'azimuthal') {
     // The tangent plane touches the sphere at a single point. Mark it with a
@@ -304,8 +376,10 @@ export function computeAuxSphereIntersections(
   }
 
   // conic: cone–sphere intersection — quadratic in the axial height y
-  const cone = computeCone(phiOrigin, radius, scaleFactor);
-  const t = Math.tan(cone.sp);
+  const phi1 = standardParallelDeg(phiOrigin);
+  const phi2 = stdParallel2 != null ? stdParallel2 : phi1;
+  const cone = computeCone(phi1, phi2, radius, scaleFactor);
+  const t = cone.tanA;
   const a = cone.sign * cone.apex; // apex height (signed)
   const A = scaleFactor * scaleFactor * t * t + 1;
   const B = -2 * scaleFactor * scaleFactor * t * t * a;
@@ -369,42 +443,63 @@ export function computeCentralMeridianRays(params: RayParams): [Vec3, Vec3][] {
     cylLight,
   });
 
-  const cone = computeCone(phiOrigin, radius, scaleFactor);
+  const phi1 = standardParallelDeg(phiOrigin);
+  const phi2 = stdParallel2 != null ? stdParallel2 : phi1;
+  const cone = computeCone(phi1, phi2, radius, scaleFactor);
   const { center, east, north } = computeTangentBasis(lambda0, phiOrigin, radius);
   const u = east;
   const w = north;
 
   const result: [Vec3, Vec3][] = [];
 
-  // Rays are light beams: they emanate from the globe centre (the light
-  // source) and strike the auxiliary surface, passing through the globe.
-  const start: Vec3 = [0, 0, 0];
+  // The azimuthal light source position determines where the beams originate:
+  // `center` → globe centre (gnomonic), `antipode` → the point opposite the
+  // tangent point (stereographic), `infinity` → parallel beams along the plane
+  // normal (orthographic), `math` → centre beams drawn as dashed formula
+  // vectors by the renderer. Cylindrical/conic beams always emanate from the
+  // globe centre (the rod / apex light source) in this build.
+  const PARALLEL_LEN = AUX_LENGTH * radius;
 
   for (let i = 0; i < rayCount; i++) {
     const lat = -90 + (i * 180) / (rayCount - 1);
 
     let end: Vec3;
+    let start: Vec3;
 
     if (family === 'cylindrical') {
       const p = proj([lambda0, lat]);
       const dy = p ? p[1] - cy : 0;
       const r = radius * scaleFactor;
-      end = [r * Math.cos(lonRad), -dy * wpp, -r * Math.sin(lonRad)];
+      // local frame (central meridian along +X), then tilt + longitude rotation
+      end = applyEuler([r, -dy * wpp, 0], gamma, lonRad);
+      start = [0, 0, 0];
     } else if (family === 'azimuthal') {
       const c = proj([lambda0, phiOrigin]);
       const p = proj([lambda0, lat]);
       const dx = (p ? p[0] : 0) - (c ? c[0] : 0);
       const dy = (p ? p[1] : 0) - (c ? c[1] : 0);
-      end = [
-        center[0] + u[0] * dx * wpp - w[0] * dy * wpp,
-        center[1] + u[1] * dx * wpp - w[1] * dy * wpp,
-        center[2] + u[2] * dx * wpp - w[2] * dy * wpp,
+      const local: Vec3 = [
+        u[0] * dx * wpp - w[0] * dy * wpp,
+        u[1] * dx * wpp - w[1] * dy * wpp,
+        u[2] * dx * wpp - w[2] * dy * wpp,
       ];
+      // rotate the map about the plane normal by gamma (oblique azimuthal)
+      end = rotateAroundAxis(local, north, gamma);
+      end = [center[0] + end[0], center[1] + end[1], center[2] + end[2]];
+      if (azLight === 'antipode') {
+        start = [-center[0], -center[1], -center[2]];
+      } else if (azLight === 'infinity') {
+        // light at infinity → parallel beams arriving along +normal (orthographic)
+        start = [end[0] + north[0] * PARALLEL_LEN, end[1] + north[1] * PARALLEL_LEN, end[2] + north[2] * PARALLEL_LEN];
+      } else {
+        start = [0, 0, 0];
+      }
     } else {
       const latRad = (lat * Math.PI) / 180;
       const yCone = coneAxialHeight(latRad, cone, radius);
-      const rad = scaleFactor * Math.abs(cone.sign * cone.apex - yCone) * Math.tan(cone.sp);
-      end = [rad * Math.cos(lonRad), yCone, -rad * Math.sin(lonRad)];
+      const rad = scaleFactor * Math.abs(cone.sign * cone.apex - yCone) * cone.tanA;
+      end = applyEuler([rad, yCone, 0], gamma, lonRad);
+      start = [0, 0, 0];
     }
 
     result.push([start, end]);
