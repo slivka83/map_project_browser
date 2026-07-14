@@ -15,11 +15,11 @@ Typecheck is part of `build` (`tsc -b`); there is no separate `typecheck` script
 
 ## Dev workspace / DrvFS workaround (CRITICAL)
 `/mnt/d` is a Windows-mounted drive (9P/DrvFS). `npm install` fails there with `ENOTDIR` on `mkdir node_modules`, and a corrupted `node_modules` dentry cannot be removed from inside the container. We keep a real `node_modules` on the **native Linux filesystem** and symlink it into the project:
-- Native home for deps: `/tmp/opencode/mbp-deps/node_modules`, created via `npm ci` inside `/tmp/opencode/mbp-deps` (that dir also holds `package.json` + `package-lock.json`).
-- In the project dir, `node_modules` is a symlink → `/tmp/opencode/mbp-deps/node_modules`. `eslint.config.js` is a real native copy (or symlink). No other source/config symlinks are needed.
+- Native home for deps lives on the **persistent** WSL filesystem (NOT `/tmp`, which is wiped on every reboot): `~/mbp-deps/node_modules`, created via `npm ci` inside `~/mbp-deps` (that dir also holds `package.json` + `package-lock.json`). Use the WSL home of whichever user runs the build — typically `/home/<user>/mbp-deps`.
+- In the project dir, `node_modules` is a symlink → `~/mbp-deps/node_modules` (the symlink itself lives on the Windows disk under `/mnt/d`, so it survives reboots too). `eslint.config.js` is a real native copy (or symlink). No other source/config symlinks are needed.
 - `vite.config.ts` sets `server.watch.usePolling` because DrvFS emits no `inotify` events, so Vite's watcher otherwise never sees edits under `/mnt/d` (HMR won't fire). No `preserveSymlinks` is needed — sources are local.
 
-If `/tmp` is wiped, recreate only the native `node_modules`: `mkdir -p /tmp/opencode/mbp-deps && cp package.json package-lock.json /tmp/opencode/mbp-deps/ && cd /tmp/opencode/mbp-deps && npm ci`, then re-link `ln -sfn /tmp/opencode/mbp-deps/node_modules /mnt/d/_projects/pet_project/map_project_browser/node_modules`. **Do NOT run `npm install`/`npm ci` inside `/mnt/d`.**
+Because the native deps and the project symlink are both persistent, **no setup is needed after a reboot** — just `npm run dev` from WSL. The one-time setup (run once from WSL): `H=~/mbp-deps; mkdir -p "$H" && cp package.json package-lock.json "$H"/ && cd "$H" && npm ci`, then `ln -sfn "$H/node_modules" /mnt/d/_projects/pet_project/map_project_browser/node_modules`. Only re-run this if the symlink/target is ever deleted. **Do NOT run `npm install`/`npm ci` inside `/mnt/d`.**
 
 ## Node / toolchain pins (do not upgrade)
 Environment is Node 20.18.0. Toolchain pinned to Node-20.18-compatible set: Vite 6, React 19.1, TypeScript 5.8, Vitest 4. Do **not** upgrade to Vite 8 / TS 6 (require Node ≥20.19). `jsdom` pinned `^25.0.1` — v27 pulls an ESM-only CSS parser that breaks under Node 20.18.
