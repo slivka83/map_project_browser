@@ -107,6 +107,46 @@ export function computeTangentBasis(lambda0: number, phiOrigin: number, radius =
   return { center, normal, east, north };
 }
 
+// Orthonormal in-plane basis {east, north} for a tangent plane whose outward
+// normal is `normal` (same convention as computeTangentBasis, but derived
+// directly from the normal so it can drive the aux-surface world transform).
+function basisFromNormal(normal: Vec3): { east: Vec3; north: Vec3 } {
+  const east: Vec3 = Math.abs(normal[1]) > 0.9999 ? [1, 0, 0] : normalize(cross([0, 1, 0], normal));
+  const north = normalize(cross(normal, east));
+  return { east, north };
+}
+
+// Map a point expressed in the auxiliary surface's LOCAL frame to world space,
+// replicating EXACTLY the transform AuxSurface applies (so the rays and the
+// rendered wireframe can never drift apart). Single source of truth for both.
+export function auxPointToWorld(surface: AuxSurfaceParams, p: Vec3): Vec3 {
+  if (surface.kind === 'cylinder') {
+    return applyEuler(p, (surface.tilt * Math.PI) / 180, surface.rotationY);
+  }
+  if (surface.kind === 'cone') {
+    const tilt = (surface.tilt * Math.PI) / 180;
+    const y = surface.flip * p[1];
+    const yw = y * Math.cos(tilt) - p[2] * Math.sin(tilt);
+    const zw = y * Math.sin(tilt) + p[2] * Math.cos(tilt);
+    return [p[0], surface.positionY + yw, zw];
+  }
+  // plane: the local disc (x, y, 0) is rotated in its own plane by `tilt`
+  // about the normal, then placed at the tangent point.
+  return planePointToWorld(surface.center, surface.normal, surface.tilt, p);
+}
+
+export function planePointToWorld(center: Vec3, normal: Vec3, tiltDeg: number, p: Vec3): Vec3 {
+  const { east, north } = basisFromNormal(normal);
+  const g = (tiltDeg * Math.PI) / 180;
+  const x = p[0] * Math.cos(g) - p[1] * Math.sin(g);
+  const y = p[0] * Math.sin(g) + p[1] * Math.cos(g);
+  return [
+    center[0] + east[0] * x + north[0] * y,
+    center[1] + east[1] * x + north[1] * y,
+    center[2] + east[2] * x + north[2] * y,
+  ];
+}
+
 function linspace(n: number, from: number, to: number): number[] {
   if (n <= 0) return [from];
   const out: number[] = [];
@@ -471,16 +511,28 @@ export function computeAuxSphereIntersections(
 }
 
 // axial height of latitude `latRad` on the developable cone (tangent at sp)
-export interface RayParams extends ProjectionParams {
+
+// A single projection ray: from the light `start`, through the point `globe`
+// on the sphere, to its shadow `end` on the auxiliary (developable) surface.
+// The auxiliary surface, unrolled, IS the 2D map — so `end` is exactly where
+// that globe point lands on the map.
+export interface RaySegment {
+  start: Vec3;
+  globe: Vec3;
+  end: Vec3;
+}
+
+interface RayParamsFull extends ProjectionParams {
   radius?: number;
   rayCount?: number;
 }
 
-// Build the central-meridian ray fan: each segment runs from a point on the
-// globe (lon = lambda0) to the matching point on the auxiliary (developable)
-// surface, in the same world units the 3D scene draws the surface in. Pure and
-// projection-only (no Three.js) so it stays unit-testable in jsdom.
-export function computeCentralMeridianRays(params: RayParams): [Vec3, Vec3][] {
+// Build the central-meridian ray fan (lon = lambda0, lat sweeps -90…90). Each
+// ray runs from the light source, through the matching point on the globe, to
+// the point where that globe point is projected onto the auxiliary surface.
+// Endpoints are placed with `auxPointToWorld` so they lie exactly on the same
+// surface AuxSurface renders. Pure (no Three.js) → unit-testable in jsdom.
+export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] {
   const {
     family,
     distortion,
@@ -497,10 +549,10 @@ export function computeCentralMeridianRays(params: RayParams): [Vec3, Vec3][] {
     rayCount = RAY_COUNT,
   } = params;
 
+  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma);
   const cy = VIEW_CENTER_Y + falseNorthing;
   const wpp = worldPerPixel(radius);
-  const gammaRad = (gamma * Math.PI) / 180;
-  const lonRad = (lambda0 * Math.PI) / 180;
+  const PARALLEL_LEN = AUX_LENGTH * radius;
 
   const proj = getD3Projection({
     family,
@@ -516,70 +568,131 @@ export function computeCentralMeridianRays(params: RayParams): [Vec3, Vec3][] {
     cylLight,
   });
 
+  const { center, normal } = computeTangentBasis(lambda0, phiOrigin, radius);
   // The conic cone keeps phiOrigin's sign (like the 3D aux surface) so a
-  // southern phiOrigin yields a southern cone that matches the rendered mesh.
+  // southern phiOrigin yields a southern cone matching the rendered mesh.
   const phi2c = stdParallel2 != null ? stdParallel2 : phiOrigin;
   const cone = computeCone(phiOrigin, phi2c, radius, scaleFactor);
-  const { center, east, north, normal } = computeTangentBasis(lambda0, phiOrigin, radius);
-  const u = east;
-  const w = north;
 
-  const result: [Vec3, Vec3][] = [];
-
-  // The azimuthal light source position determines where the beams originate:
-  // `center` → globe centre (gnomonic), `antipode` → the point opposite the
-  // tangent point (stereographic), `infinity` → parallel beams along the plane
-  // normal (orthographic), `math` → centre beams drawn as dashed formula
-  // vectors by the renderer. Cylindrical/conic beams always emanate from the
-  // globe centre (the rod / apex light source) in this build.
-  const PARALLEL_LEN = AUX_LENGTH * radius;
+  const result: RaySegment[] = [];
 
   for (let i = 0; i < rayCount; i++) {
     const lat = -90 + (i * 180) / (rayCount - 1);
+    const globe = lonLatToVec3(lambda0, lat, radius);
 
-    let end: Vec3;
     let start: Vec3;
+    let localEnd: Vec3;
 
     if (family === 'cylindrical') {
       const p = proj([lambda0, lat]);
       const dy = p ? p[1] - cy : 0;
       const r = radius * scaleFactor;
-      // local frame (central meridian along +X), then tilt + longitude rotation
-      end = applyEuler([r, -dy * wpp, 0], gammaRad, lonRad);
+      localEnd = [r, -dy * wpp, 0];
       start = [0, 0, 0];
     } else if (family === 'azimuthal') {
       const c = proj([lambda0, phiOrigin]);
       const p = proj([lambda0, lat]);
       const dx = (p ? p[0] : 0) - (c ? c[0] : 0);
       const dy = (p ? p[1] : 0) - (c ? c[1] : 0);
-      const local: Vec3 = [
-        u[0] * dx * wpp - w[0] * dy * wpp,
-        u[1] * dx * wpp - w[1] * dy * wpp,
-        u[2] * dx * wpp - w[2] * dy * wpp,
-      ];
-      // rotate the map about the plane normal by gamma (oblique azimuthal)
-      end = rotateAroundAxis(local, north, gammaRad);
-      end = [center[0] + end[0], center[1] + end[1], center[2] + end[2]];
+      // disc coords (east, north); the in-plane gamma rotation is applied by
+      // `auxPointToWorld` → the endpoints always lie on the tangent plane.
+      localEnd = [dx * wpp, -dy * wpp, 0];
       if (azLight === 'antipode') {
         start = [-center[0], -center[1], -center[2]];
-      } else if (azLight === 'infinity') {
-        // light at infinity → parallel beams arriving along the radial normal (orthographic)
-        start = [end[0] + normal[0] * PARALLEL_LEN, end[1] + normal[1] * PARALLEL_LEN, end[2] + normal[2] * PARALLEL_LEN];
       } else {
         start = [0, 0, 0];
       }
     } else {
-      const surface = computeAuxSurfaceParams('conic', lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma);
-      const apex = surface.kind === 'cone' ? coneApexWorld(surface, gamma) : ([0, 0, 0] as Vec3);
       const latRad = (lat * Math.PI) / 180;
       const yCone = coneAxialHeight(latRad, cone, radius);
-      const rad = scaleFactor * Math.abs(cone.sign * cone.apex - yCone) * cone.tanA;
-      end = applyEuler([rad, yCone, 0], gammaRad, lonRad);
-      start = apex;
+      const radCone = scaleFactor * Math.abs(cone.sign * cone.apex - yCone) * cone.tanA;
+      localEnd = [radCone, yCone, 0];
+      const coneSurface = surface.kind === 'cone' ? surface : (computeAuxSurfaceParams('conic', lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma) as Extract<AuxSurfaceParams, { kind: 'cone' }>);
+      start = coneApexWorld(coneSurface, gamma);
     }
 
-    result.push([start, end]);
+    const end = auxPointToWorld(surface, localEnd);
+
+    // light at infinity → parallel beams arriving along the radial normal (orthographic)
+    if (family === 'azimuthal' && azLight === 'infinity') {
+      start = [end[0] + normal[0] * PARALLEL_LEN, end[1] + normal[1] * PARALLEL_LEN, end[2] + normal[2] * PARALLEL_LEN];
+    }
+
+    result.push({ start, globe, end });
   }
 
   return result;
+}
+
+// Project an ARBITRARY (lon, lat) onto the auxiliary surface and return the full
+// ray (light source → globe point → surface shadow). Used by the hover demo so
+// the user can see, for any point they point at, how it is projected onto the
+// 2D map (the auxiliary surface unrolled). Returns null when the projection
+// clips the point (e.g. the back hemisphere of an orthographic projection).
+export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: number, radius = RADIUS): RaySegment | null {
+  const { family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight, cylLight } = params;
+
+  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma);
+  const proj = getD3Projection({ family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight, cylLight });
+  const cy = VIEW_CENTER_Y + falseNorthing;
+  const wpp = worldPerPixel(radius);
+  const PARALLEL_LEN = AUX_LENGTH * radius;
+
+  const { center, normal } = computeTangentBasis(lambda0, phiOrigin, radius);
+  const phi2c = stdParallel2 != null ? stdParallel2 : phiOrigin;
+  const cone = computeCone(phiOrigin, phi2c, radius, scaleFactor);
+
+  const globe = lonLatToVec3(lon, lat, radius);
+  let start: Vec3;
+  let localEnd: Vec3 | null = null;
+
+  if (family === 'cylindrical') {
+    const p = proj([lon, lat]);
+    if (!p || !isFinite(p[0]) || !isFinite(p[1])) return null;
+    const dy = p[1] - cy;
+    const r = radius * scaleFactor;
+    const theta = ((lambda0 - lon) * Math.PI) / 180;
+    localEnd = [r * Math.cos(theta), -dy * wpp, r * Math.sin(theta)];
+    start = [0, 0, 0];
+  } else if (family === 'azimuthal') {
+    const c = proj([lambda0, phiOrigin]);
+    const p = proj([lon, lat]);
+    if (!p || !c || !isFinite(p[0]) || !isFinite(p[1])) return null;
+    // geoOrthographic's proj() still returns a coordinate for the far hemisphere
+    // (clipping is a path-generator concern), so reject those points explicitly —
+    // they have no physical "shadow" on the visible tangent plane.
+    if (azLight === 'infinity') {
+      const dLon = ((lon - lambda0) * Math.PI) / 180;
+      const la0 = (phiOrigin * Math.PI) / 180;
+      const la1 = (lat * Math.PI) / 180;
+      const ang = Math.acos(Math.max(-1, Math.min(1, Math.sin(la0) * Math.sin(la1) + Math.cos(la0) * Math.cos(la1) * Math.cos(dLon))));
+      if (ang > Math.PI / 2 - 1e-3) return null;
+    }
+    const dx = p[0] - c[0];
+    const dy = p[1] - c[1];
+    localEnd = [dx * wpp, -dy * wpp, 0];
+    if (azLight === 'antipode') start = [-center[0], -center[1], -center[2]];
+    else start = [0, 0, 0];
+  } else {
+    const p = proj([lon, lat]);
+    const c = proj([lambda0, phiOrigin]);
+    if (!p || !c || !isFinite(p[0]) || !isFinite(p[1])) return null;
+    const dx = p[0] - c[0];
+    const latRad = (lat * Math.PI) / 180;
+    const yCone = coneAxialHeight(latRad, cone, radius);
+    const radCone = scaleFactor * Math.abs(cone.sign * cone.apex - yCone) * cone.tanA;
+    const theta = radCone > 1e-9 ? (dx * wpp) / radCone : 0;
+    localEnd = [radCone * Math.cos(theta), yCone, radCone * Math.sin(theta)];
+    const coneSurface = surface.kind === 'cone' ? surface : (computeAuxSurfaceParams('conic', lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma) as Extract<AuxSurfaceParams, { kind: 'cone' }>);
+    start = coneApexWorld(coneSurface, gamma);
+  }
+
+  if (!localEnd) return null;
+  const end = auxPointToWorld(surface, localEnd);
+
+  if (family === 'azimuthal' && azLight === 'infinity') {
+    start = [end[0] + normal[0] * PARALLEL_LEN, end[1] + normal[1] * PARALLEL_LEN, end[2] + normal[2] * PARALLEL_LEN];
+  }
+
+  return { start, globe, end };
 }
