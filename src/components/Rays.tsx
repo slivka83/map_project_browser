@@ -6,11 +6,15 @@ import { computeCentralMeridianRays, type Vec3 } from '../utils/auxSurfaceGeomet
 import type { ProjectionParams } from '../store/useAppStore';
 
 // Projection light beams: a fan along the central meridian from the globe
-// centre (the light source) to the auxiliary surface. Pure geometry
-// (computeCentralMeridianRays) is analytic, so rays render independently of
-// whether the geo dataset has loaded. depthTest is disabled so the portion of
-// each beam inside the globe stays visible through the globe shell.
+// centre / cone apex / rod (the light source) to the auxiliary surface. Pure
+// geometry (computeCentralMeridianRays) is analytic, so rays render
+// independently of whether the geo dataset has loaded. depthTest is disabled so
+// the portion of each beam inside the globe stays visible through the globe
+// shell. In `math` mode the light is switched off and the beams are drawn as
+// dashed formula vectors (docs/new_spec.md §3).
 export default function Rays({ params }: { params: ProjectionParams }) {
+  const { family, azLight, cylLight } = params;
+  const dashed = family === 'azimuthal' ? azLight === 'math' : cylLight === 'math';
   const segments = useMemo<[Vec3, Vec3][]>(
     () =>
       computeCentralMeridianRays({
@@ -32,6 +36,9 @@ export default function Rays({ params }: { params: ProjectionParams }) {
           transparent
           opacity={0.85}
           depthTest={false}
+          dashed={dashed}
+          dashSize={0.6}
+          gapSize={0.4}
         />
       ))}
     </group>

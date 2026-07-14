@@ -19,7 +19,7 @@ export default function GlobeScene() {
       <Globe geoJson={geoJson} />
       <AuxSurface params={params} />
       <IntersectionDisks params={params} />
-      <LightSource />
+      <LightSource params={params} />
       <Rays params={params} />
     </Canvas>
   );

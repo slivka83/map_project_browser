@@ -287,6 +287,68 @@ export function computeAuxSurfaceParams(
   };
 }
 
+// ---- Light-source geometry (single source of truth for the 3D light marker) ----
+// Mirrors the physical model in docs/new_spec.md §3.
+
+// Cylindrical linear light source: a glowing rod through the globe centre whose
+// axis orientation follows the `cylLight` rod mode (ns / transverse / oblique)
+// plus the `gamma` tilt. Returns null in `math` mode (no physical light source).
+export function computeCylindricalLightRod(
+  cylLight: ProjectionParams['cylLight'],
+  lambda0: number,
+  gamma: number,
+  radius = RADIUS,
+): { start: Vec3; end: Vec3 } | null {
+  if (cylLight === 'math') return null;
+  const baseDir: Vec3 =
+    cylLight === 'transverse'
+      ? [1, 0, 0]
+      : cylLight === 'oblique'
+        ? [Math.SQRT1_2, Math.SQRT1_2, 0]
+        : [0, 1, 0];
+  const gammaRad = (gamma * Math.PI) / 180;
+  const lonRad = (lambda0 * Math.PI) / 180;
+  const dir = applyEuler(baseDir, gammaRad, lonRad);
+  const len = radius * 1.9;
+  return {
+    start: [-dir[0] * (len / 2), -dir[1] * (len / 2), -dir[2] * (len / 2)],
+    end: [dir[0] * (len / 2), dir[1] * (len / 2), dir[2] * (len / 2)],
+  };
+}
+
+// Azimuthal point-light position (world space). `center` → globe centre,
+// `antipode` → the point opposite the tangent point. `infinity` and `math`
+// have no single light point (parallel beams / no light) → null.
+export function computeAzimuthalLightLamp(
+  azLight: ProjectionParams['azLight'],
+  lambda0: number,
+  phiOrigin: number,
+  radius = RADIUS,
+): Vec3 | null {
+  if (azLight === 'center') return [0, 0, 0];
+  if (azLight === 'antipode') {
+    const c = lonLatToVec3(lambda0, phiOrigin, radius);
+    return [-c[0], -c[1], -c[2]];
+  }
+  return null;
+}
+
+// World-space position of the conic developable-cone apex (the gnomonic light
+// source), matching the transform AuxSurface applies to the cone group so the
+// rays visually emanate from the tip. The cone group applies scale [1, flip, 1]
+// then a rotation about X by `gamma` then translates to `positionY`; the apex
+// local point is [0, height/2, 0].
+export function coneApexWorld(
+  surface: Extract<AuxSurfaceParams, { kind: 'cone' }>,
+  gamma: number,
+): Vec3 {
+  const gammaRad = (gamma * Math.PI) / 180;
+  const yLocal = surface.flip * (surface.height / 2);
+  const y = yLocal * Math.cos(gammaRad);
+  const z = yLocal * Math.sin(gammaRad);
+  return [0, surface.positionY + y, z];
+}
+
 // ---- Tangency ring (standard parallel) parameters ----
 export interface TangencyRing {
   kind: 'cylinder' | 'cone' | 'plane';
@@ -446,9 +508,10 @@ export function computeCentralMeridianRays(params: RayParams): [Vec3, Vec3][] {
     cylLight,
   });
 
-  const phi1 = standardParallelDeg(phiOrigin);
-  const phi2 = stdParallel2 != null ? stdParallel2 : phi1;
-  const cone = computeCone(phi1, phi2, radius, scaleFactor);
+  // The conic cone keeps phiOrigin's sign (like the 3D aux surface) so a
+  // southern phiOrigin yields a southern cone that matches the rendered mesh.
+  const phi2c = stdParallel2 != null ? stdParallel2 : phiOrigin;
+  const cone = computeCone(phiOrigin, phi2c, radius, scaleFactor);
   const { center, east, north, normal } = computeTangentBasis(lambda0, phiOrigin, radius);
   const u = east;
   const w = north;
@@ -498,11 +561,13 @@ export function computeCentralMeridianRays(params: RayParams): [Vec3, Vec3][] {
         start = [0, 0, 0];
       }
     } else {
+      const surface = computeAuxSurfaceParams('conic', lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma);
+      const apex = surface.kind === 'cone' ? coneApexWorld(surface, gamma) : ([0, 0, 0] as Vec3);
       const latRad = (lat * Math.PI) / 180;
       const yCone = coneAxialHeight(latRad, cone, radius);
       const rad = scaleFactor * Math.abs(cone.sign * cone.apex - yCone) * cone.tanA;
       end = applyEuler([rad, yCone, 0], gammaRad, lonRad);
-      start = [0, 0, 0];
+      start = apex;
     }
 
     result.push([start, end]);

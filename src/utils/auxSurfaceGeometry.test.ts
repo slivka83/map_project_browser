@@ -11,6 +11,9 @@ import {
   computeCone,
   coneAxialHeight,
   applyEuler,
+  computeCylindricalLightRod,
+  computeAzimuthalLightLamp,
+  coneApexWorld,
 } from './auxSurfaceGeometry';
 
 const closeTo = (a: number, b: number, eps = 1e-6) =>
@@ -315,6 +318,80 @@ describe('azimuthal light-source modes', () => {
       const dir = [end[0] - start[0], end[1] - start[1], end[2] - start[2]];
       // dir is antiparallel to the outward normal (beams come from outside)
       closeTo(dir[0] * normal[0] + dir[1] * normal[1] + dir[2] * normal[2], -Math.hypot(...dir), 1e-6);
+    }
+  });
+});
+
+describe('light-source geometry (new_spec §3)', () => {
+  it('cylindrical rod is null in math mode', () => {
+    expect(computeCylindricalLightRod('math', 0, 0, RADIUS)).toBeNull();
+  });
+
+  it('cylindrical rod axis follows cylLight', () => {
+    // ns, no tilt/longitude → along world +Y, centred at the origin
+    const ns = computeCylindricalLightRod('ns', 0, 0, RADIUS)!;
+    closeTo(ns.start[0], 0, 1e-9);
+    closeTo(ns.start[2], 0, 1e-9);
+    closeTo(ns.start[1], (-RADIUS * 1.9) / 2, 1e-9);
+    expect(Math.hypot(...ns.end)).toBeCloseTo(Math.hypot(...ns.start), 9);
+
+    // transverse, no tilt → along the equatorial (lon=0) direction [1,0,0]
+    const tr = computeCylindricalLightRod('transverse', 0, 0, RADIUS)!;
+    closeTo(tr.start[1], 0, 1e-9);
+    closeTo(Math.hypot(tr.start[0], tr.start[2]), (RADIUS * 1.9) / 2, 1e-9);
+
+    // oblique (45°) splits between Y and X equally in the local frame
+    const ob = computeCylindricalLightRod('oblique', 0, 0, RADIUS)!;
+    closeTo(ob.start[0], ob.start[1], 1e-9);
+  });
+
+  it('azimuthal lamp position follows azLight', () => {
+    expect(computeAzimuthalLightLamp('center', 10, 20, RADIUS)).toEqual([0, 0, 0]);
+    const c = lonLatToVec3(10, 20, RADIUS);
+    expect(computeAzimuthalLightLamp('antipode', 10, 20, RADIUS)).toEqual([-c[0], -c[1], -c[2]]);
+    expect(computeAzimuthalLightLamp('infinity', 10, 20, RADIUS)).toBeNull();
+    expect(computeAzimuthalLightLamp('math', 10, 20, RADIUS)).toBeNull();
+  });
+
+  it('conic apex marker sits at the cone tip (along the axis, outside the globe)', () => {
+    const surface = computeAuxSurfaceParams('conic', 0, 30, 1, RADIUS) as Extract<ReturnType<typeof computeAuxSurfaceParams>, { kind: 'cone' }>;
+    const apex = coneApexWorld(surface, 0);
+    // northern cone, no tilt → apex straight up at radius / sin(30°) = 20
+    closeTo(apex[0], 0, 1e-9);
+    closeTo(apex[1], RADIUS / Math.sin((30 * Math.PI) / 180), 1e-9);
+    closeTo(apex[2], 0, 1e-9);
+    expect(apex[1]).toBeGreaterThan(RADIUS);
+  });
+
+  it('conic apex tilts with gamma about the X axis', () => {
+    const surface = computeAuxSurfaceParams('conic', 0, 30, 1, RADIUS) as Extract<ReturnType<typeof computeAuxSurfaceParams>, { kind: 'cone' }>;
+    const apex = coneApexWorld(surface, 90);
+    // apex local [0, h/2, 0] rotated 90° about X → lies in the Y-Z plane (x=0, z≠0)
+    closeTo(apex[0], 0, 1e-9);
+    expect(Math.abs(apex[2])).toBeGreaterThan(1e-6);
+  });
+
+  it('conic rays emanate from the cone apex (gnomonic light source)', () => {
+    const phiOrigin = 40;
+    const segs = computeCentralMeridianRays({ ...base, family: 'conic', phiOrigin });
+    const surface = computeAuxSurfaceParams('conic', 0, phiOrigin, 1, RADIUS) as Extract<ReturnType<typeof computeAuxSurfaceParams>, { kind: 'cone' }>;
+    const apex = coneApexWorld(surface, 0);
+    for (const [start] of segs) expect(start).toEqual(apex);
+  });
+
+  it('conic rays use a signed cone matching the rendered surface (southern phiOrigin)', () => {
+    const phiOrigin = -40;
+    const segs = computeCentralMeridianRays({ ...base, family: 'conic', phiOrigin });
+    const surface = computeAuxSurfaceParams('conic', 0, phiOrigin, 1, RADIUS) as Extract<ReturnType<typeof computeAuxSurfaceParams>, { kind: 'cone' }>;
+    const apex = coneApexWorld(surface, 0);
+    // apex is below the globe centre for a southern cone
+    expect(apex[1]).toBeLessThan(0);
+    for (const [start, end] of segs) {
+      expect(start).toEqual(apex);
+      // every beam endpoint lies on the (southern) cone lateral surface
+      const endR = Math.hypot(end[0], end[2]);
+      const cone = computeCone(phiOrigin, phiOrigin, RADIUS, 1);
+      closeTo(endR, Math.abs(cone.sign * cone.apex - end[1]) * cone.tanA, 1e-6);
     }
   });
 });
