@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAppStore, type DistortionModel, type AzimuthalLight, type CylindricalLight, type ProjectionParams } from '../store/useAppStore';
+import { useAppStore, type DistortionModel, type AzimuthalLight, type CylindricalLight, type ProjectionFamily, type ProjectionParams } from '../store/useAppStore';
 import { useProjectionParams } from '../store/selectors';
 import EpsgCatalog from './EpsgCatalog';
 import Dropdown from './Dropdown';
@@ -11,6 +11,36 @@ import Hint from './ui/Hint';
 
 const famBtn =
   'relative flex h-9 w-[54px] items-center justify-center transition';
+
+// Per-family physical labels for the shared params, matching the "direct
+// manipulation" vocabulary of docs/new_spec.md §2 (so the user sees e.g.
+// "Диаметр цилиндра" / "Смещение по оси Y" instead of generic λ₀/φ₀).
+const FAMILY_SECTION: Record<ProjectionFamily, string> = {
+  cylindrical: 'Цилиндрические проекции',
+  conic: 'Конические проекции',
+  azimuthal: 'Азимутальные проекции',
+};
+
+const PARAM_LABELS: Record<ProjectionFamily, { lambda0: string; phiOrigin: string; gamma: string; scaleFactor: string }> = {
+  cylindrical: {
+    lambda0: 'Поворот вокруг Земли (λ₀)',
+    phiOrigin: 'Смещение по оси Y (ст. параллель)',
+    gamma: 'Угол наклона цилиндра (γ)',
+    scaleFactor: 'Диаметр цилиндра',
+  },
+  conic: {
+    lambda0: 'Вращение конуса (λ₀)',
+    phiOrigin: 'Угол при вершине (φ₁)',
+    gamma: 'Наклон конуса (γ)',
+    scaleFactor: 'Масштаб',
+  },
+  azimuthal: {
+    lambda0: 'Долгота точки касания (λ₀)',
+    phiOrigin: 'Широта точки касания (φ₀)',
+    gamma: 'Вращение плоскости (γ)',
+    scaleFactor: 'Расстояние до плоскости',
+  },
+};
 
 function Slider({
   label,
@@ -235,7 +265,9 @@ export default function ControlPanel() {
         </div>
       </div>
 
-      <div className="flex items-center gap-[12px] mt-3">
+      <div className="mt-1 text-[11px] uppercase tracking-wider text-neon-blue/90">{FAMILY_SECTION[family]}</div>
+
+      <div className="flex items-center gap-[12px]">
         <span className={`${labelClass} w-40 shrink-0`}>
           Матмодель
           <Hint text="Тип сохраняемого свойства: равноугольность (углы и формы), равновеликость (площади) или равнопромежуточность (расстояния)." />
@@ -243,10 +275,10 @@ export default function ControlPanel() {
         <DistortionSelect value={distortion} onChange={(v) => setParam('distortion', v)} />
       </div>
 
-      <Slider label="Центральный меридиан" value={lambda0} min={-180} max={180} step={1} onChange={(v) => setParam('lambda0', v)} hint="Поворот вспомогательной поверхности вокруг Земли — задаёт долготу, с которой «разворачивается» карта." />
-      <Slider label="Широта начала отсчета" value={phiOrigin} min={-90} max={90} step={1} onChange={(v) => setParam('phiOrigin', v)} hint="Точка касания (азимутальная), параллель касания (коническая) или сдвиг оси (цилиндрическая)." />
-      <Slider label="Наклон (γ)" value={gamma} min={-180} max={180} step={1} onChange={(v) => setParam('gamma', v)} hint="Наклон вспомогательной поверхности — создаёт косые и трансверсальные проекции." />
-      <Slider label="Масштаб" value={scaleFactor} min={0.9} max={1.1} step={0.01} onChange={(v) => setParam('scaleFactor', v)} suffix="" hint="Диаметр / погружение вспомогательной фигуры. Чем больше, тем крупнее карта и сильнее искажения." />
+      <Slider label={PARAM_LABELS[family].lambda0} value={lambda0} min={-180} max={180} step={1} onChange={(v) => setParam('lambda0', v)} hint="Поворот вспомогательной поверхности вокруг Земли — задаёт долготу, с которой «разворачивается» карта." />
+      <Slider label={PARAM_LABELS[family].phiOrigin} value={phiOrigin} min={-90} max={90} step={1} onChange={(v) => setParam('phiOrigin', v)} hint="Точка касания (азимутальная), параллель касания (коническая) или смещение цилиндра по оси Y — стандартная параллель (цилиндрическая)." />
+      <Slider label={PARAM_LABELS[family].gamma} value={gamma} min={-180} max={180} step={1} onChange={(v) => setParam('gamma', v)} hint="Наклон вспомогательной поверхности — создаёт косые и трансверсальные проекции." />
+      <Slider label={PARAM_LABELS[family].scaleFactor} value={scaleFactor} min={0.9} max={1.1} step={0.01} onChange={(v) => setParam('scaleFactor', v)} suffix="" hint="Диаметр / погружение вспомогательной фигуры. Чем больше, тем крупнее карта и сильнее искажения." />
 
       {family === 'conic' && (
         <StdParallel2Control value={stdParallel2} phiOrigin={phiOrigin} onChange={(v) => setParam('stdParallel2', v)} />

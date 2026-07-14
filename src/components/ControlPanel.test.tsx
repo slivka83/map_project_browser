@@ -32,7 +32,7 @@ describe('ControlPanel', () => {
 
   it('updates store.lambda0 when the meridian slider changes', () => {
     render(<ControlPanel />);
-    const slider = screen.getByRole('slider', { name: 'Центральный меридиан' }) as HTMLInputElement;
+    const slider = screen.getByRole('slider', { name: 'Поворот вокруг Земли (λ₀)' }) as HTMLInputElement;
     fireEvent.change(slider, { target: { value: '60' } });
     expect(useAppStore.getState().lambda0).toBe(60);
   });
@@ -51,7 +51,7 @@ describe('ControlPanel', () => {
   it('resets params to the current family defaults via the reset button', () => {
     render(<ControlPanel />);
     fireEvent.click(screen.getByRole('button', { name: 'Коническая' }));
-    fireEvent.change(screen.getByRole('slider', { name: 'Центральный меридиан' }), { target: { value: '60' } });
+    fireEvent.change(screen.getByRole('slider', { name: 'Вращение конуса (λ₀)' }), { target: { value: '60' } });
     expect(useAppStore.getState().lambda0).toBe(60);
     fireEvent.click(screen.getByRole('button', { name: 'Сбросить параметры' }));
     const s = useAppStore.getState();
@@ -70,7 +70,7 @@ describe('ControlPanel', () => {
 
   it('updates store.phiOrigin when the central-latitude slider changes', () => {
     render(<ControlPanel />);
-    fireEvent.change(screen.getByRole('slider', { name: 'Широта начала отсчета' }), { target: { value: '25' } });
+    fireEvent.change(screen.getByRole('slider', { name: 'Смещение по оси Y (ст. параллель)' }), { target: { value: '25' } });
     expect(useAppStore.getState().phiOrigin).toBe(25);
   });
 
@@ -86,7 +86,7 @@ describe('ControlPanel', () => {
 
   it('updates store.gamma when the tilt slider changes', () => {
     render(<ControlPanel />);
-    const slider = screen.getByRole('slider', { name: 'Наклон (γ)' }) as HTMLInputElement;
+    const slider = screen.getByRole('slider', { name: 'Угол наклона цилиндра (γ)' }) as HTMLInputElement;
     fireEvent.change(slider, { target: { value: '-30' } });
     expect(useAppStore.getState().gamma).toBe(-30);
   });
