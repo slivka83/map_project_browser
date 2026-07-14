@@ -44,7 +44,7 @@ export default function Rays({ params }: { params: ProjectionParams }) {
       {segments.map((seg, i) => (
         <group key={i}>
           <Line
-            points={[seg.start, seg.end]}
+            points={[seg.start, seg.globe, seg.end]}
             color={NEON_YELLOW}
             lineWidth={1.2}
             transparent
