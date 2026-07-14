@@ -89,6 +89,54 @@ describe('getD3Projection (spec §9.2)', () => {
   });
 });
 
+describe('getD3Projection — light source & visual params (spec концепт)', () => {
+  it('azimuthal + center light → geoGnomonic', () => {
+    const p = getD3Projection(makeState({ family: 'azimuthal', azLight: 'center' }));
+    const ref = d3Geo.geoGnomonic().rotate([0, 0, 0]).scale(100).translate([400, 300]);
+    expect(p([0, 0])).toEqual(ref([0, 0]));
+  });
+
+  it('azimuthal + antipode light → geoStereographic', () => {
+    const p = getD3Projection(makeState({ family: 'azimuthal', azLight: 'antipode' }));
+    const ref = d3Geo.geoStereographic().rotate([0, 0, 0]).scale(100).translate([400, 300]);
+    expect(p([0, 0])).toEqual(ref([0, 0]));
+  });
+
+  it('azimuthal + infinity light → geoOrthographic', () => {
+    const p = getD3Projection(makeState({ family: 'azimuthal', azLight: 'infinity' }));
+    const ref = d3Geo.geoOrthographic().rotate([0, 0, 0]).scale(100).translate([400, 300]);
+    expect(p([0, 0])).toEqual(ref([0, 0]));
+  });
+
+  it('applies gamma as the third rotation (oblique / transverse)', () => {
+    const p = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', lambda0: 15, phiOrigin: 5, gamma: 40 }));
+    const rot = p.rotate();
+    expect(rot[0]).toBeCloseTo(-15);
+    expect(rot[1]).toBeCloseTo(-5);
+    expect(rot[2]).toBeCloseTo(-40);
+  });
+
+  it('azimuthal gnomonic honours lambda0/phiOrigin/gamma in its rotation', () => {
+    const p = getD3Projection(makeState({ family: 'azimuthal', azLight: 'center', lambda0: 20, phiOrigin: 10, gamma: 30 }));
+    const rot = p.rotate();
+    expect(rot[0]).toBeCloseTo(-20);
+    expect(rot[1]).toBeCloseTo(-10);
+    expect(rot[2]).toBeCloseTo(-30);
+  });
+
+  it('uses parallels([phi1, phi2]) for a secant conic', () => {
+    const p = getD3Projection(makeState({ family: 'conic', distortion: 'conformal', phiOrigin: 40, stdParallel2: 60 }));
+    const ref = d3Geo.geoConicConformal().parallels([40, 60]).rotate([0, -40]).scale(100).translate([400, 300]);
+    expect(p([0, 0])).toEqual(ref([0, 0]));
+  });
+
+  it('secant conic falls back to a tangent parallel (phi1 = phi2) when stdParallel2 is null', () => {
+    const p = getD3Projection(makeState({ family: 'conic', distortion: 'equalArea', phiOrigin: 35 }));
+    const ref = d3Geo.geoConicEqualArea().parallels([35, 35]).rotate([0, -35]).scale(100).translate([400, 300]);
+    expect(p([0, 0])).toEqual(ref([0, 0]));
+  });
+});
+
 describe('computeAreaDistortion', () => {
   it('is ~0% for equal-area projections', () => {
     expect(computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'equalArea' }))).toBeCloseTo(0, 1);
@@ -284,5 +332,13 @@ describe('computeAreaDistortion edge cases', () => {
       computeAreaDistortion(makeState({ family: 'conic', distortion: 'conformal', phiOrigin: 40 })),
     ).toBeGreaterThan(0);
     expect(computeAreaDistortion(makeState({ family: 'azimuthal', distortion: 'conformal', phiOrigin: 0 }))).toBeGreaterThan(0);
+  });
+
+  it('stays finite and non-negative for gnomonic and orthographic light modes', () => {
+    for (const m of ['center', 'infinity'] as const) {
+      const v = computeAreaDistortion(makeState({ family: 'azimuthal', azLight: m, phiOrigin: 0 }));
+      expect(Number.isFinite(v)).toBe(true);
+      expect(v).toBeGreaterThanOrEqual(0);
+    }
   });
 });

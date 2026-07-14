@@ -6,7 +6,7 @@ import type { ProjectionParams } from '../store/useAppStore';
 import { MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y, CLIP_LAT, FIT_MARGIN, standardParallelDeg } from '../constants/geometry';
 
 export const getD3Projection = (state: ProjectionParams): GeoProjection => {
-  const { family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing } = state;
+  const { family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, azLight } = state;
 
   let proj: GeoProjection;
 
@@ -18,20 +18,31 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
     if (distortion === 'conformal') proj = d3Geo.geoConicConformal();
     else if (distortion === 'equalArea') proj = d3Geo.geoConicEqualArea();
     else proj = d3Geo.geoConicEquidistant();
-    // No standard parallels in the store: use a single tangent parallel at the
-    // central latitude. Near the equator a cone is degenerate, so fall back to
-    // STD_PARALLEL_FALLBACK — matching the aux-surface geometry in auxSurfaceGeometry.ts.
-    const parallel = standardParallelDeg(phiOrigin);
-    proj = (proj as GeoConicProjection).parallels([parallel, parallel]);
+    // Secant cone: two standard parallels φ1 (the central-latitude tangent
+    // parallel) and φ2 (the store's stdParallel2, when set). A tangent cone has
+    // φ1 = φ2. The equatorial fallback keeps the cone non-degenerate, matching
+    // the aux-surface geometry in auxSurfaceGeometry.ts.
+    const phi1 = standardParallelDeg(phiOrigin);
+    const phi2 = state.stdParallel2 != null ? state.stdParallel2 : phi1;
+    proj = (proj as GeoConicProjection).parallels([phi1, phi2]);
   } else {
-    if (distortion === 'conformal') proj = d3Geo.geoStereographic();
+    // The azimuthal light-source position defines the projection: a point light
+    // at the globe centre → gnomonic, at the antipode → stereographic, at
+    // infinity (parallel beams) → orthographic. `math` mode falls back to the
+    // distortion-selected analytic projection (equal-area / equidistant, while
+    // conformal azimuthal is itself stereographic).
+    if (azLight === 'center') proj = d3Geo.geoGnomonic();
+    else if (azLight === 'antipode') proj = d3Geo.geoStereographic();
+    else if (azLight === 'infinity') proj = d3Geo.geoOrthographic();
+    else if (distortion === 'conformal') proj = d3Geo.geoStereographic();
     else if (distortion === 'equalArea') proj = d3Geo.geoAzimuthalEqualArea();
     else proj = d3Geo.geoAzimuthalEquidistant();
   }
 
-  // Apply rotation / scale / translate from the full store state (spec §4).
+  // Apply rotation / scale / translate from the full store state (spec §4). The
+  // third rotation component `gamma` produces oblique / transverse aspects.
   proj
-    .rotate([-lambda0, -phiOrigin])
+    .rotate([-lambda0, -phiOrigin, -gamma])
     .scale(MAP_SCALE * scaleFactor)
     .translate([VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing]);
 
