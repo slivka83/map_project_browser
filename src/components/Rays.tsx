@@ -6,6 +6,8 @@ import { computeCentralMeridianRays, projectToAuxWorld, type RaySegment } from '
 import type { ProjectionParams } from '../store/useAppStore';
 import { useAppStore } from '../store/useAppStore';
 
+const MARKER_R = 0.13;
+
 // Projection light beams. The central-meridian fan runs from the light source,
 // marks the point it passes through on the globe, and lands on the auxiliary
 // (developable) surface — the unrolled surface IS the 2D map, so the landing
@@ -55,11 +57,11 @@ export default function Rays({ params }: { params: ProjectionParams }) {
             gapSize={0.4}
           />
           <mesh position={seg.globe} renderOrder={11}>
-            <sphereGeometry args={[0.18, 12, 12]} />
+            <sphereGeometry args={[MARKER_R, 12, 12]} />
             <meshBasicMaterial color={NEON_YELLOW} toneMapped={false} depthTest={false} />
           </mesh>
           <mesh position={seg.end} renderOrder={11}>
-            <sphereGeometry args={[0.22, 12, 12]} />
+            <sphereGeometry args={[MARKER_R, 12, 12]} />
             <meshBasicMaterial color={NEON_YELLOW} toneMapped={false} depthTest={false} />
           </mesh>
         </group>
@@ -78,11 +80,11 @@ export default function Rays({ params }: { params: ProjectionParams }) {
             gapSize={0.4}
           />
           <mesh position={hoverRay.globe} renderOrder={12}>
-            <sphereGeometry args={[0.32, 16, 16]} />
+            <sphereGeometry args={[MARKER_R, 12, 12]} />
             <meshBasicMaterial color={NEON_YELLOW} toneMapped={false} depthTest={false} />
           </mesh>
           <mesh position={hoverRay.end} renderOrder={12}>
-            <sphereGeometry args={[0.38, 16, 16]} />
+            <sphereGeometry args={[MARKER_R, 12, 12]} />
             <meshBasicMaterial color={NEON_YELLOW} toneMapped={false} depthTest={false} />
           </mesh>
         </group>
