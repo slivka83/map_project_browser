@@ -278,7 +278,20 @@ export default function ControlPanel() {
       <Slider label={PARAM_LABELS[family].lambda0} value={lambda0} min={-180} max={180} step={1} onChange={(v) => setParam('lambda0', v)} hint="Поворот вспомогательной поверхности вокруг Земли — задаёт долготу, с которой «разворачивается» карта." />
       <Slider label={PARAM_LABELS[family].phiOrigin} value={phiOrigin} min={-90} max={90} step={1} onChange={(v) => setParam('phiOrigin', v)} hint="Точка касания (азимутальная), параллель касания (коническая) или смещение цилиндра по оси Y — стандартная параллель (цилиндрическая)." />
       <Slider label={PARAM_LABELS[family].gamma} value={gamma} min={-180} max={180} step={1} onChange={(v) => setParam('gamma', v)} hint="Наклон вспомогательной поверхности — создаёт косые и трансверсальные проекции." />
-      <Slider label={PARAM_LABELS[family].scaleFactor} value={scaleFactor} min={0.9} max={1.1} step={0.01} onChange={(v) => setParam('scaleFactor', v)} suffix="" hint="Диаметр / погружение вспомогательной фигуры. Чем больше, тем крупнее карта и сильнее искажения." />
+      <Slider
+        label={PARAM_LABELS[family].scaleFactor}
+        value={scaleFactor}
+        min={family === 'cylindrical' ? 0.5 : 0.9}
+        max={family === 'cylindrical' ? 1.0 : 1.1}
+        step={0.01}
+        onChange={(v) => setParam('scaleFactor', v)}
+        suffix=""
+        hint={
+          family === 'cylindrical'
+            ? 'Диаметр цилиндра как доля диаметра Земли: 1.0 — цилиндр касается Земли, 0.5 — половина диаметра (погружён).'
+            : 'Диаметр / погружение вспомогательной фигуры. Чем больше, тем крупнее карта и сильнее искажения.'
+        }
+      />
 
       {family === 'conic' && (
         <StdParallel2Control value={stdParallel2} phiOrigin={phiOrigin} onChange={(v) => setParam('stdParallel2', v)} />

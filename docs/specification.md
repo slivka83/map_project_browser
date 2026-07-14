@@ -48,7 +48,7 @@ interface AppState {
   distortion: 'conformal' | 'equalArea' | 'equidistant';
   lambda0: number;      // -180...180
   phiOrigin: number;    // -90...90
-  scaleFactor: number;  // 0.9...1.1
+  scaleFactor: number;  // 0.9...1.1 (conic/azimuthal); 0.5...1.0 for cylindrical (1.0 = cylinder diameter = Earth diameter, 0.5 = half)
   falseEasting: number; // -1000...1000
   falseNorthing: number;// -1000...1000
   isEllipsoid: boolean; // boolean

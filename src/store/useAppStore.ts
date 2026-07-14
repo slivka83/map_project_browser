@@ -30,7 +30,7 @@ export interface ProjectionParams {
   distortion: DistortionModel;
   lambda0: number; // -180...180  (central meridian)
   phiOrigin: number; // -90...90   (central latitude)
-  scaleFactor: number; // 0.9...1.1 (aux-figure immersion)
+  scaleFactor: number; // aux-figure immersion; slider 0.9...1.1 (conic/azimuthal) or 0.5...1.0 for cylindrical (1.0 = Earth-diameter cylinder, 0.5 = half)
   falseEasting: number; // -1000...1000
   falseNorthing: number; // -1000...1000
   gamma: number; // -180...180  (tilt / third rotation → oblique & transverse aspects)
