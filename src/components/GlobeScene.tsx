@@ -22,7 +22,7 @@ export default function GlobeScene() {
   const handleGlobeMove = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
     const [lon, lat] = vec3ToLonLat([e.point.x, e.point.y, e.point.z]);
-    setHoverLonLat([lon, lat]);
+    setHoverLonLat([lon, lat], 'globe');
   };
 
   return (

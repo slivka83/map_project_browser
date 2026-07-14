@@ -17,6 +17,8 @@ export default function Rays({ params }: { params: ProjectionParams }) {
   const { family, azLight, cylLight } = params;
   const dashed = family === 'azimuthal' ? azLight === 'math' : cylLight === 'math';
   const hoverLonLat = useAppStore((s) => s.hoverLonLat);
+  const hoverSource = useAppStore((s) => s.hoverSource);
+  const showHoverRay = useAppStore((s) => s.showHoverRay);
 
   const segments = useMemo<RaySegment[]>(
     () =>
@@ -28,9 +30,13 @@ export default function Rays({ params }: { params: ProjectionParams }) {
     [params],
   );
 
+  // The hover ray is shown only when the cursor is over the 2D map (not the 3D
+  // globe) and the feature is enabled — the globe still mirrors the highlight
+  // marker, it just does not draw the projection ray.
+  const showHover = hoverSource === 'map' && showHoverRay;
   const hoverRay = useMemo<RaySegment | null>(
-    () => (hoverLonLat ? projectToAuxWorld(params, hoverLonLat[0], hoverLonLat[1], RADIUS) : null),
-    [params, hoverLonLat],
+    () => (showHover && hoverLonLat ? projectToAuxWorld(params, hoverLonLat[0], hoverLonLat[1], RADIUS) : null),
+    [params, hoverLonLat, showHover],
   );
 
   return (

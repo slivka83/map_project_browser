@@ -73,8 +73,15 @@ interface AppState extends ProjectionParams {
 
   // The point currently hovered in either the 2D map or the 3D globe, shared so
   // the other view can mirror the highlight (docs/new_spec.md §2 cross-linking).
+  // `hoverSource` records which view set it, so the projection ray is drawn only
+  // when the 2D map is hovered (the 3D globe mirrors the marker, not the ray).
   hoverLonLat: [number, number] | null;
-  setHoverLonLat: (v: [number, number] | null) => void;
+  hoverSource: 'globe' | 'map' | null;
+  setHoverLonLat: (v: [number, number] | null, source?: 'globe' | 'map') => void;
+  // Toggle the cursor-driven projection ray (drawn in the 3D scene only while the
+  // 2D map is hovered). Independent of the always-on central-meridian ray fan.
+  showHoverRay: boolean;
+  setShowHoverRay: (value: boolean) => void;
 
   setParam: <K extends keyof ProjectionParams>(key: K, value: ProjectionParams[K]) => void;
   setShowTissot: (value: boolean) => void;
@@ -98,7 +105,10 @@ export const useAppStore = create<AppState>((set) => ({
   countries110GeoJson: null,
   detailedMap: false,
   hoverLonLat: null,
-  setHoverLonLat: (v) => set({ hoverLonLat: v }),
+  hoverSource: null,
+  showHoverRay: true,
+  setHoverLonLat: (v, source) => set({ hoverLonLat: v, hoverSource: source ?? null }),
+  setShowHoverRay: (value) => set({ showHoverRay: value }),
 
   setParam: (key, value) => set({ [key]: value } as Pick<AppState, typeof key>),
   setShowTissot: (value) => set({ showTissot: value }),

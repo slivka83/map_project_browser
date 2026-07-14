@@ -91,18 +91,22 @@ describe('Map2D', () => {
     expect(getByTestId('area-distortion-label').textContent).toMatch(/^Искажение площади: \d+%$/);
   });
 
-  it('shows all four overlay buttons in a row, always visible', () => {
+  it('shows all five overlay buttons in a row, always visible', () => {
     const { getByRole, container } = render(<Map2D />);
     const tissot = getByRole('button', { name: 'Индикатрисы Тиссо' });
     const detail = getByRole('button', { name: 'Детализация карты' });
     const borders = getByRole('button', { name: 'Границы стран' });
     const intersection = getByRole('button', { name: 'Линии пересечения поверхности с глобусом' });
+    const hoverRay = getByRole('button', {
+      name: 'Луч проекции по курсору (показывать при наведении на карту)',
+    });
     expect(tissot).toBeTruthy();
     expect(detail).toBeTruthy();
     expect(borders).toBeTruthy();
     expect(intersection).toBeTruthy();
-    // Four buttons total, rendered as a single horizontal row.
-    expect(container.querySelectorAll('button').length).toBe(4);
+    expect(hoverRay).toBeTruthy();
+    // Five buttons total, rendered as a single horizontal row.
+    expect(container.querySelectorAll('button').length).toBe(5);
     expect(useAppStore.getState().detailedMap).toBe(false);
     expect(useAppStore.getState().showBorders).toBe(false);
 
@@ -114,5 +118,8 @@ describe('Map2D', () => {
 
     fireEvent.click(intersection);
     expect(useAppStore.getState().showIntersection).toBe(false);
+
+    fireEvent.click(hoverRay);
+    expect(useAppStore.getState().showHoverRay).toBe(false);
   });
 });

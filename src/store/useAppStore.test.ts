@@ -294,11 +294,25 @@ describe('useAppStore', () => {
     vi.unstubAllGlobals();
   });
 
-  it('starts with no hover point and updates it via setHoverLonLat', () => {
+  it('starts with no hover point and updates it via setHoverLonLat, tracking the source', () => {
     expect(useAppStore.getState().hoverLonLat).toBeNull();
-    useAppStore.getState().setHoverLonLat([12.5, -34.2]);
+    expect(useAppStore.getState().hoverSource).toBeNull();
+    useAppStore.getState().setHoverLonLat([12.5, -34.2], 'map');
     expect(useAppStore.getState().hoverLonLat).toEqual([12.5, -34.2]);
+    expect(useAppStore.getState().hoverSource).toBe('map');
+    useAppStore.getState().setHoverLonLat([1, 2], 'globe');
+    expect(useAppStore.getState().hoverSource).toBe('globe');
+    // a bare call (no source) clears the source too
     useAppStore.getState().setHoverLonLat(null);
     expect(useAppStore.getState().hoverLonLat).toBeNull();
+    expect(useAppStore.getState().hoverSource).toBeNull();
+  });
+
+  it('toggles the cursor projection ray via setShowHoverRay', () => {
+    expect(useAppStore.getState().showHoverRay).toBe(true);
+    useAppStore.getState().setShowHoverRay(false);
+    expect(useAppStore.getState().showHoverRay).toBe(false);
+    useAppStore.getState().setShowHoverRay(true);
+    expect(useAppStore.getState().showHoverRay).toBe(true);
   });
 });

@@ -9,7 +9,7 @@ import { computeTissotCircles } from '../utils/tissot';
 import { computeAuxSphereIntersectionsLonLat } from '../utils/auxSurfaceGeometry';
 import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT, NEON_YELLOW, NEON_WHITE } from '../constants/designTokens';
 import { iconBtnPlain, iconGlow } from './ui/styles';
-import { TissotIcon, BorderIcon, DetailIcon, IntersectionIcon } from './ui/icons';
+import { TissotIcon, BorderIcon, DetailIcon, IntersectionIcon, HoverRayIcon } from './ui/icons';
 import { FIT_MARGIN } from '../constants/geometry';
 
 function useElementSize() {
@@ -38,6 +38,8 @@ export default function Map2D() {
   const setShowBorders = useAppStore((s) => s.setShowBorders);
   const showIntersection = useAppStore((s) => s.showIntersection);
   const setShowIntersection = useAppStore((s) => s.setShowIntersection);
+  const showHoverRay = useAppStore((s) => s.showHoverRay);
+  const setShowHoverRay = useAppStore((s) => s.setShowHoverRay);
   const detailedMap = useAppStore((s) => s.detailedMap);
   const setDetailedMap = useAppStore((s) => s.setDetailedMap);
   const land50GeoJson = useAppStore((s) => s.land50GeoJson);
@@ -106,7 +108,7 @@ export default function Map2D() {
     const y = (e.clientY - rect.top - offY) / scale;
     const proj = pathGenerator.projection() as d3Geo.GeoProjection | null;
     const inv = proj?.invert?.([x, y]);
-    if (inv) setHoverLonLat([inv[0], inv[1]]);
+    if (inv) setHoverLonLat([inv[0], inv[1]], 'map');
   };
 
   const hoverPoint = hoverLonLat
@@ -206,6 +208,15 @@ export default function Map2D() {
           style={{ color: showIntersection ? NEON_WHITE : undefined, filter: iconGlow(showIntersection) }}
         >
           <IntersectionIcon />
+        </button>
+        <button
+          title="Луч проекции по курсору (показывать при наведении на карту)"
+          aria-label="Луч проекции по курсору (показывать при наведении на карту)"
+          onClick={() => setShowHoverRay(!showHoverRay)}
+          className={iconBtnPlain}
+          style={{ color: showHoverRay ? NEON_YELLOW : undefined, filter: iconGlow(showHoverRay) }}
+        >
+          <HoverRayIcon />
         </button>
       </div>
       <div
