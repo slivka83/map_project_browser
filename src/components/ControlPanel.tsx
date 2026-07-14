@@ -5,7 +5,7 @@ import EpsgCatalog from './EpsgCatalog';
 import Dropdown from './Dropdown';
 import { FamilyIcon, EpsgIcon, ResetIcon, InfoIcon } from './ui/icons';
 import { labelClass, activeTab, inactiveTab, iconBtn, panelClass } from './ui/styles';
-import { FAMILY_OPTIONS, DISTORTION_OPTIONS, FAMILY_LABEL, DISTORTION_LABEL, AZIMUTHAL_LIGHT_OPTIONS, CYLINDRICAL_LIGHT_OPTIONS, PROJECTION_PRESETS } from './ui/labels';
+import { FAMILY_OPTIONS, DISTORTION_OPTIONS, FAMILY_LABEL, DISTORTION_LABEL, AZIMUTHAL_LIGHT_OPTIONS, CYLINDRICAL_LIGHT_OPTIONS } from './ui/labels';
 import { signedStandardParallelDeg } from '../constants/geometry';
 import Hint from './ui/Hint';
 
@@ -210,12 +210,6 @@ export default function ControlPanel() {
   const resetParams = useAppStore((s) => s.resetParams);
   const applyPreset = useAppStore((s) => s.applyPreset);
 
-  const applyProjectionPreset = (preset: (typeof PROJECTION_PRESETS)[number]) => {
-    setFamily(preset.params.family ?? family);
-    applyPreset(preset.params);
-  };
-  const familyPresets = PROJECTION_PRESETS.filter((p) => p.params.family === family);
-
   return (
     <div className="flex flex-col gap-3.5 px-3 py-3">
       <div className="flex items-center gap-1">
@@ -314,20 +308,6 @@ export default function ControlPanel() {
           hint="Ось линейного источника: С–Ю → нормальная, через экватор → трансверсальная, наклон → косая."
         />
       )}
-
-      <div className="flex flex-wrap gap-1.5 pt-1">
-        <span className={`${labelClass} w-full`}>Пресеты проекций</span>
-        {familyPresets.map((p) => (
-          <button
-            key={p.label}
-            type="button"
-            onClick={() => applyProjectionPreset(p)}
-            className={`rounded border border-neon-blue/40 px-2 py-1 text-[11px] text-neon-blue/80 transition hover:bg-neon-blue/10 hover:text-neon-blue`}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
 
       {showSummary && (
         <div className={`${panelClass} flex flex-col gap-1 text-[12px]`}>

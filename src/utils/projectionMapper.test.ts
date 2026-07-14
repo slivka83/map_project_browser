@@ -363,3 +363,32 @@ describe('computeAreaDistortion edge cases', () => {
     }
   });
 });
+
+describe('fitProjectionToView / scaleFactor semantics (spec §9.2)', () => {
+  // The cylindrical family's `scaleFactor` is the cylinder DIAMETER (0.5..1.0),
+  // not a zoom factor, so shrinking the cylinder must NOT shrink the fitted 2D
+  // map. For conic/azimuthal, `scaleFactor` IS a zoom, so the map must grow.
+  it('cylindrical: the fitted map fills the view identically at 0.5 and 1.0', () => {
+    const mk = (scaleFactor: number) =>
+      getD3Projection(makeState({ family: 'cylindrical', scaleFactor }));
+    const p05 = mk(0.5);
+    const p10 = mk(1.0);
+    fitProjectionToView(p05, 800, 600, 1, 20);
+    fitProjectionToView(p10, 800, 600, 1, 20);
+    const w05 = Math.abs(p05([10, 0])![0] - p05([-10, 0])![0]);
+    const w10 = Math.abs(p10([10, 0])![0] - p10([-10, 0])![0]);
+    expect(w05).toBeCloseTo(w10, 3);
+  });
+
+  it('conic: a larger scaleFactor zooms the fitted map in', () => {
+    const mk = (scaleFactor: number) =>
+      getD3Projection(makeState({ family: 'conic', scaleFactor }));
+    const p09 = mk(0.9);
+    const p11 = mk(1.1);
+    fitProjectionToView(p09, 800, 600, 0.9, 20);
+    fitProjectionToView(p11, 800, 600, 1.1, 20);
+    const w09 = Math.abs(p09([10, 0])![0] - p09([-10, 0])![0]);
+    const w11 = Math.abs(p11([10, 0])![0] - p11([-10, 0])![0]);
+    expect(w11).toBeGreaterThan(w09);
+  });
+});

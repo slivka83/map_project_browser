@@ -65,9 +65,13 @@ export default function Map2D() {
     const proj = getD3Projection(params);
     // Fit the whole globe into the viewport so the map always fills the
     // available area regardless of the chosen projection (small uniform margin).
-    fitProjectionToView(proj, width, height, scaleFactor, FIT_MARGIN);
+    // For the cylindrical family `scaleFactor` is the cylinder DIAMETER (0.5..1.0),
+    // not a zoom, so it must not shrink the fitted map when the cylinder is
+    // immersed; conic/azimuthal keep `scaleFactor` as a zoom factor.
+    const fitZoom = family === 'cylindrical' ? 1 : scaleFactor;
+    fitProjectionToView(proj, width, height, fitZoom, FIT_MARGIN);
     return d3Geo.geoPath().projection(proj);
-  }, [params, scaleFactor, width, height]);
+  }, [params, family, scaleFactor, width, height]);
 
   const graticulePath = useMemo(() => pathGenerator(d3Geo.geoGraticule10()) ?? '', [pathGenerator]);
 

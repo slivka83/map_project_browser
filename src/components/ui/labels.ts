@@ -1,4 +1,4 @@
-import type { ProjectionFamily, DistortionModel, AzimuthalLight, CylindricalLight, ProjectionParams } from '../../store/useAppStore';
+import type { ProjectionFamily, DistortionModel, AzimuthalLight, CylindricalLight } from '../../store/useAppStore';
 
 // Single source for the Russian family / distortion labels, shared by the
 // ControlPanel option lists and the EpsgCatalog table headers.
@@ -45,25 +45,3 @@ export const AZIMUTHAL_LIGHT_LABEL: Record<AzimuthalLight, string> = Object.from
 export const CYLINDRICAL_LIGHT_LABEL: Record<CylindricalLight, string> = Object.fromEntries(
   CYLINDRICAL_LIGHT_OPTIONS.map((o) => [o.value, o.label]),
 ) as Record<CylindricalLight, string>;
-
-// Named, instantly-recognisable projections (docs/new_spec.md §4). Each preset
-// is a partial ProjectionParams; selecting one sets the family (which resets to
-// that family's defaults) and then applies the listed fields on top.
-export interface ProjectionPreset {
-  label: string;
-  params: Partial<ProjectionParams>;
-}
-
-export const PROJECTION_PRESETS: ProjectionPreset[] = [
-  { label: 'Меркатор', params: { family: 'cylindrical', distortion: 'conformal', cylLight: 'math' } },
-  { label: 'Равновел. (цил.)', params: { family: 'cylindrical', distortion: 'equalArea', cylLight: 'ns' } },
-  { label: 'Плате', params: { family: 'cylindrical', distortion: 'equidistant', cylLight: 'ns' } },
-  { label: 'Ламберта (кон.)', params: { family: 'conic', distortion: 'conformal' } },
-  { label: 'Равновел. (кон.)', params: { family: 'conic', distortion: 'equalArea' } },
-  { label: 'Равнопром. (кон.)', params: { family: 'conic', distortion: 'equidistant' } },
-  { label: 'Гномоническая', params: { family: 'azimuthal', distortion: 'equalArea', azLight: 'center' } },
-  { label: 'Стереографическая', params: { family: 'azimuthal', distortion: 'equalArea', azLight: 'antipode' } },
-  { label: 'Ортографическая', params: { family: 'azimuthal', distortion: 'equalArea', azLight: 'infinity' } },
-  { label: 'Равновел. (азим.)', params: { family: 'azimuthal', distortion: 'equalArea', azLight: 'math' } },
-  { label: 'Равнопром. (азим.)', params: { family: 'azimuthal', distortion: 'equidistant', azLight: 'math' } },
-];
