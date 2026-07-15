@@ -86,8 +86,10 @@ Map data is bundled locally (no runtime/external API, per spec): `public/world-1
 
 ## Workflow rules (standing, set by user)
 Apply these after **any** code change in this repo:
-1. **Keep tests in sync with code.** After editing any source, add or update tests so every changed behaviour is covered (aim for all realistic scenarios). Per spec §9.3, WebGL/`<Canvas>` and SVG `d` attributes stay intentionally untested.
-2. **Run the whole suite.** After any code change, run `npm run test` (and ideally `npm run lint` + `npm run build`) and do not leave failing tests.
-3. **Keep docs in sync.** If a code change alters functionality, update the affected docs to match, when necessary: `docs/BRD.md`, `docs/specification.md`, `AGENTS.md`, and `README.md`.
-4. **Commit after every change.** After changing any file, stage and commit all modifications to Git (with a concise, repo-style message). Do not leave edits uncommitted between turns.
- 5. **Question nonsense before implementing.** When a requirement / spec detail looks wrong, redundant, or unhelpful to a real user, do **not** implement it blindly. Think it through, check it against theory / common sense, and tell the user plainly why it is unnecessary (or harmful) *before* writing code. Only build it if the user confirms. (Agreed with the user after the cylindrical "Ось источника" rod control was added and then removed as redundant.)
+1. **Test every bug fix.** When you hit an error / bug, first write a test that reproduces it, then fix the code so the test passes. Never "fix" silently without a regression test.
+2. **Keep tests in sync with code.** After editing any source, add or update tests so every changed behaviour is covered (aim for all realistic scenarios). Per spec §9.3, WebGL/`<Canvas>` and SVG `d` attributes stay intentionally untested.
+3. **Run the whole suite after changing code.** After any code change, run `npm run test` (and ideally `npm run lint` + `npm run build`) and do not leave failing tests.
+4. **Clean up temporary artifacts.** If a temp folder / file (e.g. under `/tmp/opencode`, scratch scripts, debug dumps) is no longer needed, delete it — do not leave clutter behind.
+5. **Keep docs in sync.** If a code change alters functionality, rewrite / update the affected docs to match: `docs/BRD.md`, `docs/specification.md`, `AGENTS.md`, and `README.md`.
+6. **Commit, then push.** After changing code **and** running the whole test suite green, commit all modifications and push the project to Git (concise, repo-style message). Do not leave edits uncommitted between turns, and do not stop at a local commit.
+7. **Think before acting — question nonsense.** Do **not** jump straight into the task. First reason about it: does the requirement contradict the current documentation or any existing functionality? Is it nonsense from the standpoint of common sense or the theory of the product being built? If so, discuss it with the user **first** before writing any code. Only implement once the user confirms. (Agreed with the user after the cylindrical "Ось источника" rod control was added and then removed as redundant.)
