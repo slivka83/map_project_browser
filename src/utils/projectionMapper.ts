@@ -242,23 +242,8 @@ export function isPointerOverGlobe(path: d3Geo.GeoPath, x: number, y: number): b
   return true;
 }
 
-// Fit a configured projection so the globe fills the viewport `width`×
-// `height` with a uniform `margin`. `scaleFactor` acts as a zoom (1 = fill,
-// >1 zoom in, <1 zoom out), kept centred by shrinking/growing the fit box
-// around the viewport centre. The 3D scene keeps the fixed `scale(100)` from
-// getD3Projection; only the 2D map overrides it via this helper.
-export function fitProjectionToView(
-  proj: GeoProjection,
-  width: number,
-  height: number,
-  scaleFactor: number,
-  margin = FIT_MARGIN,
-): GeoProjection {
-  const cx = width / 2;
-  const cy = height / 2;
-  // Fit the clipped ±CLIP_LAT band into the viewport (small uniform margin) so
-  // the map fills the available area at scaleFactor = 1 (the Earth-diameter
-  // cylinder / unity zoom).
+// Fitted width of the ±CLIP_LAT band when `proj` is fitted into the viewport.
+function fittedBandWidth(proj: GeoProjection, width: number, height: number, margin: number): number {
   proj.fitExtent(
     [
       [margin, margin],
@@ -266,16 +251,46 @@ export function fitProjectionToView(
     ],
     FIT_SPHERE,
   );
-  // `scaleFactor` is a true zoom for conic/azimuthal and the cylinder DIAMETER
-  // for cylindrical (the unrolled cylinder's circumference ∝ scaleFactor). Scale
-  // the fitted map by it about the viewport centre so the parameter is directly
-  // visible as map size — a smaller cylinder / zoom-out → a smaller map with
-  // margins — instead of being normalized away by the fit. This matches the 3D
-  // scene, where the same scaleFactor shrinks the aux surface.
-  if (scaleFactor !== 1) {
+  const b = d3Geo.geoPath(proj).bounds(FIT_SPHERE);
+  return b[1][0] - b[0][0];
+}
+
+// Fit a configured projection into the viewport `width`×`height` with a uniform
+// `margin`. The map's WIDTH is set to `scaleFactor · baseWidth`, where
+// `baseWidth` is the fitted width of the full-diameter (scaleFactor = 1)
+// reference — the cylinder's unrolled circumference ∝ diameter. The HEIGHT then
+// follows the projection's OWN aspect (baked into `proj` via its standard
+// parallel), so the sizing is physically faithful AND monotonic:
+//   • conformal (Mercator): aspect fixed → the map scales uniformly with the diameter;
+//   • equidistant: height is diameter-independent → width shrinks, height stays;
+//   • equal-area: area is preserved → width shrinks while height grows (∝ 1/diameter).
+// This removes the old `fitExtent · scaleFactor` artifact, where a changing
+// aspect made the displayed size grow then shrink. `referenceProj` is the
+// tangent (scaleFactor = 1) projection of the same family/distortion; when it is
+// omitted (conic/azimuthal, where scaleFactor is a plain zoom) `proj` itself is
+// the reference, so the behaviour reduces to "fill the viewport, then zoom".
+// The 3D scene keeps the fixed `scale(100)` from getD3Projection; only the 2D
+// map overrides it via this helper.
+export function fitProjectionToView(
+  proj: GeoProjection,
+  width: number,
+  height: number,
+  scaleFactor: number,
+  margin = FIT_MARGIN,
+  referenceProj?: GeoProjection,
+): GeoProjection {
+  const cx = width / 2;
+  const cy = height / 2;
+  // Baseline: fitted width of the full-diameter reference (or `proj` itself).
+  const baseWidth = fittedBandWidth(referenceProj ?? proj, width, height, margin);
+  // Fit the actual projection (fills the viewport), then rescale so its width
+  // matches `scaleFactor · baseWidth`. Height follows the projection's aspect.
+  const curWidth = fittedBandWidth(proj, width, height, margin);
+  if (curWidth > 0 && scaleFactor > 0) {
+    const k = (scaleFactor * baseWidth) / curWidth;
     const center = proj.invert?.([cx, cy]) ?? null;
     const p0 = center ? proj(center) : null;
-    proj.scale(proj.scale() * scaleFactor);
+    proj.scale(proj.scale() * k);
     if (center && p0) {
       const p1 = proj(center);
       if (p1) {

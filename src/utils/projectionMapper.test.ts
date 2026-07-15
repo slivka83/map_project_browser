@@ -359,6 +359,43 @@ describe('fitProjectionToView (map always fills the viewport)', () => {
     expect(wHalf).toBeLessThan(wFull * 0.6);
   });
 
+  it('sizes the cylindrical map physically & monotonically with the diameter (reference proj)', () => {
+    // Width ∝ diameter (cylinder circumference) for every distortion; height
+    // follows the projection aspect: conformal scales uniformly, equidistant
+    // keeps its height, equal-area preserves AREA (width ↓, height ↑). The size
+    // must change monotonically with the diameter (no grow-then-shrink artifact).
+    const dims = (distortion: DistortionModel, s: number) => {
+      const proj = getD3Projection(makeState({ family: 'cylindrical', distortion, scaleFactor: s }));
+      const ref = getD3Projection(makeState({ family: 'cylindrical', distortion, scaleFactor: 1 }));
+      const b = fitBounds(fitProjectionToView(proj, W, H, s, M, ref));
+      return { w: b[1][0] - b[0][0], h: b[1][1] - b[0][1] };
+    };
+    const steps = [1.0, 0.9, 0.8, 0.7, 0.6, 0.5];
+    for (const distortion of ['conformal', 'equalArea', 'equidistant'] as DistortionModel[]) {
+      const rows = steps.map((s) => dims(distortion, s));
+      // Width shrinks monotonically with the diameter for all distortions.
+      for (let i = 1; i < rows.length; i++) expect(rows[i].w).toBeLessThan(rows[i - 1].w);
+      // Width is (very nearly) proportional to the diameter.
+      expect(rows[5].w / rows[0].w).toBeCloseTo(0.5, 1);
+      if (distortion === 'conformal') {
+        for (let i = 1; i < rows.length; i++) expect(rows[i].h).toBeLessThan(rows[i - 1].h);
+      } else if (distortion === 'equidistant') {
+        for (let i = 1; i < rows.length; i++) expect(rows[i].h).toBeCloseTo(rows[0].h, 0);
+      } else {
+        // equal-area: height grows as the diameter shrinks, area stays constant.
+        for (let i = 1; i < rows.length; i++) expect(rows[i].h).toBeGreaterThan(rows[i - 1].h);
+        for (let i = 1; i < rows.length; i++) {
+          expect(rows[i].w * rows[i].h).toBeCloseTo(rows[0].w * rows[0].h, -3);
+        }
+      }
+      // Everything stays inside the viewport.
+      for (const r of rows) {
+        expect(r.w).toBeLessThanOrEqual(W - 2 * M + 1);
+        expect(r.h).toBeLessThanOrEqual(H - 2 * M + 1);
+      }
+    }
+  });
+
   it('does not throw on a tiny square viewport and keeps bounds inside', () => {
     const w = 60;
     const h = 60;
