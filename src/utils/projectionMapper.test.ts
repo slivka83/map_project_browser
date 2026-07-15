@@ -210,10 +210,22 @@ describe('computeAreaDistortion', () => {
     expect(d).toBeGreaterThan(50);
   });
 
-  it('is invariant to a uniform zoom (scaleFactor)', () => {
-    const a = computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'conformal', scaleFactor: 1 }));
-    const b = computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'conformal', scaleFactor: 1.1 }));
-    expect(a).toBeCloseTo(b, 5);
+  it('is invariant to a true zoom (scaleFactor) for conic/azimuthal families', () => {
+    for (const family of ['conic', 'azimuthal'] as const) {
+      const base = makeState({ family, distortion: 'conformal', phiOrigin: family === 'conic' ? 40 : 0 });
+      const a = computeAreaDistortion(base);
+      const b = computeAreaDistortion({ ...base, scaleFactor: 1.1 });
+      expect(a).toBeCloseTo(b, 5);
+    }
+  });
+
+  it('drops for a secant (immersed) cylinder vs a tangent one (cylindrical conformal)', () => {
+    // scaleFactor = cylinder radius; < 1 → two intersection parallels → lower mean area distortion.
+    const tangent = computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'conformal', scaleFactor: 1 }));
+    const secant = computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'conformal', scaleFactor: 0.5 }));
+    expect(tangent).toBeGreaterThan(50);
+    expect(secant).toBeGreaterThan(0);
+    expect(secant).toBeLessThan(tangent);
   });
 
   it('never returns a negative distortion', () => {

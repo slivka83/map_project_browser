@@ -106,18 +106,45 @@ function quadSelfIntersects(p: [number, number][]): boolean {
 const ARTIFACT_SCALE_LIMIT = 50;
 
 // Area-weighted mean area distortion of a projection, as a percentage. The
-// projection's central point (lambda0, phiOrigin) is, by construction, its
-// least-distorted point, so it is taken as the undistorted reference (area
-// scale = 100%); the result is the mean relative area excess elsewhere. An
+// reference is the projection's LEAST-distorted area scale (taken as 100%) —
+// the standard parallel / the surface–globe intersection where the area scale
+// is minimal. For a tangent surface that is the centre; for a secant (immersed)
+// cylinder it is the two intersection parallels, so the reported distortion
+// responds to the cylinder diameter and matches the 3D intersection rings. An
 // equal-area projection keeps a constant area scale everywhere → 0%.
 export function computeAreaDistortion(params: ProjectionParams): number {
   const proj = getD3Projection(params);
   const d = 0.25; // half-size of the sampling quad, degrees (small → low curvature error)
-  // Reference = the area scale at the projection centre; a clipped centre (a
-  // pole) falls back to the smallest valid sampled scale.
-  const centre = localAreaScale(proj, params.lambda0, params.phiOrigin, d);
-  const aRef = centre != null && centre > 0 ? centre : null;
-
+  // Reference = the area scale at the standard parallel (where true scale = 1),
+  // NOT the map centre. Local area scale is measured in pixel²/steradian, so the
+  // reference must be the value AT the undistorted latitude, not a fixed constant
+  // (the constant factor differs per distortion type). For a cylindrical family
+  // the standard parallels are the surface–globe intersections at ±arccos(
+  // scaleFactor) (a tangent cylinder is the single-intersection limit at
+  // scaleFactor = 1); referencing them makes the reported distortion DROP as the
+  // cylinder diameter shrinks, matching the 3D intersection rings. Conic/azimuthal
+  // treat scaleFactor as a true zoom, so they keep the centre as the reference.
+  let aRef: number | null;
+  if (params.family === 'cylindrical') {
+    const s = Math.max(0, Math.min(1, params.scaleFactor));
+    const phiS = Math.acos(s); // standard-parallel latitude magnitude
+    // World latitude φ_s displays at φ_s − phiOrigin under the projection's
+    // latitude rotation; both intersection parallels are candidates.
+    const cands = [phiS - params.phiOrigin, -phiS - params.phiOrigin];
+    let best: number | null = null;
+    for (const lat of cands) {
+      const a = localAreaScale(proj, params.lambda0, lat, d);
+      if (a != null && a > 0) best = best == null ? a : Math.min(best, a);
+    }
+    if (best == null) {
+      const centre = localAreaScale(proj, params.lambda0, params.phiOrigin, d);
+      best = centre != null && centre > 0 ? centre : null;
+    }
+    aRef = best;
+  } else {
+    const centre = localAreaScale(proj, params.lambda0, params.phiOrigin, d);
+    aRef = centre != null && centre > 0 ? centre : null;
+  }
   const scales: number[] = [];
   const weights: number[] = [];
   for (let lat = -80; lat <= 80; lat += 10) {
