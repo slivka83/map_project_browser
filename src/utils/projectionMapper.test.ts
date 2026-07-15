@@ -303,6 +303,18 @@ describe('fitProjectionToView (map always fills the viewport)', () => {
     expect(wZoom).toBeGreaterThan(wNorm);
   });
 
+  it('scales the cylindrical map width with the cylinder diameter (scaleFactor < 1)', () => {
+    // An immersed (smaller) cylinder unrolls to a smaller map, so the diameter
+    // is directly visible as the map size, matching the 3D aux-surface radius.
+    const full = fitProjectionToView(getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal' })), W, H, 1, M);
+    const half = fitProjectionToView(getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', scaleFactor: 0.5 })), W, H, 0.5, M);
+    const wFull = fitBounds(full)[1][0] - fitBounds(full)[0][0];
+    const wHalf = fitBounds(half)[1][0] - fitBounds(half)[0][0];
+    expect(wHalf).toBeLessThan(wFull);
+    expect(wHalf).toBeGreaterThan(wFull * 0.4);
+    expect(wHalf).toBeLessThan(wFull * 0.6);
+  });
+
   it('does not throw on a tiny square viewport and keeps bounds inside', () => {
     const w = 60;
     const h = 60;

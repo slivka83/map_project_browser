@@ -222,16 +222,35 @@ export function fitProjectionToView(
 ): GeoProjection {
   const cx = width / 2;
   const cy = height / 2;
-  const bx0 = cx - (cx - margin) * scaleFactor;
-  const by0 = cy - (cy - margin) * scaleFactor;
-  const bx1 = cx + (width - margin - cx) * scaleFactor;
-  const by1 = cy + (height - margin - cy) * scaleFactor;
+  // Fit the clipped ±CLIP_LAT band into the viewport (small uniform margin) so
+  // the map fills the available area at scaleFactor = 1 (the Earth-diameter
+  // cylinder / unity zoom).
   proj.fitExtent(
     [
-      [bx0, by0],
-      [bx1, by1],
+      [margin, margin],
+      [width - margin, height - margin],
     ],
     FIT_SPHERE,
   );
+  // `scaleFactor` is a true zoom for conic/azimuthal and the cylinder DIAMETER
+  // for cylindrical (the unrolled cylinder's circumference ∝ scaleFactor). Scale
+  // the fitted map by it about the viewport centre so the parameter is directly
+  // visible as map size — a smaller cylinder / zoom-out → a smaller map with
+  // margins — instead of being normalized away by the fit. This matches the 3D
+  // scene, where the same scaleFactor shrinks the aux surface.
+  if (scaleFactor !== 1) {
+    const center = proj.invert?.([cx, cy]) ?? null;
+    const p0 = center ? proj(center) : null;
+    proj.scale(proj.scale() * scaleFactor);
+    if (center && p0) {
+      const p1 = proj(center);
+      if (p1) {
+        proj.translate([
+          proj.translate()[0] + (p0[0] - p1[0]),
+          proj.translate()[1] + (p0[1] - p1[1]),
+        ]);
+      }
+    }
+  }
   return proj;
 }
