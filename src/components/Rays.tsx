@@ -16,8 +16,8 @@ const MARKER_R = 0.13;
 // making the "globe point → map point" link explicit. `math` mode (no physical
 // light) draws the beams as dashed formula vectors (docs/new_spec.md §3).
 export default function Rays({ params }: { params: ProjectionParams }) {
-  const { family, azLight, cylLight } = params;
-  const dashed = family === 'azimuthal' ? azLight === 'math' : cylLight === 'math';
+  const { family, azLight } = params;
+  const dashed = family === 'azimuthal' && azLight === 'math';
   const hoverLonLat = useAppStore((s) => s.hoverLonLat);
   const hoverSource = useAppStore((s) => s.hoverSource);
   const showHoverRay = useAppStore((s) => s.showHoverRay);

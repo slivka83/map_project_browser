@@ -340,7 +340,6 @@ export function computeAuxSurfaceParams(
   gamma = 0,
   distortion: ProjectionParams['distortion'] = 'equalArea',
   azLight: ProjectionParams['azLight'] = 'math',
-  cylLight: ProjectionParams['cylLight'] = 'math',
 ): AuxSurfaceParams {
   const lonRad = (lambda0 * Math.PI) / 180;
 
@@ -348,7 +347,7 @@ export function computeAuxSurfaceParams(
     // Size the cylinder height to the central-meridian extent of the fitted
     // ±CLIP_LAT band so the projection rays land on the rendered surface
     // (Mercator/equirectangular would otherwise overshoot a fixed height).
-    const proj = getD3Projection({ family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2, azLight, cylLight });
+    const proj = getD3Projection({ family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2, azLight });
     const yTop = proj([lambda0, CLIP_LAT])?.[1] ?? 0;
     const yBot = proj([lambda0, -CLIP_LAT])?.[1] ?? 0;
     const band = Math.abs(yTop - yBot) * worldPerPixel(radius);
@@ -361,7 +360,7 @@ export function computeAuxSurfaceParams(
     // Size the tangent-plane disk to contain the fitted ±CLIP_LAT band of the
     // projection, so every ray lands on the visible disk (capped for gnomonic,
     // where the projection runs to infinity).
-    const proj = getD3Projection({ family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2, azLight, cylLight });
+    const proj = getD3Projection({ family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2, azLight });
     const c = proj([lambda0, phiOrigin]);
     let maxR = 0;
     for (let lat = -CLIP_LAT; lat <= CLIP_LAT; lat += 10) {
@@ -391,32 +390,6 @@ export function computeAuxSurfaceParams(
 
 // ---- Light-source geometry (single source of truth for the 3D light marker) ----
 // Mirrors the physical model in docs/new_spec.md §3.
-
-// Cylindrical linear light source: a glowing rod through the globe centre whose
-// axis orientation follows the `cylLight` rod mode (ns / transverse / oblique)
-// plus the `gamma` tilt. Returns null in `math` mode (no physical light source).
-export function computeCylindricalLightRod(
-  cylLight: ProjectionParams['cylLight'],
-  lambda0: number,
-  gamma: number,
-  radius = RADIUS,
-): { start: Vec3; end: Vec3 } | null {
-  if (cylLight === 'math') return null;
-  const baseDir: Vec3 =
-    cylLight === 'transverse'
-      ? [1, 0, 0]
-      : cylLight === 'oblique'
-        ? [Math.SQRT1_2, Math.SQRT1_2, 0]
-        : [0, 1, 0];
-  const gammaRad = (gamma * Math.PI) / 180;
-  const lonRad = (lambda0 * Math.PI) / 180;
-  const dir = applyEuler(baseDir, gammaRad, lonRad);
-  const len = radius * 1.9;
-  return {
-    start: [-dir[0] * (len / 2), -dir[1] * (len / 2), -dir[2] * (len / 2)],
-    end: [dir[0] * (len / 2), dir[1] * (len / 2), dir[2] * (len / 2)],
-  };
-}
 
 // Azimuthal point-light position (world space). `center` → globe centre,
 // `antipode` → the point opposite the tangent point. `infinity` and `math`
@@ -614,12 +587,11 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
     gamma,
     stdParallel2,
     azLight,
-    cylLight,
     radius = RADIUS,
     rayCount = RAY_COUNT,
   } = params;
 
-  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, cylLight);
+  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight);
   const cy = VIEW_CENTER_Y + falseNorthing;
   const wpp = worldPerPixel(radius);
   const PARALLEL_LEN = AUX_LENGTH * radius;
@@ -635,7 +607,6 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
     gamma,
     stdParallel2,
     azLight,
-    cylLight,
   });
 
   const { center, normal } = computeTangentBasis(lambda0, phiOrigin, radius);
@@ -725,10 +696,10 @@ export function computeConicRayEnd(
 // 2D map (the auxiliary surface unrolled). Returns null when the projection
 // clips the point (e.g. the back hemisphere of an orthographic projection).
 export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: number, radius = RADIUS): RaySegment | null {
-  const { family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight, cylLight } = params;
+  const { family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight } = params;
 
-  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, cylLight);
-  const proj = getD3Projection({ family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight, cylLight });
+  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight);
+  const proj = getD3Projection({ family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight });
   const cy = VIEW_CENTER_Y + falseNorthing;
   const wpp = worldPerPixel(radius);
   const PARALLEL_LEN = AUX_LENGTH * radius;

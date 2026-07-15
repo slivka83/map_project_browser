@@ -15,7 +15,6 @@ export type DistortionModel = 'conformal' | 'equalArea' | 'equidistant';
 // analytic Mercator/equal-area/equidistant. The conic family is always a cone
 // with its apex at the light (no separate light selector).
 export type AzimuthalLight = 'center' | 'antipode' | 'infinity' | 'math';
-export type CylindricalLight = 'ns' | 'transverse' | 'oblique' | 'math';
 
 // Default distortion per family: cylindrical → conformal, conic → equidistant,
 // azimuthal → equal-area.
@@ -36,7 +35,6 @@ export interface ProjectionParams {
   gamma: number; // -180...180  (tilt / third rotation → oblique & transverse aspects)
   stdParallel2: number | null; // φ2; null = tangent surface (single standard parallel)
   azLight: AzimuthalLight; // light-source mode for the azimuthal family
-  cylLight: CylindricalLight; // light-source (rod) mode for the cylindrical family
 }
 
 export function defaultParamsForFamily(family: ProjectionFamily): ProjectionParams {
@@ -51,7 +49,6 @@ export function defaultParamsForFamily(family: ProjectionFamily): ProjectionPara
     gamma: 0,
     stdParallel2: null,
     azLight: 'math',
-    cylLight: 'math',
   };
 }
 

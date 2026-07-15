@@ -33,7 +33,6 @@ describe('useAppStore', () => {
     expect(s.gamma).toBe(0);
     expect(s.stdParallel2).toBeNull();
     expect(s.azLight).toBe('math');
-    expect(s.cylLight).toBe('math');
     expect(s.showTissot).toBe(false);
     expect(s.showBorders).toBe(false);
     expect(s.showIntersection).toBe(false);
@@ -46,12 +45,10 @@ describe('useAppStore', () => {
     store.setParam('gamma', 45);
     store.setParam('stdParallel2', 30);
     store.setParam('azLight', 'center');
-    store.setParam('cylLight', 'transverse');
     const s = useAppStore.getState();
     expect(s.gamma).toBe(45);
     expect(s.stdParallel2).toBe(30);
     expect(s.azLight).toBe('center');
-    expect(s.cylLight).toBe('transverse');
     // unrelated params untouched
     expect(s.lambda0).toBe(0);
     expect(s.family).toBe('cylindrical');
@@ -135,7 +132,6 @@ describe('useAppStore', () => {
       expect(s.gamma).toBe(0);
       expect(s.stdParallel2).toBeNull();
       expect(s.azLight).toBe('math');
-      expect(s.cylLight).toBe('math');
     }
   });
 

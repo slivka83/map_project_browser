@@ -18,7 +18,6 @@ export const useProjectionParams = (): ProjectionParams =>
       gamma: s.gamma,
       stdParallel2: s.stdParallel2,
       azLight: s.azLight,
-      cylLight: s.cylLight,
     })),
   );
 

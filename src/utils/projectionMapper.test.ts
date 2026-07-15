@@ -15,7 +15,6 @@ const makeState = (over: Partial<ProjectionParams> = {}): ProjectionParams => ({
   gamma: 0,
   stdParallel2: null,
   azLight: 'math',
-  cylLight: 'math',
   ...over,
 });
 
@@ -133,13 +132,14 @@ describe('getD3Projection — light source & visual params (spec концепт)
     expect(rot[2]).toBeCloseTo(-40);
   });
 
-  it('cylindrical cylLight rotates the central meridian (transverse +90, oblique +45)', () => {
-    const transverse = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', lambda0: 15, cylLight: 'transverse' }));
-    expect(transverse.rotate()[0]).toBeCloseTo(-(15 + 90));
-    const oblique = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', lambda0: 15, cylLight: 'oblique' }));
-    expect(oblique.rotate()[0]).toBeCloseTo(-(15 + 45));
-    const ns = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', lambda0: 15, cylLight: 'ns' }));
-    expect(ns.rotate()[0]).toBeCloseTo(-15);
+  it('cylindrical rotation uses only lambda0/phiOrigin/gamma (no hidden source-axis offset)', () => {
+    // The cylindrical family has no rod/axis source; the central meridian is set
+    // purely by lambda0 (the "Поворот вокруг Земли" control), so the rotation's
+    // longitude equals -lambda0 regardless of any other setting.
+    const p = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', lambda0: 15 }));
+    expect(p.rotate()[0]).toBeCloseTo(-15);
+    const tilted = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', lambda0: 15, gamma: 30 }));
+    expect(tilted.rotate()[2]).toBeCloseTo(-30);
   });
 
   it('azimuthal gnomonic honours lambda0/phiOrigin/gamma in its rotation', () => {

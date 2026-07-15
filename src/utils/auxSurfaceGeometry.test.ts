@@ -16,7 +16,6 @@ import {
   computeCone,
   coneAxialHeight,
   applyEuler,
-  computeCylindricalLightRod,
   computeAzimuthalLightLamp,
   coneApexWorld,
 } from './auxSurfaceGeometry';
@@ -48,7 +47,6 @@ const base = {
   gamma: 0,
   stdParallel2: null,
   azLight: 'math' as const,
-  cylLight: 'math' as const,
 };
 
 describe('lonLatToVec3', () => {
@@ -411,28 +409,6 @@ describe('azimuthal light-source modes', () => {
 });
 
 describe('light-source geometry (new_spec §3)', () => {
-  it('cylindrical rod is null in math mode', () => {
-    expect(computeCylindricalLightRod('math', 0, 0, RADIUS)).toBeNull();
-  });
-
-  it('cylindrical rod axis follows cylLight', () => {
-    // ns, no tilt/longitude → along world +Y, centred at the origin
-    const ns = computeCylindricalLightRod('ns', 0, 0, RADIUS)!;
-    closeTo(ns.start[0], 0, 1e-9);
-    closeTo(ns.start[2], 0, 1e-9);
-    closeTo(ns.start[1], (-RADIUS * 1.9) / 2, 1e-9);
-    expect(Math.hypot(...ns.end)).toBeCloseTo(Math.hypot(...ns.start), 9);
-
-    // transverse, no tilt → along the equatorial (lon=0) direction [1,0,0]
-    const tr = computeCylindricalLightRod('transverse', 0, 0, RADIUS)!;
-    closeTo(tr.start[1], 0, 1e-9);
-    closeTo(Math.hypot(tr.start[0], tr.start[2]), (RADIUS * 1.9) / 2, 1e-9);
-
-    // oblique (45°) splits between Y and X equally in the local frame
-    const ob = computeCylindricalLightRod('oblique', 0, 0, RADIUS)!;
-    closeTo(ob.start[0], ob.start[1], 1e-9);
-  });
-
   it('azimuthal lamp position follows azLight', () => {
     expect(computeAzimuthalLightLamp('center', 10, 20, RADIUS)).toEqual([0, 0, 0]);
     const c = lonLatToVec3(10, 20, RADIUS);
@@ -807,7 +783,7 @@ describe('rays always land on the rendered aux surface (no empty space)', () => 
     it(`central-meridian fan stays on the surface (${c.family}/${c.distortion ?? ''})`, () => {
       const params = { ...base, ...c } as ProjectionParams;
       const segs = computeCentralMeridianRays(params);
-      const surface = computeAuxSurfaceParams(params.family, 0, params.phiOrigin, 1, RADIUS, params.stdParallel2, params.gamma, params.distortion, params.azLight, params.cylLight);
+      const surface = computeAuxSurfaceParams(params.family, 0, params.phiOrigin, 1, RADIUS, params.stdParallel2, params.gamma, params.distortion, params.azLight);
 
       if (surface.kind === 'cone') {
         const cone = computeCone(c.phiOrigin ?? 0, c.stdParallel2 ?? (c.phiOrigin ?? 0), RADIUS, 1);

@@ -24,7 +24,7 @@ function makeCylindricalEquidistant(phi0Rad: number): GeoProjection {
 }
 
 export const getD3Projection = (state: ProjectionParams): GeoProjection => {
-  const { family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, azLight, cylLight } = state;
+  const { family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, azLight } = state;
 
   let proj: GeoProjection;
 
@@ -76,13 +76,8 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
 
   // Apply rotation / scale / translate from the full store state (spec §4). The
   // third rotation component `gamma` produces oblique / transverse aspects.
-  // For the cylindrical family the linear light source (rod) orientation sets the
-  // base aspect: `transverse` rotates the source axis 90° (central meridian +90),
-  // `oblique` 45°; `ns` and `math` leave the axis along the poles. `gamma` then
-  // adds an extra tilt on top of that base aspect.
-  const cylLonOffset = cylLight === 'transverse' ? 90 : cylLight === 'oblique' ? 45 : 0;
   proj
-    .rotate([-(lambda0 + cylLonOffset), -phiOrigin, -gamma])
+    .rotate([-(lambda0), -phiOrigin, -gamma])
     .scale(MAP_SCALE * scaleFactor)
     .translate([VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing]);
 

@@ -16,7 +16,6 @@ const base: Omit<ProjectionParams, 'family' | 'distortion' | 'phiOrigin'> = {
   gamma: 0,
   stdParallel2: null,
   azLight: 'math',
-  cylLight: 'math',
 };
 
 const p = (

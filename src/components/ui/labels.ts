@@ -1,4 +1,4 @@
-import type { ProjectionFamily, DistortionModel, AzimuthalLight, CylindricalLight } from '../../store/useAppStore';
+import type { ProjectionFamily, DistortionModel, AzimuthalLight } from '../../store/useAppStore';
 
 // Single source for the Russian family / distortion labels, shared by the
 // ControlPanel option lists and the EpsgCatalog table headers.
@@ -31,17 +31,6 @@ export const AZIMUTHAL_LIGHT_OPTIONS: { value: AzimuthalLight; label: string }[]
   { value: 'math', label: 'Математическая' },
 ];
 
-export const CYLINDRICAL_LIGHT_OPTIONS: { value: CylindricalLight; label: string }[] = [
-  { value: 'ns', label: 'Север–Юг (нормальная)' },
-  { value: 'transverse', label: 'Трансверсальная (через экватор)' },
-  { value: 'oblique', label: 'Косая' },
-  { value: 'math', label: 'Математическая' },
-];
-
 export const AZIMUTHAL_LIGHT_LABEL: Record<AzimuthalLight, string> = Object.fromEntries(
   AZIMUTHAL_LIGHT_OPTIONS.map((o) => [o.value, o.label]),
 ) as Record<AzimuthalLight, string>;
-
-export const CYLINDRICAL_LIGHT_LABEL: Record<CylindricalLight, string> = Object.fromEntries(
-  CYLINDRICAL_LIGHT_OPTIONS.map((o) => [o.value, o.label]),
-) as Record<CylindricalLight, string>;

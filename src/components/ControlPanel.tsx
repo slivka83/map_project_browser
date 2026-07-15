@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { useAppStore, type DistortionModel, type AzimuthalLight, type CylindricalLight, type ProjectionFamily } from '../store/useAppStore';
+import { useAppStore, type DistortionModel, type AzimuthalLight, type ProjectionFamily } from '../store/useAppStore';
 import { useProjectionParams } from '../store/selectors';
 import EpsgCatalog from './EpsgCatalog';
 import ProjectionSummary from './ProjectionSummary';
 import Dropdown from './Dropdown';
 import { FamilyIcon, EpsgIcon, ResetIcon, InfoIcon } from './ui/icons';
 import { labelClass, activeTab, inactiveTab, iconBtn } from './ui/styles';
-import { FAMILY_OPTIONS, DISTORTION_OPTIONS, AZIMUTHAL_LIGHT_OPTIONS, CYLINDRICAL_LIGHT_OPTIONS } from './ui/labels';
+import { FAMILY_OPTIONS, DISTORTION_OPTIONS, AZIMUTHAL_LIGHT_OPTIONS } from './ui/labels';
 import { signedStandardParallelDeg } from '../constants/geometry';
 
 const famBtn =
@@ -164,7 +164,7 @@ export default function ControlPanel() {
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const params = useProjectionParams();
-  const { family, distortion, lambda0, phiOrigin, scaleFactor, gamma, stdParallel2, azLight, cylLight } = params;
+  const { family, distortion, lambda0, phiOrigin, scaleFactor, gamma, stdParallel2, azLight } = params;
   const setParam = useAppStore((s) => s.setParam);
   const setFamily = useAppStore((s) => s.setFamily);
   const resetParams = useAppStore((s) => s.resetParams);
@@ -245,14 +245,6 @@ export default function ControlPanel() {
           value={azLight}
           options={AZIMUTHAL_LIGHT_OPTIONS}
           onChange={(v) => setParam('azLight', v)}
-        />
-      )}
-      {family === 'cylindrical' && (
-        <LightSelect<CylindricalLight>
-          label="Ось источника"
-          value={cylLight}
-          options={CYLINDRICAL_LIGHT_OPTIONS}
-          onChange={(v) => setParam('cylLight', v)}
         />
       )}
 

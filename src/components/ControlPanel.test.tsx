@@ -16,7 +16,6 @@ describe('ControlPanel', () => {
       gamma: 0,
       stdParallel2: null,
       azLight: 'math',
-      cylLight: 'math',
       showTissot: false,
       geoJsonData: null,
     });
@@ -91,14 +90,6 @@ describe('ControlPanel', () => {
     expect(useAppStore.getState().gamma).toBe(-30);
   });
 
-  it('updates store.cylLight via the cylindrical axis dropdown', () => {
-    render(<ControlPanel />);
-    // open the cylLight dropdown (its trigger shows the current value 'math')
-    fireEvent.click(screen.getByRole('button', { name: 'Математическая' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Трансверсальная (через экватор)' }));
-    expect(useAppStore.getState().cylLight).toBe('transverse');
-  });
-
   it('shows the azimuthal light dropdown only for the azimuthal family', () => {
     const { unmount } = render(<ControlPanel />);
     expect(screen.queryByText('Источник света')).toBeNull();
@@ -125,7 +116,7 @@ describe('ControlPanel', () => {
   });
 
   it('opens the geodesic summary panel with the projection class', () => {
-    useAppStore.setState({ family: 'cylindrical', distortion: 'conformal', lambda0: 30, gamma: 0, cylLight: 'ns' });
+    useAppStore.setState({ family: 'cylindrical', distortion: 'conformal', lambda0: 30, gamma: 0 });
     render(<ControlPanel />);
     expect(screen.queryByText('Точные параметры проекции')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Точные параметры проекции' }));

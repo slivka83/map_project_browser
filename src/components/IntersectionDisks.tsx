@@ -13,10 +13,10 @@ import type { ProjectionParams } from '../store/useAppStore';
 // transform the aux-surface wireframe uses) so a `gamma` tilt rotates them
 // together with the surface instead of leaving them horizontal.
 export default function IntersectionDisks({ params }: { params: ProjectionParams }) {
-  const { family, lambda0, phiOrigin, scaleFactor, stdParallel2, gamma, distortion, azLight, cylLight } = params;
+  const { family, lambda0, phiOrigin, scaleFactor, stdParallel2, gamma, distortion, azLight } = params;
   const surface = useMemo(
-    () => computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, RADIUS, stdParallel2, gamma, distortion, azLight, cylLight),
-    [family, lambda0, phiOrigin, scaleFactor, stdParallel2, gamma, distortion, azLight, cylLight],
+    () => computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, RADIUS, stdParallel2, gamma, distortion, azLight),
+    [family, lambda0, phiOrigin, scaleFactor, stdParallel2, gamma, distortion, azLight],
   );
   const circles = useMemo(() => {
     const raw = computeAuxSphereIntersections(family, lambda0, phiOrigin, scaleFactor, RADIUS, stdParallel2);
