@@ -36,6 +36,7 @@ Environment is Node 20.18.0. Toolchain pinned to Node-20.18-compatible set: Vite
 - `src/components/ui/` holds shared styling extracted from `ControlPanel`: `icons.tsx` (all SVG icons), `styles.ts` (`panelClass`, `labelClass`, `activeTab`, `inactiveTab`, `iconBtn`), and `labels.ts` (the Russian `FAMILY_*` / `DISTORTION_*` option lists + label maps, previously duplicated in `ControlPanel` and `EpsgCatalog`). Keep cross-component UI here, not in a component file, to avoid `react-refresh` export warnings.
 - `src/components/Dropdown.tsx` is a generic `Dropdown<T extends string>` (a `button` + popover, variants `button` / `inline`) — it backs the math-model selector in `ControlPanel.tsx` and the EPSG-filter selects in `EpsgCatalog.tsx`. It is unit-tested (`Dropdown.test.tsx`).
 - `src/components/EpsgCatalog.tsx`: modal rendered via `createPortal` to `document.body` (so it isn't trapped by the panel's `backdrop-blur` containing block). Selecting a row calls `applyPreset(row.params)` and closes.
+- `src/components/ProjectionSummary.tsx`: the read-only **Геодетическая сводка** (Geodetic Summary) modal opened by the **ℹ️ Точные параметры** button in `ControlPanel.tsx`; lists λ₀, φ₀, φ₁, φ₂, scale, γ and the computed projection class. Mirror of `EpsgCatalog`'s modal styling.
 
 ## Store shape (verified in code)
 ```ts
@@ -81,12 +82,12 @@ Map data is bundled locally (no runtime/external API, per spec): `public/world-1
 - Glass panels: `bg-white/5 backdrop-blur-md border-white/10`. Body text `text-gray-300`; active `text-[#00e5ff]`. Aesthetic: dark "spaceship control panel" with high-contrast neon accents. The whole left column (`ControlPanel` + `GlobeScene`) sits on a **neon underlay** — a thin neon-blue border with a soft inner/outer glow (added in `App.tsx`); `Map2D` (right) has no background of its own. The regions are separated by a thin divider line (`border-l` between the left column and `Map2D`). Only inner controls (Dropdown, EPSG modal, the Geodetic Summary modal) keep the glass look.
 
 ## CI
-`.github/workflows/ci.yml` runs `npm ci` → `lint` → `build` → `test` on push/PR (GitHub-hosted Linux, no DrvFS quirks). Tests run with `npm run test` (Vitest, jsdom).
+`.github/workflows/ci.yml` runs `npm ci` → `lint` → `build` → `test` on push/PR (GitHub-hosted Linux, no DrvFS quirks). Tests run with `npm run test` (Vitest, jsdom). `src/__tests__/docsConsistency.test.ts` is the doc↔code guard: it fails the build if AGENTS.md / `docs/BRD.md` / `docs/specification.md` drift from the real source (broken `src/...` references, missing component files, dropped store fields/exports, or wrong constants). Keep that test in sync whenever you rename a file, drop an export, or change a documented constant.
 
 ## Workflow rules (standing, set by user)
 Apply these after **any** code change in this repo:
 1. **Keep tests in sync with code.** After editing any source, add or update tests so every changed behaviour is covered (aim for all realistic scenarios). Per spec §9.3, WebGL/`<Canvas>` and SVG `d` attributes stay intentionally untested.
 2. **Run the whole suite.** After any code change, run `npm run test` (and ideally `npm run lint` + `npm run build`) and do not leave failing tests.
 3. **Keep docs in sync.** If a code change alters functionality, update the affected docs to match, when necessary: `docs/BRD.md`, `docs/specification.md`, `AGENTS.md`, and `README.md`.
- 4. **Commit after every change.** After changing any file, stage and commit all modifications to Git (with a concise, repo-style message). Do not leave edits uncommitted between turns.
+4. **Commit after every change.** After changing any file, stage and commit all modifications to Git (with a concise, repo-style message). Do not leave edits uncommitted between turns.
  5. **Question nonsense before implementing.** When a requirement / spec detail looks wrong, redundant, or unhelpful to a real user, do **not** implement it blindly. Think it through, check it against theory / common sense, and tell the user plainly why it is unnecessary (or harmful) *before* writing code. Only build it if the user confirms. (Agreed with the user after the cylindrical "Ось источника" rod control was added and then removed as redundant.)
