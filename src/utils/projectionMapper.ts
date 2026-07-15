@@ -127,7 +127,7 @@ export function computeAreaDistortion(params: ProjectionParams): number {
   let aRef: number | null;
   if (params.family === 'cylindrical') {
     const s = Math.max(0, Math.min(1, params.scaleFactor));
-    const phiS = Math.acos(s); // standard-parallel latitude magnitude
+    const phiS = (Math.acos(s) * 180) / Math.PI; // standard-parallel latitude magnitude, in degrees
     // World latitude φ_s displays at φ_s − phiOrigin under the projection's
     // latitude rotation; both intersection parallels are candidates.
     const cands = [phiS - params.phiOrigin, -phiS - params.phiOrigin];

@@ -228,6 +228,23 @@ describe('computeAreaDistortion', () => {
     expect(secant).toBeLessThan(tangent);
   });
 
+  it('monotonically drops the distortion as the cylinder diameter shrinks (secant effect)', () => {
+    // The two surface–globe intersection parallels move apart as the cylinder
+    // is immersed (scaleFactor < 1), so the area-weighted area distortion falls.
+    const conformal: number[] = [1, 0.9, 0.75, 0.5].map((sf) =>
+      computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'conformal', scaleFactor: sf })),
+    );
+    for (let i = 1; i < conformal.length; i++) {
+      expect(conformal[i]).toBeLessThan(conformal[i - 1]);
+    }
+    const equidistant: number[] = [1, 0.5].map((sf) =>
+      computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'equidistant', scaleFactor: sf })),
+    );
+    expect(equidistant[1]).toBeLessThan(equidistant[0]);
+    // Equal-area stays ~0 regardless of diameter (it preserves area by construction).
+    expect(computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'equalArea', scaleFactor: 0.5 }))).toBeCloseTo(0, 1);
+  });
+
   it('never returns a negative distortion', () => {
     expect(computeAreaDistortion(makeState({ family: 'azimuthal', distortion: 'conformal' }))).toBeGreaterThanOrEqual(0);
     expect(computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'equidistant' }))).toBeGreaterThanOrEqual(0);
