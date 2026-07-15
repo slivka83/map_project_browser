@@ -183,7 +183,6 @@ describe('isPointerOverGlobe (reject off-map hovers)', () => {
     getD3Projection(makeState({ family: 'cylindrical', distortion: 'equidistant' })),
     W,
     H,
-    1,
     M,
   );
   const path = d3Geo.geoPath(proj);
@@ -203,7 +202,6 @@ describe('isPointerOverGlobe (reject off-map hovers)', () => {
       getD3Projection(makeState({ family: 'azimuthal', azLight: 'infinity' })),
       W,
       H,
-      1,
       M,
     );
     const op = d3Geo.geoPath(o);
@@ -272,7 +270,6 @@ describe('computeAreaDistortion', () => {
         getD3Projection(makeState({ family: 'cylindrical', distortion, scaleFactor: sf })),
         900,
         600,
-        sf,
         16,
       );
       const b = d3Geo.geoPath(p).bounds(FIT_SPHERE);
@@ -311,7 +308,6 @@ describe('fitProjectionToView (map always fills the viewport)', () => {
           getD3Projection(makeState({ family, distortion, phiOrigin: family === 'conic' ? 40 : 0 })),
           W,
           H,
-          1,
           M,
         );
         const b = fitBounds(p);
@@ -328,7 +324,6 @@ describe('fitProjectionToView (map always fills the viewport)', () => {
       getD3Projection(makeState({ family: 'conic', distortion: 'conformal', phiOrigin: 0 })),
       W,
       H,
-      1,
       M,
     );
     // a degenerate fit would collapse to a near-zero scale; assert a usable scale
@@ -339,59 +334,29 @@ describe('fitProjectionToView (map always fills the viewport)', () => {
     expect(spread).toBeGreaterThan(H * 0.2);
   });
 
-  it('zooms in (overflows the margin) when scaleFactor > 1 and out when < 1', () => {
-    const zoomed = fitProjectionToView(getD3Projection(makeState()), W, H, 1.1, M);
-    const normal = fitProjectionToView(getD3Projection(makeState()), W, H, 1, M);
-    const wZoom = fitBounds(zoomed)[1][0] - fitBounds(zoomed)[0][0];
-    const wNorm = fitBounds(normal)[1][0] - fitBounds(normal)[0][0];
-    expect(wZoom).toBeGreaterThan(wNorm);
-  });
-
-  it('scales the cylindrical map width with the cylinder diameter (scaleFactor < 1)', () => {
-    // An immersed (smaller) cylinder unrolls to a smaller map, so the diameter
-    // is directly visible as the map size, matching the 3D aux-surface radius.
-    const full = fitProjectionToView(getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal' })), W, H, 1, M);
-    const half = fitProjectionToView(getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', scaleFactor: 0.5 })), W, H, 0.5, M);
-    const wFull = fitBounds(full)[1][0] - fitBounds(full)[0][0];
-    const wHalf = fitBounds(half)[1][0] - fitBounds(half)[0][0];
-    expect(wHalf).toBeLessThan(wFull);
-    expect(wHalf).toBeGreaterThan(wFull * 0.4);
-    expect(wHalf).toBeLessThan(wFull * 0.6);
-  });
-
-  it('sizes the cylindrical map physically & monotonically with the diameter (reference proj)', () => {
-    // Width ∝ diameter (cylinder circumference) for every distortion; height
-    // follows the projection aspect: conformal scales uniformly, equidistant
-    // keeps its height, equal-area preserves AREA (width ↓, height ↑). The size
-    // must change monotonically with the diameter (no grow-then-shrink artifact).
-    const dims = (distortion: DistortionModel, s: number) => {
-      const proj = getD3Projection(makeState({ family: 'cylindrical', distortion, scaleFactor: s }));
-      const ref = getD3Projection(makeState({ family: 'cylindrical', distortion, scaleFactor: 1 }));
-      const b = fitBounds(fitProjectionToView(proj, W, H, s, M, ref));
-      return { w: b[1][0] - b[0][0], h: b[1][1] - b[0][1] };
-    };
-    const steps = [1.0, 0.9, 0.8, 0.7, 0.6, 0.5];
-    for (const distortion of ['conformal', 'equalArea', 'equidistant'] as DistortionModel[]) {
-      const rows = steps.map((s) => dims(distortion, s));
-      // Width shrinks monotonically with the diameter for all distortions.
-      for (let i = 1; i < rows.length; i++) expect(rows[i].w).toBeLessThan(rows[i - 1].w);
-      // Width is (very nearly) proportional to the diameter.
-      expect(rows[5].w / rows[0].w).toBeCloseTo(0.5, 1);
-      if (distortion === 'conformal') {
-        for (let i = 1; i < rows.length; i++) expect(rows[i].h).toBeLessThan(rows[i - 1].h);
-      } else if (distortion === 'equidistant') {
-        for (let i = 1; i < rows.length; i++) expect(rows[i].h).toBeCloseTo(rows[0].h, 0);
-      } else {
-        // equal-area: height grows as the diameter shrinks, area stays constant.
-        for (let i = 1; i < rows.length; i++) expect(rows[i].h).toBeGreaterThan(rows[i - 1].h);
-        for (let i = 1; i < rows.length; i++) {
-          expect(rows[i].w * rows[i].h).toBeCloseTo(rows[0].w * rows[0].h, -3);
+  it('always fills the viewport (preserving its own aspect) at any scaleFactor', () => {
+    // The map must occupy the full available area regardless of scaleFactor;
+    // the diameter shows via the projection's aspect, not the overall size.
+    for (const family of families) {
+      for (const distortion of distortions) {
+        for (const sf of [1, 0.9, 0.7, 0.5]) {
+          const p = fitProjectionToView(
+            getD3Projection(makeState({ family, distortion, phiOrigin: family === 'conic' ? 40 : 0, scaleFactor: sf })),
+            W,
+            H,
+            M,
+          );
+          const b = fitBounds(p);
+          // touches (within 1px) the margin box on at least one axis → fills area
+          const fillsW = b[0][0] <= M + 1 && b[1][0] >= W - M - 1;
+          const fillsH = b[0][1] <= M + 1 && b[1][1] >= H - M - 1;
+          expect(fillsW || fillsH).toBe(true);
+          // never escapes the margin box
+          expect(b[0][0]).toBeGreaterThanOrEqual(M - 1);
+          expect(b[0][1]).toBeGreaterThanOrEqual(M - 1);
+          expect(b[1][0]).toBeLessThanOrEqual(W - M + 1);
+          expect(b[1][1]).toBeLessThanOrEqual(H - M + 1);
         }
-      }
-      // Everything stays inside the viewport.
-      for (const r of rows) {
-        expect(r.w).toBeLessThanOrEqual(W - 2 * M + 1);
-        expect(r.h).toBeLessThanOrEqual(H - 2 * M + 1);
       }
     }
   });
@@ -406,7 +371,6 @@ describe('fitProjectionToView (map always fills the viewport)', () => {
           getD3Projection(makeState({ family, distortion, phiOrigin: family === 'conic' ? 40 : 0 })),
           w,
           h,
-          1,
           m,
         );
         const b = fitBounds(p);
@@ -419,7 +383,7 @@ describe('fitProjectionToView (map always fills the viewport)', () => {
   });
 
   it('accepts margin 0 without producing NaN scale', () => {
-    const p = fitProjectionToView(getD3Projection(makeState()), 800, 600, 1, 0);
+    const p = fitProjectionToView(getD3Projection(makeState()), 800, 600, 0);
     expect(Number.isFinite(p.scale())).toBe(true);
   });
 
@@ -431,7 +395,6 @@ describe('fitProjectionToView (map always fills the viewport)', () => {
             getD3Projection(makeState({ family, distortion, phiOrigin: family === 'conic' ? 40 : 0, scaleFactor: sf })),
             800,
             600,
-            sf,
             16,
           );
           expect(Number.isFinite(p.scale())).toBe(true);
@@ -533,22 +496,25 @@ describe('fitProjectionToView / scaleFactor semantics (spec §9.2)', () => {
       getD3Projection(makeState({ family: 'cylindrical', scaleFactor }));
     const p05 = mk(0.5);
     const p10 = mk(1.0);
-    fitProjectionToView(p05, 800, 600, 1, 20);
-    fitProjectionToView(p10, 800, 600, 1, 20);
+    fitProjectionToView(p05, 800, 600, 20);
+    fitProjectionToView(p10, 800, 600, 20);
     const w05 = Math.abs(p05([10, 0])![0] - p05([-10, 0])![0]);
     const w10 = Math.abs(p10([10, 0])![0] - p10([-10, 0])![0]);
     expect(w05).toBeCloseTo(w10, 3);
   });
 
-  it('conic: a larger scaleFactor zooms the fitted map in', () => {
+  it('conic: scaleFactor is still a zoom in the raw projection, but the fitted map always fills the view', () => {
     const mk = (scaleFactor: number) =>
       getD3Projection(makeState({ family: 'conic', scaleFactor }));
+    // raw projection scale still grows with scaleFactor
+    expect(mk(1.1).scale()).toBeGreaterThan(mk(0.9).scale());
+    // but the fitted map fills the viewport identically (object-fit: contain)
     const p09 = mk(0.9);
     const p11 = mk(1.1);
-    fitProjectionToView(p09, 800, 600, 0.9, 20);
-    fitProjectionToView(p11, 800, 600, 1.1, 20);
-    const w09 = Math.abs(p09([10, 0])![0] - p09([-10, 0])![0]);
-    const w11 = Math.abs(p11([10, 0])![0] - p11([-10, 0])![0]);
-    expect(w11).toBeGreaterThan(w09);
+    fitProjectionToView(p09, 800, 600, 20);
+    fitProjectionToView(p11, 800, 600, 20);
+    const b09 = d3Geo.geoPath(p09).bounds(FIT_SPHERE);
+    const b11 = d3Geo.geoPath(p11).bounds(FIT_SPHERE);
+    expect(Math.abs((b09[1][0] - b09[0][0]) - (b11[1][0] - b11[0][0]))).toBeLessThan(2);
   });
 });

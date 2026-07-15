@@ -63,15 +63,12 @@ export default function Map2D() {
 
   const pathGenerator = useMemo(() => {
     const proj = getD3Projection(params);
-    // For the cylindrical family the diameter changes the projection's aspect
-    // (equal-area/equidistant), so size the map by width ∝ diameter against the
-    // full-diameter (tangent) reference — physically faithful and monotonic.
-    // Conic/azimuthal treat scaleFactor as a plain zoom (no reference needed).
-    const reference =
-      family === 'cylindrical' ? getD3Projection({ ...params, scaleFactor: 1 }) : undefined;
-    fitProjectionToView(proj, width, height, scaleFactor, FIT_MARGIN, reference);
+    // Fit the whole globe into the available area, preserving the projection's
+    // own aspect ratio. The cylinder diameter (cylindrical) / zoom (conic,
+    // azimuthal) shows up through the projection's aspect / number, not size.
+    fitProjectionToView(proj, width, height, FIT_MARGIN);
     return d3Geo.geoPath().projection(proj);
-  }, [params, family, scaleFactor, width, height]);
+  }, [params, width, height]);
 
   const graticulePath = useMemo(() => pathGenerator(d3Geo.geoGraticule10()) ?? '', [pathGenerator]);
 
