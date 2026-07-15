@@ -4,7 +4,7 @@ import * as d3Geo from 'd3-geo';
 import type { FeatureCollection } from 'geojson';
 import { useAppStore } from '../store/useAppStore';
 import { useProjectionParams } from '../store/selectors';
-import { getD3Projection, fitProjectionToView, computeAreaDistortion } from '../utils/projectionMapper';
+import { getD3Projection, fitProjectionToView, computeAreaDistortion, isPointerOverGlobe } from '../utils/projectionMapper';
 import { computeTissotCircles } from '../utils/tissot';
 import { computeAuxSphereIntersectionsLonLat } from '../utils/auxSurfaceGeometry';
 import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT, NEON_YELLOW, NEON_WHITE } from '../constants/designTokens';
@@ -112,8 +112,14 @@ export default function Map2D() {
     const x = (e.clientX - rect.left - offX) / scale;
     const y = (e.clientY - rect.top - offY) / scale;
     const proj = pathGenerator.projection() as d3Geo.GeoProjection | null;
-    const inv = proj?.invert?.([x, y]);
-    if (inv) setHoverLonLat([inv[0], inv[1]], 'map');
+    if (!proj) return;
+    const inv = proj.invert?.([x, y]);
+    if (!inv) return;
+    // Only mark the globe when the cursor is actually over the rendered map —
+    // otherwise hovering the letter-boxed margin (or the far hemisphere of an
+    // azimuthal projection) would paint a stray marker on the opposite side.
+    if (!isPointerOverGlobe(pathGenerator, x, y)) return;
+    setHoverLonLat([inv[0], inv[1]], 'map');
   };
 
   // The cursor marker on the map is shown only while the 2D map is hovered and

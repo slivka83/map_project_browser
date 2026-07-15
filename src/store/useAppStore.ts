@@ -98,7 +98,7 @@ export const useAppStore = create<AppState>((set) => ({
   ...defaultParamsForFamily('cylindrical'),
   showTissot: false,
   showBorders: false,
-  showIntersection: true,
+  showIntersection: false,
   geoJsonData: null,
   land50GeoJson: null,
   countriesGeoJson: null,
@@ -106,7 +106,7 @@ export const useAppStore = create<AppState>((set) => ({
   detailedMap: false,
   hoverLonLat: null,
   hoverSource: null,
-  showHoverRay: true,
+  showHoverRay: false,
   setHoverLonLat: (v, source) => set({ hoverLonLat: v, hoverSource: source ?? null }),
   setShowHoverRay: (value) => set({ showHoverRay: value }),
 

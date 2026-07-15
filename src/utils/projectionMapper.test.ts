@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as d3Geo from 'd3-geo';
-import { getD3Projection, fitProjectionToView, FIT_SPHERE, computeAreaDistortion } from './projectionMapper';
+import { getD3Projection, fitProjectionToView, FIT_SPHERE, computeAreaDistortion, isPointerOverGlobe } from './projectionMapper';
 import { geoCylindricalEqualArea } from './d3GeoProjection';
 import type { ProjectionParams, ProjectionFamily, DistortionModel } from '../store/useAppStore';
 
@@ -155,6 +155,44 @@ describe('getD3Projection — light source & visual params (spec концепт)
     const p = getD3Projection(makeState({ family: 'conic', distortion: 'conformal', phiOrigin: -45, stdParallel2: -60 }));
     const ref = d3Geo.geoConicConformal().parallels([-45, -60]).rotate([0, 45]).scale(100).translate([400, 300]);
     expect(p([0, 0])).toEqual(ref([0, 0]));
+  });
+});
+
+describe('isPointerOverGlobe (reject off-map hovers)', () => {
+  const W = 800;
+  const H = 600;
+  const M = 16;
+  const proj = fitProjectionToView(
+    getD3Projection(makeState({ family: 'cylindrical', distortion: 'equidistant' })),
+    W,
+    H,
+    1,
+    M,
+  );
+  const path = d3Geo.geoPath(proj);
+
+  it('returns true for a point at the projected globe centre', () => {
+    const c = proj([0, 0]) as [number, number];
+    expect(isPointerOverGlobe(path, c[0], c[1])).toBe(true);
+  });
+
+  it('returns false for a point far outside the map (letterbox margin)', () => {
+    expect(isPointerOverGlobe(path, -1000, 300)).toBe(false);
+    expect(isPointerOverGlobe(path, 5000, 300)).toBe(false);
+  });
+
+  it('returns false for a cursor over the hidden hemisphere (azimuthal orthographic)', () => {
+    const o = fitProjectionToView(
+      getD3Projection(makeState({ family: 'azimuthal', azLight: 'infinity' })),
+      W,
+      H,
+      1,
+      M,
+    );
+    const op = d3Geo.geoPath(o);
+    const b = op.bounds({ type: 'Sphere' });
+    // a corner of the bounding box lies outside the visible orthographic disk
+    expect(isPointerOverGlobe(op, b[1][0], b[0][1])).toBe(false);
   });
 });
 

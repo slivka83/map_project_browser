@@ -23,21 +23,21 @@ const FAMILY_SECTION: Record<ProjectionFamily, string> = {
 
 const PARAM_LABELS: Record<ProjectionFamily, { lambda0: string; phiOrigin: string; gamma: string; scaleFactor: string }> = {
   cylindrical: {
-    lambda0: 'Поворот вокруг Земли (λ₀)',
-    phiOrigin: 'Смещение по оси Y (ст. параллель)',
-    gamma: 'Угол наклона цилиндра (γ)',
+    lambda0: 'Поворот вокруг Земли',
+    phiOrigin: 'Смещение по оси Y',
+    gamma: 'Угол наклона цилиндра',
     scaleFactor: 'Диаметр цилиндра',
   },
   conic: {
-    lambda0: 'Вращение конуса (λ₀)',
-    phiOrigin: 'Угол при вершине (φ₁)',
-    gamma: 'Наклон конуса (γ)',
+    lambda0: 'Вращение конуса',
+    phiOrigin: 'Угол при вершине',
+    gamma: 'Наклон конуса',
     scaleFactor: 'Масштаб',
   },
   azimuthal: {
-    lambda0: 'Долгота точки касания (λ₀)',
-    phiOrigin: 'Широта точки касания (φ₀)',
-    gamma: 'Вращение плоскости (γ)',
+    lambda0: 'Долгота точки касания',
+    phiOrigin: 'Широта точки касания',
+    gamma: 'Вращение плоскости',
     scaleFactor: 'Расстояние до плоскости',
   },
 };
@@ -219,7 +219,7 @@ export default function ControlPanel() {
       <div className="mt-1 text-[11px] uppercase tracking-wider text-neon-blue/90">{FAMILY_SECTION[family]}</div>
 
       <div className="flex items-center gap-[12px]">
-        <span className={`${labelClass} w-40 shrink-0`}>Матмодель</span>
+        <span className={`${labelClass} w-40 shrink-0`}>Тип искажения</span>
         <DistortionSelect value={distortion} onChange={(v) => setParam('distortion', v)} />
       </div>
 

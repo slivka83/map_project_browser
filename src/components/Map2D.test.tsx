@@ -20,6 +20,7 @@ describe('Map2D', () => {
     useAppStore.setState({
       showTissot: false,
       showBorders: false,
+      showIntersection: true,
       showHoverRay: true,
       hoverLonLat: null,
       hoverSource: null,

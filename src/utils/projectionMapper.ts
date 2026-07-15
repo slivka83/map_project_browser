@@ -159,6 +159,28 @@ function makeFitSphere(): Polygon {
 }
 export const FIT_SPHERE: Polygon = makeFitSphere();
 
+// True when the screen point (x, y) lies over the rendered (clipped ±85°)
+// globe area, so a hover there maps to a meaningful (lon, lat). We reject
+// points outside the projected sphere's bounding box (e.g. the letter-boxed
+// margins around a fitted map) and points that re-project far from the cursor
+// (the hidden hemisphere of an azimuthal projection, or projection
+// discontinuities, round-trip to a different location). Prevents the hover
+// marker / ray from being drawn for cursor positions that are off the map.
+export function isPointerOverGlobe(path: d3Geo.GeoPath, x: number, y: number): boolean {
+  const proj = path.projection() as d3Geo.GeoProjection | null;
+  if (!proj) return false;
+  const inv = proj.invert?.([x, y]);
+  if (!inv || !isFinite(inv[0]) || !isFinite(inv[1])) return false;
+  const fwd = proj([inv[0], inv[1]]);
+  if (!fwd || !isFinite(fwd[0]) || !isFinite(fwd[1])) return false;
+  const b = path.bounds({ type: 'Sphere' });
+  if (fwd[0] < b[0][0] - 1 || fwd[0] > b[1][0] + 1 || fwd[1] < b[0][1] - 1 || fwd[1] > b[1][1] + 1) {
+    return false;
+  }
+  if (Math.hypot(fwd[0] - x, fwd[1] - y) > 1.5) return false;
+  return true;
+}
+
 // Fit a configured projection so the globe fills the viewport `width`×
 // `height` with a uniform `margin`. `scaleFactor` acts as a zoom (1 = fill,
 // >1 zoom in, <1 zoom out), kept centred by shrinking/growing the fit box

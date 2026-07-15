@@ -21,7 +21,7 @@ describe('EpsgCatalog', () => {
     expect(screen.getByRole('button', { name: 'Закрыть' })).toBeTruthy();
     expect(screen.getByText('EPSG-код')).toBeTruthy();
     expect(screen.getByText('Вид проекции')).toBeTruthy();
-    expect(screen.getByText('Матмодель')).toBeTruthy();
+    expect(screen.getByText('Тип искажения')).toBeTruthy();
     expect(screen.getByText('Название')).toBeTruthy();
     expect(screen.getByText('Единицы')).toBeTruthy();
   });
@@ -71,9 +71,9 @@ describe('EpsgCatalog', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('filters rows by a select filter (Матмодель = Равноугольная)', () => {
+  it('filters rows by a select filter (Тип искажения = Равноугольная)', () => {
     setup();
-    fireEvent.click(screen.getByRole('button', { name: 'Матмодель' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Тип искажения' }));
     // the "all" option plus the distortion values are offered
     expect(screen.getAllByText('Все').length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Равноугольная' })).toBeTruthy();

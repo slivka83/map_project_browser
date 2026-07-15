@@ -17,7 +17,7 @@ interface ColDef {
 const COLS: ColDef[] = [
   { key: 'code', label: 'EPSG-код', kind: 'text' },
   { key: 'type', label: 'Вид проекции', kind: 'select' },
-  { key: 'distortion', label: 'Матмодель', kind: 'select' },
+  { key: 'distortion', label: 'Тип искажения', kind: 'select' },
   { key: 'name', label: 'Название', kind: 'text' },
   { key: 'units', label: 'Единицы', kind: 'select' },
 ];

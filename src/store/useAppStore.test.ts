@@ -36,7 +36,9 @@ describe('useAppStore', () => {
     expect(s.cylLight).toBe('math');
     expect(s.showTissot).toBe(false);
     expect(s.showBorders).toBe(false);
+    expect(s.showIntersection).toBe(false);
     expect(s.detailedMap).toBe(false);
+    expect(s.showHoverRay).toBe(false);
   });
 
   it('sets the new visual-param fields via setParam', () => {
@@ -309,7 +311,7 @@ describe('useAppStore', () => {
   });
 
   it('toggles the cursor projection ray via setShowHoverRay', () => {
-    expect(useAppStore.getState().showHoverRay).toBe(true);
+    expect(useAppStore.getState().showHoverRay).toBe(false);
     useAppStore.getState().setShowHoverRay(false);
     expect(useAppStore.getState().showHoverRay).toBe(false);
     useAppStore.getState().setShowHoverRay(true);

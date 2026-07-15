@@ -31,10 +31,6 @@ export default function App() {
             <GlobeScene />
           </div>
         </div>
-        <div
-          className="pointer-events-none absolute top-0 bottom-0"
-          style={{ left: '100%', width: 1, background: NEON_DIVIDER, boxShadow: NEON_DIVIDER_GLOW }}
-        />
       </div>
       <div className="w-2/3 pl-3">
         <Map2D />
