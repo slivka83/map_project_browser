@@ -58,10 +58,27 @@ describe('getD3Projection (spec §9.2)', () => {
     expect(p([0, 0])).toEqual(ref([0, 0]));
   });
 
-  it('returns geoEquirectangular for cylindrical + equidistant', () => {
-    const p = getD3Projection(makeState({ family: 'cylindrical', distortion: 'equidistant' }));
+  it('cylindrical + equidistant equals geoEquirectangular at scaleFactor = 1 (tangent, φ_s = 0)', () => {
+    const p = getD3Projection(makeState({ family: 'cylindrical', distortion: 'equidistant', scaleFactor: 1 }));
     const ref = d3Geo.geoEquirectangular().rotate([0, 0]).scale(100).translate([400, 300]);
-    expect(p([0, 0])).toEqual(ref([0, 0]));
+    // arccos(1) = 0 → cos φ_s = 1, so the custom secant projection reduces to plate-carrée.
+    const a = p([40, 20]) as [number, number];
+    const b = ref([40, 20]) as [number, number];
+    expect(a[0]).toBeCloseTo(b[0], 6);
+    expect(a[1]).toBeCloseTo(b[1], 6);
+  });
+
+  it('cylindrical + equidistant narrows the map ASPECT with a smaller diameter (secant standard parallel)', () => {
+    // scaleFactor < 1 → φ_s = arccos(scaleFactor) > 0 → x ∝ cos φ_s = scaleFactor
+    // while y is unchanged, so the x/y aspect ratio shrinks by scaleFactor (the
+    // overall .scale() cancels in the ratio). A narrower/taller unrolled map.
+    const aspect = (sf: number) => {
+      const p = getD3Projection(makeState({ family: 'cylindrical', distortion: 'equidistant', scaleFactor: sf }));
+      const x = (p([90, 0]) as [number, number])[0] - (p([0, 0]) as [number, number])[0];
+      const y = (p([0, 60]) as [number, number])[1] - (p([0, 0]) as [number, number])[1];
+      return Math.abs(x) / Math.abs(y);
+    };
+    expect(aspect(0.5) / aspect(1)).toBeCloseTo(0.5, 5);
   });
 
   it('returns conic equal-area using parallels([phiOrigin, phiOrigin])', () => {
@@ -243,6 +260,33 @@ describe('computeAreaDistortion', () => {
     expect(equidistant[1]).toBeLessThan(equidistant[0]);
     // Equal-area stays ~0 regardless of diameter (it preserves area by construction).
     expect(computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'equalArea', scaleFactor: 0.5 }))).toBeCloseTo(0, 1);
+  });
+
+  it('changes the 2D map aspect with the cylinder diameter for equal-area/equidistant, but not conformal', () => {
+    // Theory: a smaller cylinder (scaleFactor < 1) is a secant surface whose
+    // standard parallels move apart, so the unrolled map narrows (x ∝ scaleFactor,
+    // y ∝ 1/scaleFactor) for equal-area/equidistant. Conformal (Mercator) is the
+    // unique conformal cylindrical projection, hence shape-invariant to the diameter.
+    const aspectOf = (distortion: DistortionModel, sf: number) => {
+      const p = fitProjectionToView(
+        getD3Projection(makeState({ family: 'cylindrical', distortion, scaleFactor: sf })),
+        900,
+        600,
+        sf,
+        16,
+      );
+      const b = d3Geo.geoPath(p).bounds(FIT_SPHERE);
+      return (b[1][0] - b[0][0]) / (b[1][1] - b[0][1]);
+    };
+    const ea1 = aspectOf('equalArea', 1);
+    const ea05 = aspectOf('equalArea', 0.5);
+    expect(Math.abs(ea1 - ea05)).toBeGreaterThan(0.1);
+    const eq1 = aspectOf('equidistant', 1);
+    const eq05 = aspectOf('equidistant', 0.5);
+    expect(Math.abs(eq1 - eq05)).toBeGreaterThan(0.1);
+    const cf1 = aspectOf('conformal', 1);
+    const cf05 = aspectOf('conformal', 0.5);
+    expect(cf05).toBeCloseTo(cf1, 5);
   });
 
   it('never returns a negative distortion', () => {

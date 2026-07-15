@@ -5,15 +5,49 @@ import { geoCylindricalEqualArea } from './d3GeoProjection';
 import type { ProjectionParams } from '../store/useAppStore';
 import { MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y, CLIP_LAT, FIT_MARGIN, signedStandardParallelDeg } from '../constants/geometry';
 
+const clampScale = (s: number): number => Math.max(0, Math.min(1, s));
+const clampLat = (lat: number): number => Math.max(-85, Math.min(85, lat));
+
+// Equidistant cylindrical projection whose standard parallel is `phi0Rad`
+// (the secant contact latitude). Raw projection: x = λ·cos φ0, y = φ, so the
+// map narrows as the cylinder diameter shrinks (x ∝ scaleFactor, y fixed) —
+// the genuine geometric effect of the diameter, which d3's plain
+// geoEquirectangular (φ0 = 0 only) cannot express.
+function makeCylindricalEquidistant(phi0Rad: number): GeoProjection {
+  const cos0 = Math.cos(phi0Rad);
+  type RawProjection = ((λ: number, φ: number) => [number, number]) & {
+    invert?: (x: number, y: number) => [number, number];
+  };
+  const raw: RawProjection = (λ: number, φ: number): [number, number] => [λ * cos0, φ];
+  raw.invert = (x: number, y: number): [number, number] => [x / cos0, y];
+  return d3Geo.geoProjection(raw);
+}
+
 export const getD3Projection = (state: ProjectionParams): GeoProjection => {
   const { family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, azLight, cylLight } = state;
 
   let proj: GeoProjection;
 
   if (family === 'cylindrical') {
-    if (distortion === 'conformal') proj = d3Geo.geoMercator();
-    else if (distortion === 'equalArea') proj = geoCylindricalEqualArea().parallel(phiOrigin);
-    else proj = d3Geo.geoEquirectangular();
+    // The cylinder radius is `scaleFactor`·R, so it meets the globe at the contact
+    // parallels ±φ_s where cos φ_s = scaleFactor (φ_s = arccos(scaleFactor)). Those
+    // are the standard parallels (true scale) of the developed surface. Only the
+    // conformal (Mercator) cylindrical projection is shape-invariant to the diameter
+    // — by conformality it is unique up to a uniform scale — so there the diameter
+    // is just a scale. Equal-area and equidistant must instead set their standard
+    // parallel to the contact, which changes the map ASPECT (x ∝ scaleFactor,
+    // y ∝ 1/scaleFactor for the equal-area), i.e. the genuine geometric effect of
+    // the diameter: a smaller cylinder → a narrower/taller unrolled map. The contact
+    // is in world space at ±φ_s (cylinder axis = poles); the view re-centring by
+    // phiOrigin is removed so the standard parallel stays at the world contact.
+    if (distortion === 'conformal') {
+      proj = d3Geo.geoMercator();
+    } else if (distortion === 'equalArea') {
+      const phiS = (Math.acos(clampScale(scaleFactor)) * 180) / Math.PI;
+      proj = geoCylindricalEqualArea().parallel(clampLat(phiS - phiOrigin));
+    } else {
+      proj = makeCylindricalEquidistant(Math.acos(clampScale(scaleFactor)));
+    }
   } else if (family === 'conic') {
     if (distortion === 'conformal') proj = d3Geo.geoConicConformal();
     else if (distortion === 'equalArea') proj = d3Geo.geoConicEqualArea();
