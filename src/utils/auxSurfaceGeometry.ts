@@ -1,4 +1,6 @@
 import { getD3Projection } from './projectionMapper';
+import { geoRotation } from 'd3-geo';
+import type { GeoProjection } from 'd3-geo';
 import type { ProjectionParams } from '../store/useAppStore';
 import {
   RADIUS,
@@ -48,6 +50,52 @@ function cross(a: Vec3, b: Vec3): Vec3 {
 }
 
 const DEG = Math.PI / 180;
+
+// ---- 3x3 matrix helpers (row-major, [m00, m01, m02, m10, ...]) ----
+export type Mat3 = number[];
+
+export function matMul(a: Mat3, b: Mat3): Mat3 {
+  const r = new Array(9).fill(0);
+  for (let i = 0; i < 3; i++)
+    for (let j = 0; j < 3; j++) {
+      let s = 0;
+      for (let k = 0; k < 3; k++) s += a[i * 3 + k] * b[k * 3 + j];
+      r[i * 3 + j] = s;
+    }
+  return r;
+}
+
+export function matVec(m: Mat3, v: Vec3): Vec3 {
+  return [
+    m[0] * v[0] + m[1] * v[1] + m[2] * v[2],
+    m[3] * v[0] + m[4] * v[1] + m[5] * v[2],
+    m[6] * v[0] + m[7] * v[1] + m[8] * v[2],
+  ];
+}
+
+// Transpose (inverse of an orthonormal rotation matrix).
+export function matTranspose(m: Mat3): Mat3 {
+  return [m[0], m[3], m[6], m[1], m[4], m[7], m[2], m[5], m[8]];
+}
+
+// The d3 projection's `rotate([lambda0, phiOrigin, gamma])` is a rigid 3D
+// rotation of the sphere. We recover that exact rotation as a matrix in OUR
+// world frame (Y = pole) by rotating three basis directions with d3's own
+// `geoRotation` and reading their cartesian images. This is the single source
+// of truth for how the developable surface (and its rays) must be oriented so
+// the 3D scene always matches the 2D map — including tilted / transverse
+// aspects, where a naive `Rx(gamma)` tilt is wrong.
+export function projectionRotationMatrix(lambda0: number, phiOrigin: number, gamma: number): Mat3 {
+  const rot = geoRotation([lambda0, phiOrigin, gamma]);
+  const img = (lon: number, lat: number): Vec3 => {
+    const p = rot([lon, lat]);
+    return lonLatToVec3(p[0], p[1], 1);
+  };
+  const cX = img(0, 0); // +X (lon 0, lat 0)
+  const cY = img(0, 90); // +Y (north pole)
+  const cZ = img(90, 0); // +Z-ish (lon 90, lat 0)
+  return [cX[0], cY[0], cZ[0], cX[1], cY[1], cZ[1], cX[2], cY[2], cZ[2]];
+}
 
 // Rotate a world point about the Y axis by `a` radians (used to place the
 // surface's central meridian at longitude lambda0).
@@ -122,7 +170,7 @@ function basisFromNormal(normal: Vec3): { east: Vec3; north: Vec3 } {
 // rendered wireframe can never drift apart). Single source of truth for both.
 export function auxPointToWorld(surface: AuxSurfaceParams, p: Vec3): Vec3 {
   if (surface.kind === 'cylinder') {
-    const [x, y, z] = applyEuler(p, (surface.tilt * Math.PI) / 180, surface.rotationY);
+    const [x, y, z] = matVec(surface.orient, p);
     return [x, surface.positionY + y, z];
   }
   if (surface.kind === 'cone') {
@@ -166,7 +214,7 @@ const AUX_SIZE_CAP = 4;
 // cylinder → local Y within ±height/2; plane → radial distance ≤ size/2;
 // cone → radially scale toward the apex so the point stays on the LATERAL
 // surface (a pure Y-clamp would flatten the cone into a cap and break geometry).
-function clampLocalToSurface(surface: AuxSurfaceParams, p: Vec3): Vec3 {
+export function clampLocalToSurface(surface: AuxSurfaceParams, p: Vec3): Vec3 {
   if (surface.kind === 'cylinder') {
     const h = surface.height / 2;
     return [p[0], Math.max(-h, Math.min(h, p[1])), p[2]];
@@ -183,6 +231,31 @@ function clampLocalToSurface(surface: AuxSurfaceParams, p: Vec3): Vec3 {
   if (len <= r || len === 0) return p;
   const s = r / len;
   return [p[0] * s, p[1] * s, p[2]];
+}
+
+// Cylinder ray landing in the surface LOCAL frame. The globe point (lon, lat) is
+// taken into the projection frame by the exact d3 rotation (`orient`), giving its
+// angular position `th` around the cylinder axis and radial direction; the
+// cylinder radius `r` fixes the landing radius, while the height comes from the
+// projection's own y (so the landing matches the 2D map for every distortion —
+// conformal / equal-area / equidistant all unroll longitude identically, only the
+// height law differs). Because `orient` is the true d3 rotation, the 3D cylinder
+// and the 2D map stay perfectly aligned even when tilted / transverse.
+export function cylinderLocalEnd(
+  orient: Mat3,
+  proj: GeoProjection,
+  lon: number,
+  lat: number,
+  r: number,
+  cy: number,
+  wpp: number,
+): Vec3 {
+  const G = lonLatToVec3(lon, lat, 1);
+  const Gp = matVec(orient, G); // direction of the globe point in the proj frame
+  const th = Math.atan2(Gp[2], Gp[0]);
+  const p = proj([lon, lat]);
+  const dy = p ? p[1] - cy : 0;
+  return [r * Math.cos(th), -dy * wpp, r * Math.sin(th)];
 }
 
 // Wireframe (meridians + parallels) of the auxiliary surface, in the surface's
@@ -269,7 +342,7 @@ export function circlePoints(radius: number, y: number, segments = RING_SEGMENTS
 
 // ---- Auxiliary (developable) surface parameters (pure; no Three.js) ----
 export type AuxSurfaceParams =
-  | { kind: 'cylinder'; radius: number; height: number; rotationY: number; tilt: number; positionY: number }
+  | { kind: 'cylinder'; radius: number; height: number; orient: Mat3; orientInv: Mat3; positionY: number }
   | { kind: 'plane'; center: Vec3; normal: Vec3; size: number; tilt: number }
   | { kind: 'cone'; radius: number; height: number; positionY: number; flip: 1 | -1; tilt: number };
 
@@ -342,8 +415,6 @@ export function computeAuxSurfaceParams(
   distortion: ProjectionParams['distortion'] = 'equalArea',
   azLight: ProjectionParams['azLight'] = 'math',
 ): AuxSurfaceParams {
-  const lonRad = (lambda0 * Math.PI) / 180;
-
   if (family === 'cylindrical') {
     // The cylinder is always equatorial (axis through the poles) and touches the
     // globe — it does NOT slide along the axis in 3D (variant A). The
@@ -356,7 +427,12 @@ export function computeAuxSurfaceParams(
     const yBot = proj([lambda0, -CLIP_LAT])?.[1] ?? 0;
     const band = Math.abs(yTop - yBot) * worldPerPixel(radius);
     const height = Math.min(AUX_LENGTH * radius * AUX_SIZE_CAP, Math.max(AUX_LENGTH * radius * 0.5, band));
-    return { kind: 'cylinder', radius: radius * scaleFactor, height, rotationY: lonRad, tilt: gamma, positionY: 0 };
+    // The cylinder is always equatorial and does NOT translate with the
+    // central-latitude slider (variant A), so its 3D orientation folds in
+    // phiOrigin = 0; the slider's effect (re-centring the 2D map) is handled
+    // separately by the no-shift projection used for the rays.
+    const orient = projectionRotationMatrix(lambda0, 0, gamma);
+    return { kind: 'cylinder', radius: radius * scaleFactor, height, orient, orientInv: matTranspose(orient), positionY: 0 };
   }
 
   if (family === 'azimuthal') {
@@ -632,13 +708,13 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
     let localEnd: Vec3;
 
     if (family === 'cylindrical') {
-      // No-shift projection (phiOrigin = 0): the central-latitude slider only
-      // re-centres the 2D map, it must NOT move the 3D rays (variant A). Using
-      // the shifted proj would scatter rays along the cylinder height.
-      const p = projNoShift([lambda0, lat]);
-      const dy = p ? p[1] - cy : 0;
+      // The cylinder is oriented by the exact d3 rotation (`orient`), so the
+      // central-latitude slider (phiOrigin = 0 in projNoShift) must NOT move the
+      // 3D rays (variant A) — the rotation already folds phiOrigin in; using it
+      // here would scatter rays along the cylinder height.
       const r = radius * scaleFactor;
-      localEnd = [r, -dy * wpp, 0];
+      const cyl = surface.kind === 'cylinder' ? surface : (computeAuxSurfaceParams('cylindrical', lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight) as Extract<AuxSurfaceParams, { kind: 'cylinder' }>);
+      localEnd = cylinderLocalEnd(cyl.orient, projNoShift, lambda0, lat, r, cy, wpp);
       start = [0, 0, 0];
     } else if (family === 'azimuthal') {
       const c = proj([lambda0, phiOrigin]);
@@ -726,10 +802,9 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
   if (family === 'cylindrical') {
     const p = projNoShift([lon, lat]);
     if (!p || !isFinite(p[0]) || !isFinite(p[1])) return null;
-    const dy = p[1] - cy;
     const r = radius * scaleFactor;
-    const theta = ((lambda0 - lon) * Math.PI) / 180;
-    localEnd = [r * Math.cos(theta), -dy * wpp, r * Math.sin(theta)];
+    const cyl = surface.kind === 'cylinder' ? surface : (computeAuxSurfaceParams('cylindrical', lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight) as Extract<AuxSurfaceParams, { kind: 'cylinder' }>);
+    localEnd = cylinderLocalEnd(cyl.orient, projNoShift, lon, lat, r, cy, wpp);
     start = [0, 0, 0];
   } else if (family === 'azimuthal') {
     const c = proj([lambda0, phiOrigin]);

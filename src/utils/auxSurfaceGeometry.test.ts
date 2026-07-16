@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { ProjectionParams } from '../store/useAppStore';
-import { RADIUS, RAY_COUNT } from '../constants/geometry';
+import { RADIUS, RAY_COUNT, VIEW_CENTER_Y, MAP_SCALE } from '../constants/geometry';
+import { getD3Projection } from '../utils/projectionMapper';
 import {
   lonLatToVec3,
   vec3ToLonLat,
@@ -12,6 +13,9 @@ import {
   computeAuxSphereIntersectionsLonLat,
   computeCentralMeridianRays,
   projectToAuxWorld,
+  auxPointToWorld,
+  cylinderLocalEnd,
+  clampLocalToSurface,
   computeConicRayEnd,
   computeCone,
   coneAxialHeight,
@@ -244,6 +248,35 @@ describe('computeCentralMeridianRays', () => {
         closeTo(segs[i].end[0], ref[i].end[0], 1e-6);
         closeTo(segs[i].end[1], ref[i].end[1], 1e-6);
         closeTo(segs[i].end[2], ref[i].end[2], 1e-6);
+      }
+    }
+  });
+
+  it('tilted cylindrical rays land exactly on the rendered (tilted) cylinder for every distortion', () => {
+    for (const distortion of ['conformal', 'equalArea', 'equidistant'] as const) {
+      for (const gamma of [0, 30, -45, 90]) {
+        const segs = computeCentralMeridianRays({ ...base, family: 'cylindrical', distortion, gamma });
+        const surface = computeAuxSurfaceParams('cylindrical', 0, 0, 1, RADIUS, null, gamma, distortion, 'math');
+        if (surface.kind !== 'cylinder') throw new Error('expected cylinder');
+        // Axis of the rendered cylinder in world space = orient · Y.
+        const axis: [number, number, number] = [surface.orient[1], surface.orient[4], surface.orient[7]];
+        for (const { end } of segs) {
+          // Distance from `end` to the cylinder axis must equal the radius.
+          const dot = end[0] * axis[0] + end[1] * axis[1] + end[2] * axis[2];
+          const perp: [number, number, number] = [end[0] - dot * axis[0], end[1] - dot * axis[1], end[2] - dot * axis[2]];
+          closeTo(Math.hypot(...perp), surface.radius, 1e-6);
+        }
+        // Independently rebuild each ray endpoint via cylinderLocalEnd +
+        // auxPointToWorld and confirm it matches the fan (single source of truth).
+        const proj = getD3Projection({ family: 'cylindrical', distortion, lambda0: 0, phiOrigin: 0, scaleFactor: 1, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2: null, azLight: 'math' });
+        segs.forEach((seg, i) => {
+          const lat = -90 + (i * 180) / (segs.length - 1);
+          const local = cylinderLocalEnd(surface.orient, proj, 0, lat, surface.radius, VIEW_CENTER_Y, RADIUS / MAP_SCALE);
+          const world = auxPointToWorld(surface, clampLocalToSurface(surface, local));
+          closeTo(world[0], seg.end[0], 1e-6);
+          closeTo(world[1], seg.end[1], 1e-6);
+          closeTo(world[2], seg.end[2], 1e-6);
+        });
       }
     }
   });
@@ -652,11 +685,27 @@ describe('computeTangentBasis orthonormality', () => {
 });
 
 describe('computeAuxSurfaceParams surface-kind invariants', () => {
-  it('cylindrical: radius is R·scaleFactor and rotationY follows lambda0', () => {
+  it('cylindrical: radius is R·scaleFactor and orientation matches the d3 rotation', () => {
     const p = computeAuxSurfaceParams('cylindrical', 30, 0, 1.05);
     if (p.kind !== 'cylinder') throw new Error('expected cylinder');
     expect(p.radius).toBeCloseTo(RADIUS * 1.05, 9);
-    expect(p.rotationY).toBeCloseTo((30 * Math.PI) / 180, 9);
+    // The orientation matrix must rotate the local +Y axis (cylinder axis) to the
+    // d3-rotated pole direction, and the central meridian seam to lambda0.
+    const axisWorld = [p.orient[1], p.orient[4], p.orient[7]];
+    expect(Math.hypot(...axisWorld)).toBeCloseTo(1, 9);
+    // For phiOrigin=0, gamma=0 the cylinder axis must stay aligned with the pole.
+    expect(axisWorld[1]).toBeCloseTo(1, 9);
+    const seamX = p.orient[0];
+    const seamZ = p.orient[2];
+    expect(Math.atan2(-seamZ, seamX)).toBeCloseTo((30 * Math.PI) / 180, 9);
+  });
+
+  it('cylindrical: gamma tilts the cylinder axis away from the pole', () => {
+    const p = computeAuxSurfaceParams('cylindrical', 0, 0, 1, undefined, null, 30);
+    if (p.kind !== 'cylinder') throw new Error('expected cylinder');
+    const axisWorld = [p.orient[1], p.orient[4], p.orient[7]];
+    expect(axisWorld[1]).toBeLessThan(1 - 1e-6);
+    expect(Math.hypot(...axisWorld)).toBeCloseTo(1, 9);
   });
 
   it('conic northern: positive positionY, flip +1', () => {
