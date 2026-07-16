@@ -118,6 +118,18 @@ describe('computeAuxSurfaceParams', () => {
       expect(conformal.height).not.toBeCloseTo(equalArea.height, 6);
     }
   });
+  it('cylinder height is NOT changed by the central-latitude slider (phiOrigin)', () => {
+    const at0 = computeAuxSurfaceParams('cylindrical', 0, 0, 1);
+    const at30 = computeAuxSurfaceParams('cylindrical', 0, 30, 1);
+    const atNeg = computeAuxSurfaceParams('cylindrical', 0, -45, 1);
+    expect(at0.kind).toBe('cylinder');
+    expect(at30.kind).toBe('cylinder');
+    expect(atNeg.kind).toBe('cylinder');
+    if (at0.kind === 'cylinder' && at30.kind === 'cylinder' && atNeg.kind === 'cylinder') {
+      closeTo(at0.height, at30.height, 1e-9);
+      closeTo(at0.height, atNeg.height, 1e-9);
+    }
+  });
   it('plane for azimuthal', () => {
     expect(computeAuxSurfaceParams('azimuthal', 10, 20, 1).kind).toBe('plane');
   });

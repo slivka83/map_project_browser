@@ -346,12 +346,12 @@ export function computeAuxSurfaceParams(
 
   if (family === 'cylindrical') {
     // The cylinder is always equatorial (axis through the poles) and touches the
-    // globe — it does NOT slide along the axis in 3D. The central-latitude slider
-    // (phiOrigin) only chooses which parallel is centred on the 2D map / the
-    // standard parallel; it has no 3D translation. So the cylinder height is
-    // measured from the fitted ±CLIP_LAT band (which depends on the distortion +
-    // diameter, and on phiOrigin's standard parallel), and positionY stays 0.
-    const proj = getD3Projection({ family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2, azLight });
+    // globe — it does NOT slide along the axis in 3D (variant A). The
+    // central-latitude slider (phiOrigin) only re-centres the 2D map / sets the
+    // standard parallel, so it must NOT change the 3D cylinder at all. Height is
+    // measured from the fitted ±CLIP_LAT band at phiOrigin = 0 (depends on the
+    // distortion + diameter, not on the slider), and positionY stays 0.
+    const proj = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2, azLight });
     const yTop = proj([lambda0, CLIP_LAT])?.[1] ?? 0;
     const yBot = proj([lambda0, -CLIP_LAT])?.[1] ?? 0;
     const band = Math.abs(yTop - yBot) * worldPerPixel(radius);
