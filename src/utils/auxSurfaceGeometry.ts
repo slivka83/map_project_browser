@@ -304,22 +304,6 @@ export function computeAuxGraticule(
       ]);
       mers.push(pts);
     }
-    // End-cap disks (radial spokes + two concentric circles) at each pole of the
-    // cylinder. The gnomonic ray from the centre through a globe pole lands at the
-    // cap CENTRE (on the axis), so the cap must be drawn — otherwise the pole-ray
-    // marker would float in the open end of the wireframe tube.
-    const capRings = [radius, radius * 0.66, radius * 0.33];
-    for (const y of [-height / 2, height / 2]) {
-      for (const cr of capRings) parallels.push(circlePoints(cr, y, 48));
-      const spokes = 12;
-      for (let s = 0; s < spokes; s++) {
-        const a = (s / spokes) * Math.PI * 2;
-        mers.push([
-          [0, y, 0],
-          [radius * Math.cos(a), y, radius * Math.sin(a)],
-        ]);
-      }
-    }
     return { meridians: mers, parallels };
   }
 

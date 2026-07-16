@@ -208,20 +208,28 @@ describe('computeAuxGraticule', () => {
     }
   });
 
-  it('cylinder graticule draws end-cap disks (so the pole-ray landing is not floating)', () => {
-    // The gnomonic ray from the centre through a globe pole lands on the cap
-    // CENTRE (on the axis). The cap must be drawn, otherwise that landing marker
-    // floats in the open end of the wireframe tube.
+  it('cylinder graticule has no end-cap disks (open tube)', () => {
+    // The cylinder is drawn as an open wireframe tube — the top/bottom end caps
+    // are intentionally NOT rendered, so the pole-ray landing sits at the open
+    // end of the tube. Assert there are no cap spokes (centre → rim at ±h/2).
     const p = computeAuxSurfaceParams('cylindrical', 0, 0, 1, RADIUS, null, 0, 'conformal', 'math');
     if (p.kind !== 'cylinder') throw new Error('expected cylinder');
-    const { meridians } = computeAuxGraticule(p);
+    const { meridians, parallels } = computeAuxGraticule(p);
     const halfH = p.height / 2;
-    // cap spokes run from the centre [0, ±h/2, 0] to the rim — at least a couple
-    // on each cap.
     const spokes = meridians.filter(
       (m) => m.length === 2 && Math.hypot(m[0][0], m[0][2]) < 1e-6 && Math.abs(Math.abs(m[0][1]) - halfH) < 1e-6,
     );
-    expect(spokes.length).toBeGreaterThanOrEqual(2);
+    expect(spokes.length).toBe(0);
+    // no concentric cap ring circles at the pole heights (the regular graticule
+    // already draws a full-radius ring at ±h/2; the caps were smaller rings at
+    // radius·0.66 and radius·0.33).
+    const capRings = parallels.filter((ring) => {
+      if (ring.length < 2) return false;
+      const atPole = ring.every((pt) => Math.abs(Math.abs(pt[1]) - halfH) < 1e-6);
+      const r = Math.hypot(ring[0][0], ring[0][2]);
+      return atPole && r < p.radius - 1e-6;
+    });
+    expect(capRings.length).toBe(0);
   });
 
   it('cone graticule apex lines meet at the cone tip', () => {
