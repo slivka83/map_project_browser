@@ -345,16 +345,14 @@ export function computeAuxSurfaceParams(
   const lonRad = (lambda0 * Math.PI) / 180;
 
   if (family === 'cylindrical') {
-    // Size the cylinder height to the central-meridian extent of the fitted
-    // ±CLIP_LAT band so the projection rays land on the rendered surface
-    // (Mercator/equirectangular would otherwise overshoot a fixed height).
-    const proj = getD3Projection({ family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2, azLight });
-    const yTop = proj([lambda0, CLIP_LAT])?.[1] ?? 0;
-    const yBot = proj([lambda0, -CLIP_LAT])?.[1] ?? 0;
-    const band = Math.abs(yTop - yBot) * worldPerPixel(radius);
-    const height = Math.min(AUX_LENGTH * radius * AUX_SIZE_CAP, Math.max(AUX_LENGTH * radius * 0.5, band));
+    // Fixed cylinder height: depends only on the radius, NOT on the shift
+    // (phiOrigin) or the distortion. So the "Сдвиг цилиндра" slider slides the
+    // surface up/down without rescaling it, and each control maps to exactly one
+    // visible motion. The projection rays still land because clampLocalToSurface
+    // clamps them to ±height/2.
+    const height = AUX_LENGTH * radius;
     // Shift the cylinder along the Earth's axis by the central latitude, so the
-    // "Смещение" slider visibly slides the surface up/down (not just rescales it).
+    // "Сдвиг цилиндра" slider visibly slides the surface up/down.
     const positionY = radius * Math.sin((phiOrigin * Math.PI) / 180);
     return { kind: 'cylinder', radius: radius * scaleFactor, height, rotationY: lonRad, tilt: gamma, positionY };
   }
