@@ -206,9 +206,32 @@ describe('computeAuxGraticule', () => {
     const { meridians, parallels } = computeAuxGraticule(p);
     expect(meridians.length).toBeGreaterThan(0);
     expect(parallels.length).toBeGreaterThan(0);
+    const halfH = p.height / 2;
     for (const line of [...meridians, ...parallels]) {
-      for (const [x, , z] of line) closeTo(Math.hypot(x, z), p.radius, 1e-6);
+      for (const [x, y, z] of line) {
+        const radial = Math.hypot(x, z);
+        // A point is on the cylinder if it is on the lateral surface (distance to
+        // axis = radius) or on an end-cap disk (at the pole height, within radius).
+        const onCap = Math.abs(Math.abs(y) - halfH) < 1e-6 && radial <= p.radius + 1e-6;
+        expect(onCap || Math.abs(radial - p.radius) < 1e-6).toBe(true);
+      }
     }
+  });
+
+  it('cylinder graticule draws end-cap disks (so the pole-ray landing is not floating)', () => {
+    // The gnomonic ray from the centre through a globe pole lands on the cap
+    // CENTRE (on the axis). The cap must be drawn, otherwise that landing marker
+    // floats in the open end of the wireframe tube.
+    const p = computeAuxSurfaceParams('cylindrical', 0, 0, 1, RADIUS, null, 0, 'conformal', 'math');
+    if (p.kind !== 'cylinder') throw new Error('expected cylinder');
+    const { meridians } = computeAuxGraticule(p);
+    const halfH = p.height / 2;
+    // cap spokes run from the centre [0, ±h/2, 0] to the rim — at least a couple
+    // on each cap.
+    const spokes = meridians.filter(
+      (m) => m.length === 2 && Math.hypot(m[0][0], m[0][2]) < 1e-6 && Math.abs(Math.abs(m[0][1]) - halfH) < 1e-6,
+    );
+    expect(spokes.length).toBeGreaterThanOrEqual(2);
   });
 
   it('cone graticule apex lines meet at the cone tip', () => {
