@@ -74,10 +74,16 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
     else proj = d3Geo.geoAzimuthalEquidistant();
   }
 
-  // Apply rotation / scale / translate from the full store state (spec §4). The
-  // third rotation component `gamma` produces oblique / transverse aspects.
+  // Apply rotation / scale / translate from the store state (spec §4). For the
+  // cylindrical family `gamma` is NOT baked into the 2D projection: the 3D cylinder
+  // is a rigid tube whose geometry comes from the UNTILTED projection and only
+  // rotates in space under gamma, so the unrolled 2D map must match that same
+  // rigid tube — i.e. it stays a normal cylindrical map (shifted only by lambda0 /
+  // phiOrigin), not a distorted oblique projection. Conic / azimuthal do fold gamma
+  // into the projection, consistent with their 3D aux-surface geometry.
+  const projGamma = family === 'cylindrical' ? 0 : gamma;
   proj
-    .rotate([-(lambda0), -phiOrigin, -gamma])
+    .rotate([-(lambda0), -phiOrigin, -projGamma])
     .scale(MAP_SCALE * scaleFactor)
     .translate([VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing]);
 

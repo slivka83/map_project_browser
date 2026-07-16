@@ -124,22 +124,28 @@ describe('getD3Projection — light source & visual params (spec концепт)
     expect(p([0, 0])).toEqual(ref([0, 0]));
   });
 
-  it('applies gamma as the third rotation (oblique / transverse)', () => {
+  it('cylindrical does NOT bake gamma into the 2D projection (rigid tube)', () => {
+    // The 3D cylinder is a rigid tube whose geometry comes from the UNTILTED
+    // projection and only rotates in space under gamma; the unrolled 2D map must
+    // match that same rigid tube, so gamma is NOT folded into the d3 rotation for
+    // the cylindrical family (the map stays a normal cylindrical map, not a
+    // distorted oblique projection). Conic / azimuthal still use gamma.
     const p = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', lambda0: 15, phiOrigin: 5, gamma: 40 }));
     const rot = p.rotate();
     expect(rot[0]).toBeCloseTo(-15);
     expect(rot[1]).toBeCloseTo(-5);
-    expect(rot[2]).toBeCloseTo(-40);
+    expect(rot[2]).toBeCloseTo(0);
   });
 
-  it('cylindrical rotation uses only lambda0/phiOrigin/gamma (no hidden source-axis offset)', () => {
+  it('cylindrical rotation uses only lambda0/phiOrigin (gamma stays 0 in 2D)', () => {
     // The cylindrical family has no rod/axis source; the central meridian is set
     // purely by lambda0 (the "Поворот вокруг Земли" control), so the rotation's
-    // longitude equals -lambda0 regardless of any other setting.
+    // longitude equals -lambda0 regardless of any other setting. Tilting (gamma)
+    // only rotates the 3D tube, not the unrolled 2D map.
     const p = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', lambda0: 15 }));
     expect(p.rotate()[0]).toBeCloseTo(-15);
     const tilted = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', lambda0: 15, gamma: 30 }));
-    expect(tilted.rotate()[2]).toBeCloseTo(-30);
+    expect(tilted.rotate()[2]).toBeCloseTo(0);
   });
 
   it('azimuthal gnomonic honours lambda0/phiOrigin/gamma in its rotation', () => {
