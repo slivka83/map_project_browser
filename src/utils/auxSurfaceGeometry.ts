@@ -248,6 +248,7 @@ export function cylinderLocalEnd(
   r: number,
   cy: number,
   wpp: number,
+  yScale = 1,
 ): Vec3 {
   // The pole's longitude is undefined, and d3's Mercator clamps latitude to
   // ±85° (web-Mercator). The literal pole (lat = ±90) therefore returns a
@@ -274,7 +275,7 @@ export function cylinderLocalEnd(
   // lands the north / south pole on the cylinder's top / bottom edge. A reversed
   // sign would swap them (the south pole flying to the top).
   const dy = p && isFinite(p[1]) ? p[1] - cy : (lat >= 0 ? -1e9 : 1e9);
-  return [r * Math.cos(th), -dy * wpp, r * Math.sin(th)];
+  return [r * Math.cos(th), -dy * wpp * yScale, r * Math.sin(th)];
 }
 
 // Wireframe (meridians + parallels) of the auxiliary surface, in the surface's
@@ -361,7 +362,7 @@ export function circlePoints(radius: number, y: number, segments = RING_SEGMENTS
 
 // ---- Auxiliary (developable) surface parameters (pure; no Three.js) ----
 export type AuxSurfaceParams =
-  | { kind: 'cylinder'; radius: number; height: number; orient: Mat3; orientInv: Mat3; positionY: number }
+  | { kind: 'cylinder'; radius: number; height: number; orient: Mat3; orientInv: Mat3; positionY: number; yScale: number }
   | { kind: 'plane'; center: Vec3; normal: Vec3; size: number; tilt: number }
   | { kind: 'cone'; radius: number; height: number; positionY: number; flip: 1 | -1; tilt: number };
 
@@ -453,7 +454,19 @@ export function computeAuxSurfaceParams(
     // phiOrigin = 0; the slider's effect (re-centring the 2D map) is handled
     // separately by the no-shift projection used for the rays.
     const orient = projectionRotationMatrix(lambda0, 0, gamma);
-    return { kind: 'cylinder', radius: radius * scaleFactor, height, orient, orientInv: matTranspose(orient), positionY: 0 };
+    // Height is fixed at gamma = 0 (tilting only rotates, never resizes). But the
+    // rays are built from the TILTED no-shift projection, whose latitude→y extent
+    // differs from the untitled band. `yScale` maps that tilted extent back onto
+    // the fixed height so the rays always span the full tube (and never float in
+    // its middle). It is part of the surface so every ray builder shares it.
+    const projTilted = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2, azLight });
+    const ext = Math.max(
+      Math.abs((projTilted([lambda0, CLIP_LAT])?.[1] ?? VIEW_CENTER_Y) - VIEW_CENTER_Y),
+      Math.abs((projTilted([lambda0, -CLIP_LAT])?.[1] ?? VIEW_CENTER_Y) - VIEW_CENTER_Y),
+      1e-9,
+    );
+    const yScale = height / (ext * worldPerPixel(radius));
+    return { kind: 'cylinder', radius: radius * scaleFactor, height, orient, orientInv: matTranspose(orient), positionY: 0, yScale };
   }
 
   if (family === 'azimuthal') {
@@ -734,7 +747,7 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
       // 3D rays (variant A) — the rotation already folds phiOrigin in; using it
       // here would scatter rays along the cylinder height.
       const r = radius * scaleFactor;
-      localEnd = cylinderLocalEnd(projNoShift, lambda0, lat, r, cy, wpp);
+      localEnd = cylinderLocalEnd(projNoShift, lambda0, lat, r, cy, wpp, surface.kind === 'cylinder' ? surface.yScale : 1);
       // The two pole rays (lat = ±90) land on the cylinder's topmost / bottommost
       // edge, at the central-meridian angular position — i.e. on the visible
       // lateral-surface rim, exactly where the unrolled 2D map puts the pole.
@@ -827,7 +840,7 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
     const p = projNoShift([lon, lat]);
     if (!p || !isFinite(p[0]) || !isFinite(p[1])) return null;
     const r = radius * scaleFactor;
-    localEnd = cylinderLocalEnd(projNoShift, lon, lat, r, cy, wpp);
+    localEnd = cylinderLocalEnd(projNoShift, lon, lat, r, cy, wpp, surface.kind === 'cylinder' ? surface.yScale : 1);
     start = [0, 0, 0];
   } else if (family === 'azimuthal') {
     const c = proj([lambda0, phiOrigin]);

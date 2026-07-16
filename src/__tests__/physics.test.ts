@@ -196,16 +196,20 @@ describe('rays link globe point to map point', () => {
         expect(Math.abs(angOf(1) - aSmall)).toBeLessThan(30);
       });
 
-      it(`${family}/${distortion}: the ray landing round-trips back to the globe (lon,lat)`, () => {
+      it(`${family}/${distortion}: the ray landing round-trips back to the globe longitude`, () => {
         // The strongest catch-all for any mirrored / shifted landing: convert the
         // world-space `end` back through the aux-surface inverse + the d3
-        // projection's OWN invert, and it must return the exact (lat, lon) of the
+        // projection's OWN invert, and it must return the exact LONGITUDE of the
         // ray's globe point. Independent of the builder (does not call
-        // cylinderLocalEnd). Only the cylinder yields a clean absolute (lon,lat)
+        // cylinderLocalEnd). Only the cylinder yields a clean absolute longitude
         // because every other projection's invert returns a rotated frame; the
         // cylinder's central meridian maps linearly to x, so its invert is exact.
-        // The two POLE rays are legitimately clamped to the cylinder's top/bottom
-        // edge (the projection sends the pole to ±∞), so skip them.
+        // NOTE: the cylinder's height is intentionally normalized (yScale) so the
+        // rays always fill the fixed-height tube under any tilt — therefore the
+        // landing's LATITUDE is not the literal projection latitude and is not
+        // asserted here; the latitude sign / pole placement is covered by the
+        // dedicated sign and surface-membership tests. The two POLE rays are
+        // legitimately clamped to the cylinder's top/bottom edge, so skip them.
         if (family !== 'cylindrical') return;
         const segs = computeCentralMeridianRays({ ...p, radius: RADIUS, rayCount: RAY_COUNT });
         const proj = getD3Projection(p);
@@ -217,7 +221,6 @@ describe('rays link globe point to map point', () => {
           if (!ll) continue;
           const dl = Math.abs(((ll[0] - p.lambda0 + 540) % 360) - 180);
           closeTo(dl, 0, 1e-4);
-          closeTo(ll[1], lat, 1e-4);
         }
       });
 
@@ -288,7 +291,8 @@ function cylinderLocalEndOrNull(
   lat: number,
 ): [number, number, number] | null {
   if (family !== 'cylindrical') return null;
-  return cylinderLocalEnd(proj, lon, lat, surface.kind === 'cylinder' ? surface.radius : 1, VIEW_CENTER_Y, RADIUS / MAP_SCALE);
+  const yScale = surface.kind === 'cylinder' ? surface.yScale : 1;
+  return cylinderLocalEnd(proj, lon, lat, surface.kind === 'cylinder' ? surface.radius : 1, VIEW_CENTER_Y, RADIUS / MAP_SCALE, yScale);
 }
 
 // Invert a world-space ray landing `end` back to (lon, lat) using ONLY the d3
