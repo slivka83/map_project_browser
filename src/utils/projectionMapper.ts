@@ -74,16 +74,15 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
     else proj = d3Geo.geoAzimuthalEquidistant();
   }
 
-  // Apply rotation / scale / translate from the store state (spec §4). For the
-  // cylindrical family `gamma` is NOT baked into the 2D projection: the 3D cylinder
-  // is a rigid tube whose axis tilts in space under gamma, but its unrolled 2D map
-  // stays a normal cylindrical map (shifted only by lambda0 / phiOrigin) — the tilt
-  // is shown in 3D by rotating the tube, while the 2D map keeps its standard
-  // rectangular cylindrical aspect. Conic / azimuthal do fold gamma into the
-  // projection, consistent with their 3D aux-surface geometry.
-  const projGamma = family === 'cylindrical' ? 0 : gamma;
+  // Apply rotation / scale / translate from the store state (spec §4). The tilt
+  // `gamma` is folded into EVERY family's projection so the 2D map is the exact
+  // unrolling of the (possibly tilted) developable surface the 3D scene draws: a
+  // tilted cylinder becomes an oblique / transverse cylindrical map, a tilted cone
+  // / plane likewise. This keeps the 2D map and the 3D rays on ONE shared logic —
+  // the surface is one object, and what is drawn on the map is where the rays land
+  // on the surface.
   proj
-    .rotate([-(lambda0), -phiOrigin, -projGamma])
+    .rotate([-(lambda0), -phiOrigin, -gamma])
     .scale(MAP_SCALE * scaleFactor)
     .translate([VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing]);
 
