@@ -600,6 +600,9 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
   const wpp = worldPerPixel(radius);
   const PARALLEL_LEN = AUX_LENGTH * radius;
 
+  // No-shift projection for cylindrical rays: the central-latitude slider must
+  // not move them (variant A). The shifted proj is still used for cone/azimuthal.
+  const projNoShift = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2, azLight });
   const proj = getD3Projection({
     family,
     distortion,
@@ -629,7 +632,10 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
     let localEnd: Vec3;
 
     if (family === 'cylindrical') {
-      const p = proj([lambda0, lat]);
+      // No-shift projection (phiOrigin = 0): the central-latitude slider only
+      // re-centres the 2D map, it must NOT move the 3D rays (variant A). Using
+      // the shifted proj would scatter rays along the cylinder height.
+      const p = projNoShift([lambda0, lat]);
       const dy = p ? p[1] - cy : 0;
       const r = radius * scaleFactor;
       localEnd = [r, -dy * wpp, 0];
@@ -704,6 +710,7 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
 
   const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight);
   const proj = getD3Projection({ family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight });
+  const projNoShift = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2, azLight });
   const cy = VIEW_CENTER_Y;
   const wpp = worldPerPixel(radius);
   const PARALLEL_LEN = AUX_LENGTH * radius;
@@ -717,7 +724,7 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
   let localEnd: Vec3 | null = null;
 
   if (family === 'cylindrical') {
-    const p = proj([lon, lat]);
+    const p = projNoShift([lon, lat]);
     if (!p || !isFinite(p[0]) || !isFinite(p[1])) return null;
     const dy = p[1] - cy;
     const r = radius * scaleFactor;

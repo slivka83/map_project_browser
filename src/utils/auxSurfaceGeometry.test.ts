@@ -232,12 +232,18 @@ describe('computeCentralMeridianRays', () => {
   });
 
   it('cylindrical rays stay on the cylinder and do not drift with phiOrigin', () => {
+    const ref = computeCentralMeridianRays({ ...base, family: 'cylindrical', phiOrigin: 0 });
     for (const phi of [0, 30, -45]) {
       const segs = computeCentralMeridianRays({ ...base, family: 'cylindrical', phiOrigin: phi });
       const sf = 1;
-      for (const { end } of segs) {
+      expect(segs.length).toBe(ref.length);
+      for (let i = 0; i < segs.length; i++) {
         // rays land on the (non-translating) cylinder of radius RADIUS·scaleFactor
-        closeTo(Math.hypot(end[0], end[2]), RADIUS * sf, 1e-6);
+        closeTo(Math.hypot(segs[i].end[0], segs[i].end[2]), RADIUS * sf, 1e-6);
+        // and the whole ray fan is invariant under the central-latitude slider
+        closeTo(segs[i].end[0], ref[i].end[0], 1e-6);
+        closeTo(segs[i].end[1], ref[i].end[1], 1e-6);
+        closeTo(segs[i].end[2], ref[i].end[2], 1e-6);
       }
     }
   });
