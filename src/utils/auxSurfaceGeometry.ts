@@ -185,24 +185,6 @@ export function auxPointToWorld(surface: AuxSurfaceParams, p: Vec3): Vec3 {
   return planePointToWorld(surface.center, surface.normal, surface.tilt, p);
 }
 
-// Convert a cylindrical local intersection ring (computed in the surface's LOCAL
-// frame: circlePoints(r, ±y) on the XZ plane at height ±y) into WORLD coordinates
-// ON THE SPHERE. The cylinder touches the globe at the constant latitudes ±φ_s
-// where sin φ_s = y / radius, independent of the tilt (gamma) and of lambda0 —
-// the tube is a surface of revolution about the polar axis, so its intersection
-// with the globe cannot move when the tube is merely tilted or rotated. Returning
-// the ring as a world-space circle on those latitudes (rather than pushing it
-// through `auxPointToWorld`, which would glue it to the tilted tube and make it
-// "travel" with the tilt) keeps the intersection markers fixed on the globe, in
-// agreement with the 2D map (which also does not move under a cylindrical tilt).
-export function cylindricalRingToWorld(ring: Vec3[], radius = RADIUS): Vec3[] {
-  return ring.map(([x, y, z]) => {
-    const lat = Math.asin(Math.max(-1, Math.min(1, y / radius)));
-    const lon = Math.atan2(z, x);
-    return lonLatToVec3((lon * 180) / Math.PI, (lat * 180) / Math.PI, radius);
-  });
-}
-
 export function planePointToWorld(center: Vec3, normal: Vec3, tiltDeg: number, p: Vec3): Vec3 {
   const { east, north } = basisFromNormal(normal);
   const g = (tiltDeg * Math.PI) / 180;

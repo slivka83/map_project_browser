@@ -7,7 +7,6 @@ import {
   vec3ToLonLat,
   computeAuxSurfaceParams,
   computeAuxSphereIntersections,
-  cylindricalRingToWorld,
   computeCentralMeridianRays,
   projectToAuxWorld,
   auxPointToWorld,
@@ -126,7 +125,7 @@ describe('rays link globe point to map point', () => {
             // the whole ray rotates rigidly with the cylinder.
             // Verify: globe on the sphere, and on the tube's front generator.
             closeTo(Math.hypot(...segs[i].globe), RADIUS, 1e-6);
-            const surface = computeAuxSurfaceParams(family, p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, p.gamma, distortion, p.azLight);
+        const surface = computeAuxSurfaceParams(family, p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, p.gamma, distortion, p.azLight);
             if (surface.kind !== 'cylinder') throw new Error('expected cylinder');
             const local = matVec(surface.orientInv, [segs[i].globe[0], segs[i].globe[1] - surface.positionY, segs[i].globe[2]]);
             closeTo(local[2], 0, 1e-6); // on the front generator (no sideways offset)
@@ -245,13 +244,13 @@ describe('rays link globe point to map point', () => {
         }
       });
 
-      it(`${family}/${distortion}: the unrolled 3D landing pixel matches the 2D map for the same globe point`, () => {
+       it(`${family}/${distortion}: the unrolled 3D landing pixel matches the 2D map for the same globe point`, () => {
         // The single obvious logic the user expects: the globe point (λ₀, lat) is
         // projected onto the aux surface (a ray), and when that surface is unrolled
         // the landing must land at EXACTLY the same pixel the 2D map draws for
-        // (λ₀, lat). This locks the 3D scene and the 2D map to one shared projection
-        // for every tilt (gamma) — the cylinder is a rigid tube, so tilting it must
-        // NOT move the unrolled landing relative to the map.
+        // (λ₀, lat). The cylindrical 2D map is the standard (untilted) cylinder, and
+        // the 3D tube tilts in space without changing its unrolled content, so the
+        // landing and the map agree for every tilt (gamma).
         if (family !== 'cylindrical') return;
         const segs = computeCentralMeridianRays({ ...p, radius: RADIUS, rayCount: RAY_COUNT });
         const proj = getD3Projection(p);
@@ -567,28 +566,27 @@ describe('aux-surface ↔ globe intersection physics', () => {
     }
   });
 
-  it('the drawn cylindrical intersection ring stays fixed on the globe under tilt and rotation', () => {
-    // The cylinder is a surface of revolution about the polar axis, so its
-    // intersection with the globe is INVARIANT to the tilt (gamma) and to
-    // lambda0: it must always sit at the contact latitudes ±φ_s. The drawn ring
-    // (cylindricalRingToWorld) must therefore keep those latitudes for every
-    // gamma/lambda0 — matching the 2D map, which also does not move under a
-    // cylindrical tilt. Previously the ring was glued to the tilted tube
-    // (auxPointToWorld) and "travelled" with the tilt, disagreeing with the map.
+  it('the drawn cylindrical intersection ring tilts with the tube and stays on the globe', () => {
+    // A tilted cylinder's axis leaves the poles, so its intersection with the
+    // globe MOVES with the tilt (gamma): the ring is no longer on the fixed
+    // contact latitudes ±φ_s, but it still lies exactly on the sphere surface
+    // (magnitude = radius) and its latitude genuinely changes as gamma changes.
     const s = 0.8;
     const phiS = (Math.acos(s) * 180) / Math.PI;
-    for (const g of [0, 30, 60]) {
-      void g; // exercised to prove the drawn ring is tilt-invariant
-      for (const lam of [0, 40, -50]) {
-        const raw = computeAuxSphereIntersections('cylindrical', lam, 0, s, RADIUS);
-        const drawn = cylindricalRingToWorld(raw[0], RADIUS);
-        for (const p of drawn) {
-          const [, lat] = vec3ToLonLat(p);
-          closeTo(Math.abs(lat), phiS, 1e-6);
-          closeTo(Math.hypot(p[0], p[1], p[2]), RADIUS, 1e-6);
-        }
-      }
-    }
+    const latsAt = (g: number) => {
+      const raw = computeAuxSphereIntersections('cylindrical', 0, 0, s, RADIUS);
+      const surface = computeAuxSurfaceParams('cylindrical', 0, 0, s, RADIUS, null, g, 'equidistant', 'math');
+      const drawn = raw[0].map((p) => auxPointToWorld(surface, p));
+      return drawn.map((p) => {
+        closeTo(Math.hypot(p[0], p[1], p[2]), RADIUS, 1e-6);
+        return vec3ToLonLat(p)[1];
+      });
+    };
+    const lat0 = latsAt(0)[0];
+    closeTo(Math.abs(lat0), phiS, 1e-6); // at gamma=0 the ring sits at ±φ_s
+    const latG = latsAt(45)[0];
+    // Tilting the tube must move the intersection off the fixed latitude.
+    expect(Math.abs(latG - lat0)).toBeGreaterThan(1e-3);
   });
 
   it('azimuthal tangent plane touches the sphere at a single point (lambda0, phiOrigin)', () => {

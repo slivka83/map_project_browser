@@ -76,11 +76,11 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
 
   // Apply rotation / scale / translate from the store state (spec §4). For the
   // cylindrical family `gamma` is NOT baked into the 2D projection: the 3D cylinder
-  // is a rigid tube whose geometry comes from the UNTILTED projection and only
-  // rotates in space under gamma, so the unrolled 2D map must match that same
-  // rigid tube — i.e. it stays a normal cylindrical map (shifted only by lambda0 /
-  // phiOrigin), not a distorted oblique projection. Conic / azimuthal do fold gamma
-  // into the projection, consistent with their 3D aux-surface geometry.
+  // is a rigid tube whose axis tilts in space under gamma, but its unrolled 2D map
+  // stays a normal cylindrical map (shifted only by lambda0 / phiOrigin) — the tilt
+  // is shown in 3D by rotating the tube, while the 2D map keeps its standard
+  // rectangular cylindrical aspect. Conic / azimuthal do fold gamma into the
+  // projection, consistent with their 3D aux-surface geometry.
   const projGamma = family === 'cylindrical' ? 0 : gamma;
   proj
     .rotate([-(lambda0), -phiOrigin, -projGamma])
