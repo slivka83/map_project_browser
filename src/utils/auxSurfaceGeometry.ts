@@ -122,7 +122,8 @@ function basisFromNormal(normal: Vec3): { east: Vec3; north: Vec3 } {
 // rendered wireframe can never drift apart). Single source of truth for both.
 export function auxPointToWorld(surface: AuxSurfaceParams, p: Vec3): Vec3 {
   if (surface.kind === 'cylinder') {
-    return applyEuler(p, (surface.tilt * Math.PI) / 180, surface.rotationY);
+    const [x, y, z] = applyEuler(p, (surface.tilt * Math.PI) / 180, surface.rotationY);
+    return [x, surface.positionY + y, z];
   }
   if (surface.kind === 'cone') {
     const tilt = (surface.tilt * Math.PI) / 180;
@@ -268,7 +269,7 @@ export function circlePoints(radius: number, y: number, segments = RING_SEGMENTS
 
 // ---- Auxiliary (developable) surface parameters (pure; no Three.js) ----
 export type AuxSurfaceParams =
-  | { kind: 'cylinder'; radius: number; height: number; rotationY: number; tilt: number }
+  | { kind: 'cylinder'; radius: number; height: number; rotationY: number; tilt: number; positionY: number }
   | { kind: 'plane'; center: Vec3; normal: Vec3; size: number; tilt: number }
   | { kind: 'cone'; radius: number; height: number; positionY: number; flip: 1 | -1; tilt: number };
 
@@ -352,7 +353,10 @@ export function computeAuxSurfaceParams(
     const yBot = proj([lambda0, -CLIP_LAT])?.[1] ?? 0;
     const band = Math.abs(yTop - yBot) * worldPerPixel(radius);
     const height = Math.min(AUX_LENGTH * radius * AUX_SIZE_CAP, Math.max(AUX_LENGTH * radius * 0.5, band));
-    return { kind: 'cylinder', radius: radius * scaleFactor, height, rotationY: lonRad, tilt: gamma };
+    // Shift the cylinder along the Earth's axis by the central latitude, so the
+    // "Смещение" slider visibly slides the surface up/down (not just rescales it).
+    const positionY = radius * Math.sin((phiOrigin * Math.PI) / 180);
+    return { kind: 'cylinder', radius: radius * scaleFactor, height, rotationY: lonRad, tilt: gamma, positionY };
   }
 
   if (family === 'azimuthal') {

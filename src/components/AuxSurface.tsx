@@ -24,7 +24,7 @@ export default function AuxSurface({ params }: { params: ProjectionParams }) {
   const toWorld = useMemo(() => (p: Vec3): Vec3 => auxPointToWorld(surface, p), [surface]);
 
   return (
-    <group>
+    <group position={[0, surface.kind === 'plane' ? 0 : surface.positionY, 0]}>
       {parallels.map((pts, i) => (
         <Line key={`p${i}`} points={pts.map(toWorld)} color={NEON_ORANGE} lineWidth={0.8} transparent opacity={0.5} />
       ))}

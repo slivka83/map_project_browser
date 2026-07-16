@@ -102,6 +102,20 @@ describe('computeAuxSurfaceParams', () => {
     expect(p.kind).toBe('cylinder');
     if (p.kind === 'cylinder') closeTo(p.radius, RADIUS * 1.05, 1e-9);
   });
+  it('cylinder slides along the Earth axis with phiOrigin (Сдвиг)', () => {
+    const eq = computeAuxSurfaceParams('cylindrical', 0, 0, 1);
+    const north = computeAuxSurfaceParams('cylindrical', 0, 30, 1);
+    const south = computeAuxSurfaceParams('cylindrical', 0, -30, 1);
+    expect(eq.kind).toBe('cylinder');
+    expect(north.kind).toBe('cylinder');
+    expect(south.kind).toBe('cylinder');
+    if (eq.kind === 'cylinder' && north.kind === 'cylinder' && south.kind === 'cylinder') {
+      closeTo(eq.positionY, 0, 1e-9);
+      expect(north.positionY).toBeGreaterThan(0);
+      expect(south.positionY).toBeLessThan(0);
+      closeTo(north.positionY, RADIUS * Math.sin((30 * Math.PI) / 180), 1e-9);
+    }
+  });
   it('plane for azimuthal', () => {
     expect(computeAuxSurfaceParams('azimuthal', 10, 20, 1).kind).toBe('plane');
   });

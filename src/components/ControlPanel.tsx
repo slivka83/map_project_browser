@@ -24,7 +24,7 @@ const FAMILY_SECTION: Record<ProjectionFamily, string> = {
 const PARAM_LABELS: Record<ProjectionFamily, { lambda0: string; phiOrigin: string; gamma: string; scaleFactor: string }> = {
   cylindrical: {
     lambda0: 'Поворот вокруг Земли',
-    phiOrigin: 'Смещение по оси Y',
+    phiOrigin: 'Сдвиг цилиндра (вверх/вниз)',
     gamma: 'Угол наклона цилиндра',
     scaleFactor: 'Диаметр цилиндра',
   },
