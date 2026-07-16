@@ -115,9 +115,29 @@ describe('rays link globe point to map point', () => {
         for (let i = 0; i < segs.length; i++) {
           const lat = -90 + (i * 180) / (segs.length - 1);
           const g = lonLatToVec3(p.lambda0, lat, RADIUS);
-          closeTo(segs[i].globe[0], g[0], 1e-6);
-          closeTo(segs[i].globe[1], g[1], 1e-6);
-          closeTo(segs[i].globe[2], g[2], 1e-6);
+          if (family === 'cylindrical') {
+            // The cylinder rays are a RIGID spoke attached to the tube: the globe
+            // marker rides on the cylinder's central generator at the globe's own
+            // radius (so it stays on the sphere), rather than at the raw
+            // (lambda0, lat) point — which would bend the ray when the tube tilts.
+            // Verify the globe marker stays on the sphere and is collinear with the
+            // axis (start) and the landing (end): start→globe→end is one straight spoke.
+            closeTo(Math.hypot(...segs[i].globe), RADIUS, 1e-6);
+            const start = segs[i].start;
+            const end = segs[i].end;
+            const v1 = [segs[i].globe[0] - start[0], segs[i].globe[1] - start[1], segs[i].globe[2] - start[2]];
+            const v2 = [end[0] - start[0], end[1] - start[1], end[2] - start[2]];
+            const cross = [
+              v1[1] * v2[2] - v1[2] * v2[1],
+              v1[2] * v2[0] - v1[0] * v2[2],
+              v1[0] * v2[1] - v1[1] * v2[0],
+            ];
+            closeTo(Math.hypot(...cross), 0, 1e-6);
+          } else {
+            closeTo(segs[i].globe[0], g[0], 1e-6);
+            closeTo(segs[i].globe[1], g[1], 1e-6);
+            closeTo(segs[i].globe[2], g[2], 1e-6);
+          }
         }
       });
 

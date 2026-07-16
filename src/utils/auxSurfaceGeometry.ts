@@ -741,22 +741,34 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
 
   for (let i = 0; i < rayCount; i++) {
     const lat = -90 + (i * 180) / (rayCount - 1);
-    const globe = lonLatToVec3(lambda0, lat, radius);
+    let globe = lonLatToVec3(lambda0, lat, radius);
 
     let start: Vec3;
     let localEnd: Vec3;
 
     if (family === 'cylindrical') {
-      // The cylinder is oriented by the exact d3 rotation (`orient`), so the
-      // central-latitude slider (phiOrigin = 0 in projNoShift) must NOT move the
-      // 3D rays (variant A) — the rotation already folds phiOrigin in; using it
-      // here would scatter rays along the cylinder height.
+      // The cylinder is oriented by the exact d3 rotation (`orient`). To keep the
+      // whole ray rigidly attached to the cylinder (so it rotates WITH the tube as
+      // one piece), every point of the ray — start (axis), the globe point it
+      // passes through, and the landing — must live in the cylinder's LOCAL frame
+      // and be rotated by `orient`. At gamma = 0 the globe point already sits on
+      // the front generator (angle 0), exactly where the landing is, so rotating
+      // it by `orient` keeps start→globe→end a straight radial spoke that turns
+      // with the cylinder. Leaving `globe` in world coordinates (as before) made
+      // only the endpoint move while the middle stayed put — the "bent" look.
       const r = radius * scaleFactor;
       localEnd = cylinderLocalEnd(projFlat, lambda0, lat, r, cy, wpp, surface.kind === 'cylinder' ? surface.yScale : 1);
-      // The two pole rays (lat = ±90) land on the cylinder's topmost / bottommost
-      // edge, at the central-meridian angular position — i.e. on the visible
-      // lateral-surface rim, exactly where the unrolled 2D map puts the pole.
-      // `cylinderLocalEnd` already produces this (th = 0 → front of the cap edge).
+      // The landing is finite (clamped to the rendered cylinder height). The globe
+      // marker rides on the SAME radial spoke (same central angle + clamped height
+      // direction), scaled out to the globe's radius — so start→globe→end is one
+      // straight radial spoke that turns rigidly WITH the tube under any tilt, and
+      // the middle marker still sits on the globe sphere. Leaving the globe at the
+      // raw (lambda0, lat) point made only the endpoint move while the middle stayed
+      // put — the "bent" look the user reported.
+      const landed = clampLocalToSurface(surface, localEnd);
+      const len = Math.hypot(landed[0], landed[1]) || 1;
+      const globeLocal: Vec3 = [(radius * landed[0]) / len, (radius * landed[1]) / len, 0];
+      globe = auxPointToWorld(surface, globeLocal);
       start = [0, 0, 0];
     } else if (family === 'azimuthal') {
       const c = proj([lambda0, phiOrigin]);
