@@ -159,6 +159,29 @@ describe('rays link globe point to map point', () => {
         closeTo(coord(bot.end), -halfH, 1e-6);
       });
 
+      it(`${family}/${distortion}: the pole rays do not jump sideways when the cylinder is tilted`, () => {
+        // Regression for the 90° swing: a tilted cylinder (gamma ≠ 0) moves the
+        // pole off the vertical, so d3 returns a finite, longitude-looking x for
+        // the pole. Using it swung the top/bottom rays ~90° around the cylinder
+        // the instant gamma left 0. The pole's longitude is undefined, so its
+        // angular position around the cylinder must stay pinned to the central
+        // meridian for every gamma — and must vary continuously in gamma.
+        if (family !== 'cylindrical') return;
+        const angOf = (g: number) => {
+          const segs = computeCentralMeridianRays({ ...p, gamma: g, radius: RADIUS, rayCount: RAY_COUNT });
+          const e = segs[0].end; // south pole
+          return Math.atan2(e[2], e[0]) * (180 / Math.PI);
+        };
+        const a0 = angOf(0);
+        const aSmall = angOf(0.5);
+        // at gamma = 0 the pole sits exactly on the front centre line
+        closeTo(a0, 0, 1e-6);
+        // a tiny tilt must NOT produce a huge jump (the bug was ~90°)
+        expect(Math.abs(aSmall)).toBeLessThan(5);
+        // and it must move continuously: |Δ| between 0° and 1° is small
+        expect(Math.abs(angOf(1) - aSmall)).toBeLessThan(5);
+      });
+
       it(`${family}/${distortion}: the ray landing round-trips back to the globe (lon,lat)`, () => {
         // The strongest catch-all for any mirrored / shifted landing: convert the
         // world-space `end` back through the aux-surface inverse + the d3

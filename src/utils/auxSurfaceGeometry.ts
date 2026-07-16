@@ -256,7 +256,14 @@ export function cylinderLocalEnd(
   // poles the rotated vector is parallel to the axis and atan2 is degenerate.
   const scale = proj.scale() || 1;
   const [cx] = proj.translate();
-  const th = p && isFinite(p[0]) ? (p[0] - (cx ?? 0)) / scale : 0;
+  // The pole's longitude is undefined, so its angular position around the
+  // cylinder is pinned to the central meridian (th = 0). A tilted cylinder
+  // (gamma ≠ 0) moves the pole OFF the vertical, so the projection returns a
+  // finite, longitude-looking x for the pole — using it would swing the pole
+  // ray ~90° around the cylinder the instant gamma leaves 0. Pinning th = 0
+  // keeps the top/bottom rays on the cylinder's front centre line for every
+  // gamma (the pole is still pushed to the top/bottom edge by the height clamp).
+  const th = Math.abs(lat) < 90 - 1e-9 && p && isFinite(p[0]) ? (p[0] - (cx ?? 0)) / scale : 0;
   // The pole projects to y = ±∞ (out of the finite map). The d3 projection's y
   // axis points DOWN (north = smaller y), and we convert to the 3D local frame
   // (north = +y) via `-dy`, so the finite pole at lat≈89 has dy < 0 (north) and
