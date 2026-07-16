@@ -252,6 +252,25 @@ describe('computeCentralMeridianRays', () => {
     }
   });
 
+  it('cylindrical pole rays land at the cylinder cap, not the waist', () => {
+    // Mercator sends the poles to y = ±∞, so a naive fallback would strand the
+    // pole ray at height 0 (the cylinder's waist). The pole rays must instead
+    // land at the top/bottom cap, matching the (clamped) high-latitude rays.
+    for (const lambda0 of [0, 45, 90, -45]) {
+      const segs = computeCentralMeridianRays({ ...base, family: 'cylindrical', lambda0, gamma: 0 });
+      const surface = computeAuxSurfaceParams('cylindrical', lambda0, 0, 1, RADIUS, null, 0, 'conformal', 'math');
+      if (surface.kind !== 'cylinder') throw new Error('expected cylinder');
+      const cap = surface.height / 2;
+      const north = segs[segs.length - 1]; // lat = +90
+      const south = segs[0]; // lat = -90
+      // |y| must be well away from 0 (the bug stranded the pole ray at the
+      // cylinder's waist, height 0). Conformal/equidistant clamp to the cap;
+      // equal-area has a finite pole, still far from the waist.
+      expect(Math.abs(north.end[1])).toBeGreaterThan(cap * 0.3);
+      expect(Math.abs(south.end[1])).toBeGreaterThan(cap * 0.3);
+    }
+  });
+
   it('tilted cylindrical rays land exactly on the rendered (tilted) cylinder for every distortion', () => {
     for (const distortion of ['conformal', 'equalArea', 'equidistant'] as const) {
       for (const gamma of [0, 30, -45, 90]) {
@@ -271,7 +290,7 @@ describe('computeCentralMeridianRays', () => {
         const proj = getD3Projection({ family: 'cylindrical', distortion, lambda0: 0, phiOrigin: 0, scaleFactor: 1, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2: null, azLight: 'math' });
         segs.forEach((seg, i) => {
           const lat = -90 + (i * 180) / (segs.length - 1);
-          const local = cylinderLocalEnd(surface.orient, proj, 0, lat, surface.radius, VIEW_CENTER_Y, RADIUS / MAP_SCALE);
+          const local = cylinderLocalEnd(proj, 0, lat, surface.radius, VIEW_CENTER_Y, RADIUS / MAP_SCALE);
           const world = auxPointToWorld(surface, clampLocalToSurface(surface, local));
           closeTo(world[0], seg.end[0], 1e-6);
           closeTo(world[1], seg.end[1], 1e-6);

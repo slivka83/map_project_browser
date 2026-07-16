@@ -242,7 +242,6 @@ export function clampLocalToSurface(surface: AuxSurfaceParams, p: Vec3): Vec3 {
 // height law differs). Because `orient` is the true d3 rotation, the 3D cylinder
 // and the 2D map stay perfectly aligned even when tilted / transverse.
 export function cylinderLocalEnd(
-  orient: Mat3,
   proj: GeoProjection,
   lon: number,
   lat: number,
@@ -250,11 +249,19 @@ export function cylinderLocalEnd(
   cy: number,
   wpp: number,
 ): Vec3 {
-  const G = lonLatToVec3(lon, lat, 1);
-  const Gp = matVec(orient, G); // direction of the globe point in the proj frame
-  const th = Math.atan2(Gp[2], Gp[0]);
   const p = proj([lon, lat]);
-  const dy = p ? p[1] - cy : 0;
+  // Angular position around the cylinder = the projection's own longitude
+  // coordinate (x offset from the central meridian, in projection units). Using
+  // d3's x (not atan2 of the rotated pole vector) is exact everywhere — at the
+  // poles the rotated vector is parallel to the axis and atan2 is degenerate.
+  const scale = proj.scale() || 1;
+  const [cx] = proj.translate();
+  const th = p && isFinite(p[0]) ? (p[0] - (cx ?? 0)) / scale : 0;
+  // The pole projects to y = ±∞ (out of the finite map). Push it to a large
+  // finite value with the correct sign so the height clamp (applied by the
+  // caller) lands it at the cylinder's top / bottom instead of its waist — a
+  // naive `return [r, 0, 0]` would strand the pole ray at height 0.
+  const dy = p && isFinite(p[1]) ? p[1] - cy : (lat >= 0 ? 1e9 : -1e9);
   return [r * Math.cos(th), -dy * wpp, r * Math.sin(th)];
 }
 
@@ -713,8 +720,7 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
       // 3D rays (variant A) — the rotation already folds phiOrigin in; using it
       // here would scatter rays along the cylinder height.
       const r = radius * scaleFactor;
-      const cyl = surface.kind === 'cylinder' ? surface : (computeAuxSurfaceParams('cylindrical', lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight) as Extract<AuxSurfaceParams, { kind: 'cylinder' }>);
-      localEnd = cylinderLocalEnd(cyl.orient, projNoShift, lambda0, lat, r, cy, wpp);
+      localEnd = cylinderLocalEnd(projNoShift, lambda0, lat, r, cy, wpp);
       start = [0, 0, 0];
     } else if (family === 'azimuthal') {
       const c = proj([lambda0, phiOrigin]);
@@ -803,8 +809,7 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
     const p = projNoShift([lon, lat]);
     if (!p || !isFinite(p[0]) || !isFinite(p[1])) return null;
     const r = radius * scaleFactor;
-    const cyl = surface.kind === 'cylinder' ? surface : (computeAuxSurfaceParams('cylindrical', lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight) as Extract<AuxSurfaceParams, { kind: 'cylinder' }>);
-    localEnd = cylinderLocalEnd(cyl.orient, projNoShift, lon, lat, r, cy, wpp);
+    localEnd = cylinderLocalEnd(projNoShift, lon, lat, r, cy, wpp);
     start = [0, 0, 0];
   } else if (family === 'azimuthal') {
     const c = proj([lambda0, phiOrigin]);
