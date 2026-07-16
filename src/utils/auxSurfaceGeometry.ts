@@ -454,12 +454,12 @@ export function computeAuxSurfaceParams(
     // phiOrigin = 0; the slider's effect (re-centring the 2D map) is handled
     // separately by the no-shift projection used for the rays.
     const orient = projectionRotationMatrix(lambda0, 0, gamma);
-    // Height is fixed at gamma = 0 (tilting only rotates, never resizes). But the
-    // rays are built from the TILTED no-shift projection, whose latitude→y extent
-    // differs from the untitled band. `yScale` maps that tilted extent back onto
-    // the fixed height so the rays always span the full tube (and never float in
-    // its middle). It is part of the surface so every ray builder shares it.
-    const projTilted = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2, azLight });
+    // Height is fixed at gamma = 0 (tilting only rotates, never resizes). The
+    // rays are built from the UNTILTED projection too, so their latitude→y extent
+    // already matches this band exactly and `yScale` is 1 — the rays fill the
+    // whole tube under any tilt without rescaling. `yScale` is kept on the surface
+    // so every ray builder shares one source of truth.
+    const projTilted = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma: 0, stdParallel2, azLight });
     const ext = Math.max(
       Math.abs((projTilted([lambda0, CLIP_LAT])?.[1] ?? VIEW_CENTER_Y) - VIEW_CENTER_Y),
       Math.abs((projTilted([lambda0, -CLIP_LAT])?.[1] ?? VIEW_CENTER_Y) - VIEW_CENTER_Y),
@@ -710,9 +710,14 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
   const wpp = worldPerPixel(radius);
   const PARALLEL_LEN = AUX_LENGTH * radius;
 
-  // No-shift projection for cylindrical rays: the central-latitude slider must
-  // not move them (variant A). The shifted proj is still used for cone/azimuthal.
-  const projNoShift = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2, azLight });
+  // For the cylinder the tilt (gamma) must ONLY rotate the rigid tube, never
+  // bend the central-meridian fan. So the ray's angular position and height are
+  // taken from the UNTILTED projection (gamma = 0); the tilt is applied purely by
+  // the surface `orient` below. Using the tilted projection here made every
+  // latitude land at a different angle (a spiral around the tube) — the "crooked"
+  // look. With the flat projection the central meridian stays one straight
+  // generator that rotates cleanly with the cylinder.
+  const projFlat = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma: 0, stdParallel2, azLight });
   const proj = getD3Projection({
     family,
     distortion,
@@ -747,7 +752,7 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
       // 3D rays (variant A) — the rotation already folds phiOrigin in; using it
       // here would scatter rays along the cylinder height.
       const r = radius * scaleFactor;
-      localEnd = cylinderLocalEnd(projNoShift, lambda0, lat, r, cy, wpp, surface.kind === 'cylinder' ? surface.yScale : 1);
+      localEnd = cylinderLocalEnd(projFlat, lambda0, lat, r, cy, wpp, surface.kind === 'cylinder' ? surface.yScale : 1);
       // The two pole rays (lat = ±90) land on the cylinder's topmost / bottommost
       // edge, at the central-meridian angular position — i.e. on the visible
       // lateral-surface rim, exactly where the unrolled 2D map puts the pole.
@@ -824,6 +829,7 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
   const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight);
   const proj = getD3Projection({ family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight });
   const projNoShift = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2, azLight });
+  const projFlat = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma: 0, stdParallel2, azLight });
   const cy = VIEW_CENTER_Y;
   const wpp = worldPerPixel(radius);
   const PARALLEL_LEN = AUX_LENGTH * radius;
@@ -840,7 +846,7 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
     const p = projNoShift([lon, lat]);
     if (!p || !isFinite(p[0]) || !isFinite(p[1])) return null;
     const r = radius * scaleFactor;
-    localEnd = cylinderLocalEnd(projNoShift, lon, lat, r, cy, wpp, surface.kind === 'cylinder' ? surface.yScale : 1);
+    localEnd = cylinderLocalEnd(projFlat, lon, lat, r, cy, wpp, surface.kind === 'cylinder' ? surface.yScale : 1);
     start = [0, 0, 0];
   } else if (family === 'azimuthal') {
     const c = proj([lambda0, phiOrigin]);

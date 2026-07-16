@@ -366,7 +366,7 @@ describe('computeCentralMeridianRays', () => {
         // auxPointToWorld and confirm it matches the fan (single source of truth).
         // The on-axis-pole override must be mirrored here so the rebuild agrees
         // with the fan.
-        const proj = getD3Projection({ family: 'cylindrical', distortion, lambda0: 0, phiOrigin: 0, scaleFactor: 1, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2: null, azLight: 'math' });
+        const proj = getD3Projection({ family: 'cylindrical', distortion, lambda0: 0, phiOrigin: 0, scaleFactor: 1, falseEasting: 0, falseNorthing: 0, gamma: 0, stdParallel2: null, azLight: 'math' });
         segs.forEach((seg, i) => {
           const lat = -90 + (i * 180) / (segs.length - 1);
           const local = cylinderLocalEndWithPole(proj, 0, lat, surface);

@@ -121,9 +121,12 @@ describe('rays link globe point to map point', () => {
         }
       });
 
-      it(`${family}/${distortion}: the ray landing, fed back through the projection, returns the globe (lon,lat)`, () => {
+       it(`${family}/${distortion}: the ray landing, fed back through the projection, returns the globe (lon,lat)`, () => {
         const segs = computeCentralMeridianRays({ ...p, radius: RADIUS, rayCount: RAY_COUNT });
-        const proj = getD3Projection(p);
+        // The cylinder rays are built from the UNTILTED (gamma = 0) projection so
+        // the tilt only rotates the rigid tube; the rebuild must use the same flat
+        // projection to agree with the fan.
+        const proj = getD3Projection({ ...p, gamma: 0 });
         const surface = computeAuxSurfaceParams(family, p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, p.gamma, distortion, p.azLight);
         for (let i = 0; i < segs.length; i++) {
           const lat = -90 + (i * 180) / (segs.length - 1);
