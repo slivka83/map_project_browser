@@ -67,10 +67,17 @@ describe('ControlPanel', () => {
     expect(useAppStore.getState().distortion).toBe('equalArea');
   });
 
-  it('updates store.phiOrigin when the central-latitude slider changes', () => {
+  it('updates store.phiOrigin when the central-latitude slider changes (conic family)', () => {
+    useAppStore.setState({ family: 'conic', distortion: 'equidistant' });
     render(<ControlPanel />);
-    fireEvent.change(screen.getByRole('slider', { name: 'Центральная широта (φ₀)' }), { target: { value: '25' } });
+    fireEvent.change(screen.getByRole('slider', { name: 'Угол при вершине' }), { target: { value: '25' } });
     expect(useAppStore.getState().phiOrigin).toBe(25);
+  });
+
+  it('does NOT expose a central-latitude slider for the cylindrical family', () => {
+    useAppStore.setState({ family: 'cylindrical', distortion: 'conformal' });
+    render(<ControlPanel />);
+    expect(screen.queryByRole('slider', { name: 'Центральная широта (φ₀)' })).toBeNull();
   });
 
   it('applies an EPSG preset from the catalog modal', async () => {
