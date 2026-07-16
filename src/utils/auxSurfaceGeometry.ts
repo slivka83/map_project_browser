@@ -248,7 +248,6 @@ export function cylinderLocalEnd(
   r: number,
   cy: number,
   wpp: number,
-  yScale = 1,
 ): Vec3 {
   // The pole's longitude is undefined, and d3's Mercator clamps latitude to
   // ±85° (web-Mercator). The literal pole (lat = ±90) therefore returns a
@@ -275,7 +274,7 @@ export function cylinderLocalEnd(
   // lands the north / south pole on the cylinder's top / bottom edge. A reversed
   // sign would swap them (the south pole flying to the top).
   const dy = p && isFinite(p[1]) ? p[1] - cy : (lat >= 0 ? -1e9 : 1e9);
-  return [r * Math.cos(th), -dy * wpp * yScale, r * Math.sin(th)];
+  return [r * Math.cos(th), -dy * wpp, r * Math.sin(th)];
 }
 
 // Wireframe (meridians + parallels) of the auxiliary surface, in the surface's
@@ -456,16 +455,12 @@ export function computeAuxSurfaceParams(
     const orient = projectionRotationMatrix(lambda0, 0, gamma);
     // Height is fixed at gamma = 0 (tilting only rotates, never resizes). The
     // rays are built from the UNTILTED projection too, so their latitude→y extent
-    // already matches this band exactly and `yScale` is 1 — the rays fill the
-    // whole tube under any tilt without rescaling. `yScale` is kept on the surface
-    // so every ray builder shares one source of truth.
-    const projTilted = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma: 0, stdParallel2, azLight });
-    const ext = Math.max(
-      Math.abs((projTilted([lambda0, CLIP_LAT])?.[1] ?? VIEW_CENTER_Y) - VIEW_CENTER_Y),
-      Math.abs((projTilted([lambda0, -CLIP_LAT])?.[1] ?? VIEW_CENTER_Y) - VIEW_CENTER_Y),
-      1e-9,
-    );
-    const yScale = height / (ext * worldPerPixel(radius));
+    // already matches this band exactly: the landing y is `-dy * wpp` (no extra
+    // yScale), which maps the full ±CLIP_LAT band into exactly ±height/2, so every
+    // latitude lands at its own distinct height — the rays fill the whole tube
+    // under any tilt without collapsing/merging. `yScale` stays 1 (kept on the
+    // surface for API stability / shared source of truth).
+    const yScale = 1;
     return { kind: 'cylinder', radius: radius * scaleFactor, height, orient, orientInv: matTranspose(orient), positionY: 0, yScale };
   }
 
@@ -761,7 +756,7 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
       // before) pinned the middle to the stationary globe and only the endpoint
       // moved — the "broken / not rotating" look the user reported.
       const r = radius * scaleFactor;
-      localEnd = cylinderLocalEnd(projFlat, lambda0, lat, r, cy, wpp, surface.kind === 'cylinder' ? surface.yScale : 1);
+      localEnd = cylinderLocalEnd(projFlat, lambda0, lat, r, cy, wpp);
       const latRad = (lat * Math.PI) / 180;
       const globeLocal: Vec3 = [radius * Math.cos(latRad), radius * Math.sin(latRad), 0];
       globe = auxPointToWorld(surface, globeLocal);
@@ -854,7 +849,7 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
     const p = projNoShift([lon, lat]);
     if (!p || !isFinite(p[0]) || !isFinite(p[1])) return null;
     const r = radius * scaleFactor;
-    localEnd = cylinderLocalEnd(projFlat, lon, lat, r, cy, wpp, surface.kind === 'cylinder' ? surface.yScale : 1);
+    localEnd = cylinderLocalEnd(projFlat, lon, lat, r, cy, wpp);
     start = [0, 0, 0];
   } else if (family === 'azimuthal') {
     const c = proj([lambda0, phiOrigin]);

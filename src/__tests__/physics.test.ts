@@ -224,10 +224,10 @@ describe('rays link globe point to map point', () => {
         // cylinderLocalEnd). Only the cylinder yields a clean absolute longitude
         // because every other projection's invert returns a rotated frame; the
         // cylinder's central meridian maps linearly to x, so its invert is exact.
-        // NOTE: the cylinder's height is intentionally normalized (yScale) so the
-        // rays always fill the fixed-height tube under any tilt — therefore the
-        // landing's LATITUDE is not the literal projection latitude and is not
-        // asserted here; the latitude sign / pole placement is covered by the
+        // NOTE: the cylinder's landing y is the raw projection y (mapped into the
+        // tube height, no extra yScale), so every latitude lands at its own
+        // distinct height and the rays fill the tube without merging; the latitude
+        // sign / pole placement is covered by the
         // dedicated sign and surface-membership tests. The two POLE rays are
         // legitimately clamped to the cylinder's top/bottom edge, so skip them.
         if (family !== 'cylindrical') return;
@@ -311,8 +311,7 @@ function cylinderLocalEndOrNull(
   lat: number,
 ): [number, number, number] | null {
   if (family !== 'cylindrical') return null;
-  const yScale = surface.kind === 'cylinder' ? surface.yScale : 1;
-  return cylinderLocalEnd(proj, lon, lat, surface.kind === 'cylinder' ? surface.radius : 1, VIEW_CENTER_Y, RADIUS / MAP_SCALE, yScale);
+  return cylinderLocalEnd(proj, lon, lat, surface.kind === 'cylinder' ? surface.radius : 1, VIEW_CENTER_Y, RADIUS / MAP_SCALE);
 }
 
 // Invert a world-space ray landing `end` back to (lon, lat) using ONLY the d3

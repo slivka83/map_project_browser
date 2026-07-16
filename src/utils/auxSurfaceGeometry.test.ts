@@ -37,8 +37,7 @@ function cylinderLocalEndWithPole(
   lat: number,
   surface: ReturnType<typeof computeAuxSurfaceParams>,
 ): [number, number, number] {
-  const yScale = surface.kind === 'cylinder' ? surface.yScale : 1;
-  return cylinderLocalEnd(proj, lon, lat, surface.kind === 'cylinder' ? surface.radius : 1, VIEW_CENTER_Y, RADIUS / MAP_SCALE, yScale);
+  return cylinderLocalEnd(proj, lon, lat, surface.kind === 'cylinder' ? surface.radius : 1, VIEW_CENTER_Y, RADIUS / MAP_SCALE);
 }
 
 // Transform a world-space cone point back into the cone's local frame and return
