@@ -159,6 +159,19 @@ describe('rays link globe point to map point', () => {
         closeTo(coord(bot.end), -halfH, 1e-6);
       });
 
+      it(`${family}/${distortion}: the cylinder height does not change when tilted`, () => {
+        // The tilt (gamma) must only rotate the cylinder, never change its size.
+        // Previously the height was derived from the tilted 2D projection band,
+        // so tilting also stretched/shrank the tube — wrong for a physical surface.
+        if (family !== 'cylindrical') return;
+        const h = (g: number) => {
+          const s = computeAuxSurfaceParams('cylindrical', p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, g, distortion, p.azLight);
+          return (s as Extract<AuxSurfaceParams, { kind: 'cylinder' }>).height;
+        };
+        closeTo(h(0), h(5), 1e-9);
+        closeTo(h(0), h(10), 1e-9);
+      });
+
       it(`${family}/${distortion}: the pole rays do not jump sideways when the cylinder is tilted`, () => {
         // Regression for the 90° swing: a tilted cylinder (gamma ≠ 0) moves the
         // pole off the vertical, so d3 returns a finite, longitude-looking x for

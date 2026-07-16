@@ -440,8 +440,10 @@ export function computeAuxSurfaceParams(
     // central-latitude slider (phiOrigin) only re-centres the 2D map / sets the
     // standard parallel, so it must NOT change the 3D cylinder at all. Height is
     // measured from the fitted ±CLIP_LAT band at phiOrigin = 0 (depends on the
-    // distortion + diameter, not on the slider), and positionY stays 0.
-    const proj = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2, azLight });
+    // distortion + diameter, not on the slider), and positionY stays 0. The tilt
+    // (gamma) must NOT change the cylinder's size either — it only rotates the
+    // surface (see `orient` below), so the height is computed with gamma = 0.
+    const proj = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma: 0, stdParallel2, azLight });
     const yTop = proj([lambda0, CLIP_LAT])?.[1] ?? 0;
     const yBot = proj([lambda0, -CLIP_LAT])?.[1] ?? 0;
     const band = Math.abs(yTop - yBot) * worldPerPixel(radius);
