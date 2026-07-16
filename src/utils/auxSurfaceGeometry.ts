@@ -598,7 +598,7 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
   } = params;
 
   const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight);
-  const cy = VIEW_CENTER_Y + falseNorthing;
+  const cy = VIEW_CENTER_Y;
   const wpp = worldPerPixel(radius);
   const PARALLEL_LEN = AUX_LENGTH * radius;
 
@@ -631,7 +631,12 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
     let localEnd: Vec3;
 
     if (family === 'cylindrical') {
-      const p = proj([lambda0, lat]);
+      // Use the projection WITHOUT the shift (phiOrigin=0) so the ray's local Y
+      // is measured from the cylinder centre; the slide is then applied once by
+      // auxPointToWorld (positionY). Reusing the shifted proj would double-count
+      // the shift and drop rays onto the wrong spot.
+      const projNoShift = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2, azLight });
+      const p = projNoShift([lambda0, lat]);
       const dy = p ? p[1] - cy : 0;
       const r = radius * scaleFactor;
       localEnd = [r, -dy * wpp, 0];
@@ -706,7 +711,7 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
 
   const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight);
   const proj = getD3Projection({ family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight });
-  const cy = VIEW_CENTER_Y + falseNorthing;
+  const cy = VIEW_CENTER_Y;
   const wpp = worldPerPixel(radius);
   const PARALLEL_LEN = AUX_LENGTH * radius;
 
@@ -719,7 +724,9 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
   let localEnd: Vec3 | null = null;
 
   if (family === 'cylindrical') {
-    const p = proj([lon, lat]);
+    // No-shift projection so the slide is applied once (by auxPointToWorld).
+    const projNoShift = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2, azLight });
+    const p = projNoShift([lon, lat]);
     if (!p || !isFinite(p[0]) || !isFinite(p[1])) return null;
     const dy = p[1] - cy;
     const r = radius * scaleFactor;

@@ -235,6 +235,19 @@ describe('computeCentralMeridianRays', () => {
     for (const { end } of segs) closeTo(Math.hypot(end[0], end[2]), RADIUS * sf, 1e-6);
   });
 
+  it('cylindrical rays slide with the shift (no double-count, no scatter)', () => {
+    const at0 = computeCentralMeridianRays({ ...base, family: 'cylindrical', phiOrigin: 0 });
+    const shifted = computeCentralMeridianRays({ ...base, family: 'cylindrical', phiOrigin: 30 });
+    const dy = RADIUS * Math.sin((30 * Math.PI) / 180);
+    expect(at0.length).toBe(shifted.length);
+    for (let i = 0; i < at0.length; i++) {
+      // Each ray endpoint is exactly the no-shift endpoint translated up by dy.
+      closeTo(shifted[i].end[0], at0[i].end[0], 1e-6);
+      closeTo(shifted[i].end[1], at0[i].end[1] + dy, 1e-6);
+      closeTo(shifted[i].end[2], at0[i].end[2], 1e-6);
+    }
+  });
+
   it('azimuthal rays lie on the tangent plane (incl. under gamma tilt)', () => {
     for (const g of [0, 45]) {
       const lambda0 = 15;
