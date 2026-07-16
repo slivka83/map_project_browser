@@ -1,17 +1,20 @@
 import { useMemo } from 'react';
 import { Line } from '@react-three/drei';
 import { NEON_WHITE } from '../constants/designTokens';
-import { computeAuxSphereIntersections, computeAuxSurfaceParams, auxPointToWorld } from '../utils/auxSurfaceGeometry';
+import { computeAuxSphereIntersections, computeAuxSurfaceParams, auxPointToWorld, cylindricalRingToWorld } from '../utils/auxSurfaceGeometry';
 import { RADIUS } from '../constants/geometry';
 import type { ProjectionParams } from '../store/useAppStore';
 
 // Hollow white neon rings marking where the auxiliary surface meets the globe.
 // The rings are the actual intersection circles (computed analytically), so the
 // surface can touch the globe in one place, two places, or not at all — in the
-// last case nothing is drawn. The cylinder/cone rings are computed in the
-// surface's LOCAL frame, then pushed through `auxPointToWorld` (the exact
-// transform the aux-surface wireframe uses) so a `gamma` tilt rotates them
-// together with the surface instead of leaving them horizontal.
+// last case nothing is drawn. Cone/azimuthal rings live in a local frame that
+// depends on the tilt, so they are pushed through `auxPointToWorld` (the exact
+// transform the aux-surface wireframe uses). The cylindrical intersection is a
+// revolution about the polar axis, so it is INVARIANT to the tilt (gamma) and to
+// lambda0: it is drawn as a world-space circle on the constant contact latitudes
+// ±φ_s, fixed on the globe — matching the 2D map, which also does not move under
+// a cylindrical tilt.
 export default function IntersectionDisks({ params }: { params: ProjectionParams }) {
   const { family, lambda0, phiOrigin, scaleFactor, stdParallel2, gamma, distortion, azLight } = params;
   const surface = useMemo(
@@ -20,9 +23,11 @@ export default function IntersectionDisks({ params }: { params: ProjectionParams
   );
   const circles = useMemo(() => {
     const raw = computeAuxSphereIntersections(family, lambda0, phiOrigin, scaleFactor, RADIUS, stdParallel2);
-    // The azimuthal intersection is already a world-space ring on the sphere,
-    // so it is drawn as-is; cylinder/cone rings live in the local frame and
-    // must be transformed through the (gamma-tilted) surface transform.
+    if (family === 'cylindrical') {
+      // Fixed on the globe (contact latitudes ±φ_s), independent of the tilt.
+      return raw.map((ring) => cylindricalRingToWorld(ring, RADIUS));
+    }
+    // Azimuthal / cone rings depend on the tilt, so transform through the surface.
     return raw.map((ring) => ring.map((p) => (family === 'azimuthal' ? p : auxPointToWorld(surface, p))));
   }, [family, lambda0, phiOrigin, scaleFactor, stdParallel2, surface]);
 

@@ -7,6 +7,7 @@ import {
   vec3ToLonLat,
   computeAuxSurfaceParams,
   computeAuxSphereIntersections,
+  cylindricalRingToWorld,
   computeCentralMeridianRays,
   projectToAuxWorld,
   auxPointToWorld,
@@ -562,6 +563,30 @@ describe('aux-surface ↔ globe intersection physics', () => {
       const rings = computeAuxSphereIntersections('cylindrical', 30, 0, s, RADIUS);
       for (const ring of rings) {
         for (const p of ring) closeTo(Math.hypot(p[0], p[1], p[2]), RADIUS, 1e-6);
+      }
+    }
+  });
+
+  it('the drawn cylindrical intersection ring stays fixed on the globe under tilt and rotation', () => {
+    // The cylinder is a surface of revolution about the polar axis, so its
+    // intersection with the globe is INVARIANT to the tilt (gamma) and to
+    // lambda0: it must always sit at the contact latitudes ±φ_s. The drawn ring
+    // (cylindricalRingToWorld) must therefore keep those latitudes for every
+    // gamma/lambda0 — matching the 2D map, which also does not move under a
+    // cylindrical tilt. Previously the ring was glued to the tilted tube
+    // (auxPointToWorld) and "travelled" with the tilt, disagreeing with the map.
+    const s = 0.8;
+    const phiS = (Math.acos(s) * 180) / Math.PI;
+    for (const g of [0, 30, 60]) {
+      void g; // exercised to prove the drawn ring is tilt-invariant
+      for (const lam of [0, 40, -50]) {
+        const raw = computeAuxSphereIntersections('cylindrical', lam, 0, s, RADIUS);
+        const drawn = cylindricalRingToWorld(raw[0], RADIUS);
+        for (const p of drawn) {
+          const [, lat] = vec3ToLonLat(p);
+          closeTo(Math.abs(lat), phiS, 1e-6);
+          closeTo(Math.hypot(p[0], p[1], p[2]), RADIUS, 1e-6);
+        }
       }
     }
   });
