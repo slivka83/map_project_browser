@@ -116,6 +116,24 @@ describe('computeAuxSurfaceParams', () => {
       closeTo(north.positionY, RADIUS * Math.sin((30 * Math.PI) / 180), 1e-9);
     }
   });
+  it('cylinder height depends on the distortion (Тип искажения)', () => {
+    const conformal = computeAuxSurfaceParams('cylindrical', 0, 0, 1, RADIUS, null, 0, 'conformal', 'math');
+    const equalArea = computeAuxSurfaceParams('cylindrical', 0, 0, 1, RADIUS, null, 0, 'equalArea', 'math');
+    expect(conformal.kind).toBe('cylinder');
+    expect(equalArea.kind).toBe('cylinder');
+    if (conformal.kind === 'cylinder' && equalArea.kind === 'cylinder') {
+      expect(conformal.height).not.toBeCloseTo(equalArea.height, 6);
+    }
+  });
+  it('cylinder height is NOT changed by the shift (Сдвиг)', () => {
+    const at0 = computeAuxSurfaceParams('cylindrical', 0, 0, 1);
+    const at30 = computeAuxSurfaceParams('cylindrical', 0, 30, 1);
+    expect(at0.kind).toBe('cylinder');
+    expect(at30.kind).toBe('cylinder');
+    if (at0.kind === 'cylinder' && at30.kind === 'cylinder') {
+      closeTo(at0.height, at30.height, 1e-9);
+    }
+  });
   it('plane for azimuthal', () => {
     expect(computeAuxSurfaceParams('azimuthal', 10, 20, 1).kind).toBe('plane');
   });

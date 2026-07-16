@@ -345,14 +345,18 @@ export function computeAuxSurfaceParams(
   const lonRad = (lambda0 * Math.PI) / 180;
 
   if (family === 'cylindrical') {
-    // Fixed cylinder height: depends only on the radius, NOT on the shift
-    // (phiOrigin) or the distortion. So the "Сдвиг цилиндра" slider slides the
-    // surface up/down without rescaling it, and each control maps to exactly one
-    // visible motion. The projection rays still land because clampLocalToSurface
-    // clamps them to ±height/2.
-    const height = AUX_LENGTH * radius;
-    // Shift the cylinder along the Earth's axis by the central latitude, so the
-    // "Сдвиг цилиндра" slider visibly slides the surface up/down.
+    // Cylinder height depends on the distortion + diameter (so a different
+    // "Тип искажения" yields a different-looking cylinder), but NOT on the
+    // shift (phiOrigin): we measure the fitted ±CLIP_LAT band at phiOrigin = 0,
+    // then slide the whole surface separately. So "Сдвиг цилиндра" only moves
+    // the cylinder up/down without rescaling it — each control maps to exactly
+    // one visible motion. Rays still land because clampLocalToSurface clamps
+    // them to ±height/2.
+    const proj = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2, azLight });
+    const yTop = proj([lambda0, CLIP_LAT])?.[1] ?? 0;
+    const yBot = proj([lambda0, -CLIP_LAT])?.[1] ?? 0;
+    const band = Math.abs(yTop - yBot) * worldPerPixel(radius);
+    const height = Math.min(AUX_LENGTH * radius * AUX_SIZE_CAP, Math.max(AUX_LENGTH * radius * 0.5, band));
     const positionY = radius * Math.sin((phiOrigin * Math.PI) / 180);
     return { kind: 'cylinder', radius: radius * scaleFactor, height, rotationY: lonRad, tilt: gamma, positionY };
   }
