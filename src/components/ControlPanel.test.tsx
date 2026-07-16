@@ -69,7 +69,7 @@ describe('ControlPanel', () => {
 
   it('updates store.phiOrigin when the central-latitude slider changes', () => {
     render(<ControlPanel />);
-    fireEvent.change(screen.getByRole('slider', { name: 'Сдвиг цилиндра (вверх/вниз)' }), { target: { value: '25' } });
+    fireEvent.change(screen.getByRole('slider', { name: 'Центральная широта (φ₀)' }), { target: { value: '25' } });
     expect(useAppStore.getState().phiOrigin).toBe(25);
   });
 

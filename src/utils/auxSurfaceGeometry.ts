@@ -345,20 +345,18 @@ export function computeAuxSurfaceParams(
   const lonRad = (lambda0 * Math.PI) / 180;
 
   if (family === 'cylindrical') {
-    // Cylinder height depends on the distortion + diameter (so a different
-    // "Тип искажения" yields a different-looking cylinder), but NOT on the
-    // shift (phiOrigin): we measure the fitted ±CLIP_LAT band at phiOrigin = 0,
-    // then slide the whole surface separately. So "Сдвиг цилиндра" only moves
-    // the cylinder up/down without rescaling it — each control maps to exactly
-    // one visible motion. Rays still land because clampLocalToSurface clamps
-    // them to ±height/2.
-    const proj = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2, azLight });
+    // The cylinder is always equatorial (axis through the poles) and touches the
+    // globe — it does NOT slide along the axis in 3D. The central-latitude slider
+    // (phiOrigin) only chooses which parallel is centred on the 2D map / the
+    // standard parallel; it has no 3D translation. So the cylinder height is
+    // measured from the fitted ±CLIP_LAT band (which depends on the distortion +
+    // diameter, and on phiOrigin's standard parallel), and positionY stays 0.
+    const proj = getD3Projection({ family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2, azLight });
     const yTop = proj([lambda0, CLIP_LAT])?.[1] ?? 0;
     const yBot = proj([lambda0, -CLIP_LAT])?.[1] ?? 0;
     const band = Math.abs(yTop - yBot) * worldPerPixel(radius);
     const height = Math.min(AUX_LENGTH * radius * AUX_SIZE_CAP, Math.max(AUX_LENGTH * radius * 0.5, band));
-    const positionY = radius * Math.sin((phiOrigin * Math.PI) / 180);
-    return { kind: 'cylinder', radius: radius * scaleFactor, height, rotationY: lonRad, tilt: gamma, positionY };
+    return { kind: 'cylinder', radius: radius * scaleFactor, height, rotationY: lonRad, tilt: gamma, positionY: 0 };
   }
 
   if (family === 'azimuthal') {
@@ -631,12 +629,7 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
     let localEnd: Vec3;
 
     if (family === 'cylindrical') {
-      // Use the projection WITHOUT the shift (phiOrigin=0) so the ray's local Y
-      // is measured from the cylinder centre; the slide is then applied once by
-      // auxPointToWorld (positionY). Reusing the shifted proj would double-count
-      // the shift and drop rays onto the wrong spot.
-      const projNoShift = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2, azLight });
-      const p = projNoShift([lambda0, lat]);
+      const p = proj([lambda0, lat]);
       const dy = p ? p[1] - cy : 0;
       const r = radius * scaleFactor;
       localEnd = [r, -dy * wpp, 0];
@@ -724,9 +717,7 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
   let localEnd: Vec3 | null = null;
 
   if (family === 'cylindrical') {
-    // No-shift projection so the slide is applied once (by auxPointToWorld).
-    const projNoShift = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2, azLight });
-    const p = projNoShift([lon, lat]);
+    const p = proj([lon, lat]);
     if (!p || !isFinite(p[0]) || !isFinite(p[1])) return null;
     const dy = p[1] - cy;
     const r = radius * scaleFactor;

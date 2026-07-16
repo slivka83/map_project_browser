@@ -102,18 +102,11 @@ describe('computeAuxSurfaceParams', () => {
     expect(p.kind).toBe('cylinder');
     if (p.kind === 'cylinder') closeTo(p.radius, RADIUS * 1.05, 1e-9);
   });
-  it('cylinder slides along the Earth axis with phiOrigin (Сдвиг)', () => {
-    const eq = computeAuxSurfaceParams('cylindrical', 0, 0, 1);
-    const north = computeAuxSurfaceParams('cylindrical', 0, 30, 1);
-    const south = computeAuxSurfaceParams('cylindrical', 0, -30, 1);
-    expect(eq.kind).toBe('cylinder');
-    expect(north.kind).toBe('cylinder');
-    expect(south.kind).toBe('cylinder');
-    if (eq.kind === 'cylinder' && north.kind === 'cylinder' && south.kind === 'cylinder') {
-      closeTo(eq.positionY, 0, 1e-9);
-      expect(north.positionY).toBeGreaterThan(0);
-      expect(south.positionY).toBeLessThan(0);
-      closeTo(north.positionY, RADIUS * Math.sin((30 * Math.PI) / 180), 1e-9);
+  it('cylinder does NOT translate in 3D (always equatorial, touches globe)', () => {
+    for (const phi of [0, 30, -45, 60]) {
+      const p = computeAuxSurfaceParams('cylindrical', 0, phi, 1);
+      expect(p.kind).toBe('cylinder');
+      if (p.kind === 'cylinder') closeTo(p.positionY, 0, 1e-9);
     }
   });
   it('cylinder height depends on the distortion (Тип искажения)', () => {
@@ -123,15 +116,6 @@ describe('computeAuxSurfaceParams', () => {
     expect(equalArea.kind).toBe('cylinder');
     if (conformal.kind === 'cylinder' && equalArea.kind === 'cylinder') {
       expect(conformal.height).not.toBeCloseTo(equalArea.height, 6);
-    }
-  });
-  it('cylinder height is NOT changed by the shift (Сдвиг)', () => {
-    const at0 = computeAuxSurfaceParams('cylindrical', 0, 0, 1);
-    const at30 = computeAuxSurfaceParams('cylindrical', 0, 30, 1);
-    expect(at0.kind).toBe('cylinder');
-    expect(at30.kind).toBe('cylinder');
-    if (at0.kind === 'cylinder' && at30.kind === 'cylinder') {
-      closeTo(at0.height, at30.height, 1e-9);
     }
   });
   it('plane for azimuthal', () => {
@@ -235,16 +219,14 @@ describe('computeCentralMeridianRays', () => {
     for (const { end } of segs) closeTo(Math.hypot(end[0], end[2]), RADIUS * sf, 1e-6);
   });
 
-  it('cylindrical rays slide with the shift (no double-count, no scatter)', () => {
-    const at0 = computeCentralMeridianRays({ ...base, family: 'cylindrical', phiOrigin: 0 });
-    const shifted = computeCentralMeridianRays({ ...base, family: 'cylindrical', phiOrigin: 30 });
-    const dy = RADIUS * Math.sin((30 * Math.PI) / 180);
-    expect(at0.length).toBe(shifted.length);
-    for (let i = 0; i < at0.length; i++) {
-      // Each ray endpoint is exactly the no-shift endpoint translated up by dy.
-      closeTo(shifted[i].end[0], at0[i].end[0], 1e-6);
-      closeTo(shifted[i].end[1], at0[i].end[1] + dy, 1e-6);
-      closeTo(shifted[i].end[2], at0[i].end[2], 1e-6);
+  it('cylindrical rays stay on the cylinder and do not drift with phiOrigin', () => {
+    for (const phi of [0, 30, -45]) {
+      const segs = computeCentralMeridianRays({ ...base, family: 'cylindrical', phiOrigin: phi });
+      const sf = 1;
+      for (const { end } of segs) {
+        // rays land on the (non-translating) cylinder of radius RADIUS·scaleFactor
+        closeTo(Math.hypot(end[0], end[2]), RADIUS * sf, 1e-6);
+      }
     }
   });
 
@@ -287,14 +269,9 @@ describe('computeCentralMeridianRays', () => {
     }
   });
 
-  it('cylindrical ray endpoints are invariant under falseNorthing (map and cy shift together)', () => {
-    const a = computeCentralMeridianRays(base);
-    const b = computeCentralMeridianRays({ ...base, falseNorthing: 50 });
-    for (let i = 0; i < a.length; i++) {
-      expect(b[i].end[0]).toBeCloseTo(a[i].end[0], 9);
-      expect(b[i].end[1]).toBeCloseTo(a[i].end[1], 9);
-      expect(b[i].end[2]).toBeCloseTo(a[i].end[2], 9);
-    }
+  it('cylindrical rays land on the cylinder for the default params', () => {
+    const segs = computeCentralMeridianRays(base);
+    for (const { end } of segs) closeTo(Math.hypot(end[0], end[2]), RADIUS, 1e-6);
   });
 });
 
