@@ -249,21 +249,23 @@ export function cylinderLocalEnd(
   cy: number,
   wpp: number,
 ): Vec3 {
-  const p = proj([lon, lat]);
+  // The pole's longitude is undefined, and d3's Mercator clamps latitude to
+  // ±85° (web-Mercator). The literal pole (lat = ±90) therefore returns a
+  // degenerate projection: under a tilt (gamma ≠ 0) d3 yields a finite-but-wrong
+  // x (≈90° off) for the exact pole, which would swing the pole ray ~90° around
+  // the cylinder the instant gamma left 0, and on the OPPOSITE side from the
+  // ray just below it. Clamp the latitude to ±CLIP_LAT first so the pole is
+  // projected exactly like an interior point at the cylinder's edge — same
+  // continuity, same physics as every other ray. The height clamp still pins it
+  // to the top/bottom rim.
+  const latC = Math.max(-CLIP_LAT, Math.min(CLIP_LAT, lat));
+  const p = proj([lon, latC]);
   // Angular position around the cylinder = the projection's own longitude
   // coordinate (x offset from the central meridian, in projection units). Using
-  // d3's x (not atan2 of the rotated pole vector) is exact everywhere — at the
-  // poles the rotated vector is parallel to the axis and atan2 is degenerate.
+  // d3's x (not atan2 of the rotated pole vector) is exact everywhere.
   const scale = proj.scale() || 1;
   const [cx] = proj.translate();
-  // The pole's longitude is undefined, so its angular position around the
-  // cylinder is pinned to the central meridian (th = 0). A tilted cylinder
-  // (gamma ≠ 0) moves the pole OFF the vertical, so the projection returns a
-  // finite, longitude-looking x for the pole — using it would swing the pole
-  // ray ~90° around the cylinder the instant gamma leaves 0. Pinning th = 0
-  // keeps the top/bottom rays on the cylinder's front centre line for every
-  // gamma (the pole is still pushed to the top/bottom edge by the height clamp).
-  const th = Math.abs(lat) < 90 - 1e-9 && p && isFinite(p[0]) ? (p[0] - (cx ?? 0)) / scale : 0;
+  const th = p && isFinite(p[0]) ? (p[0] - (cx ?? 0)) / scale : 0;
   // The pole projects to y = ±∞ (out of the finite map). The d3 projection's y
   // axis points DOWN (north = smaller y), and we convert to the 3D local frame
   // (north = +y) via `-dy`, so the finite pole at lat≈89 has dy < 0 (north) and
