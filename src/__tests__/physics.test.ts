@@ -244,6 +244,35 @@ describe('rays link globe point to map point', () => {
         }
       });
 
+      it(`${family}/${distortion}: the unrolled 3D landing pixel matches the 2D map for the same globe point`, () => {
+        // The single obvious logic the user expects: the globe point (λ₀, lat) is
+        // projected onto the aux surface (a ray), and when that surface is unrolled
+        // the landing must land at EXACTLY the same pixel the 2D map draws for
+        // (λ₀, lat). This locks the 3D scene and the 2D map to one shared projection
+        // for every tilt (gamma) — the cylinder is a rigid tube, so tilting it must
+        // NOT move the unrolled landing relative to the map.
+        if (family !== 'cylindrical') return;
+        const segs = computeCentralMeridianRays({ ...p, radius: RADIUS, rayCount: RAY_COUNT });
+        const proj = getD3Projection(p);
+        const surface = computeAuxSurfaceParams(family, p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, p.gamma, distortion, p.azLight);
+        if (surface.kind !== 'cylinder') throw new Error('expected cylinder');
+        const [cx, cy] = proj.translate();
+        const scale = proj.scale() || 1;
+        const wpp = RADIUS / MAP_SCALE;
+        for (let i = 0; i < segs.length; i++) {
+          const lat = -90 + (i * 180) / (segs.length - 1);
+          if (Math.abs(lat) >= 90 - 1e-9) continue; // pole rays are clamped to the tube rim in 3D
+          // 2D map pixel for the globe point the ray projects
+          const mapPix = proj([p.lambda0, lat]) as [number, number];
+          // unrolled 3D landing pixel (same math as rayEndToLonLat, pre-invert)
+          const local = matVec(surface.orientInv, segs[i].end);
+          const projX = (cx ?? 0) + scale * Math.atan2(local[2], local[0]);
+          const projY = (cy ?? 0) - local[1] / wpp;
+          closeTo(projX, mapPix[0], 1e-4);
+          closeTo(projY, mapPix[1], 1e-4);
+        }
+      });
+
       it(`${family}/${distortion}: cone rays land exactly on the cone lateral surface`, () => {
         // Cone-specific external check (independent of the fan builder): rebuild
         // each landing with the production computeConicRayEnd and confirm it lies
