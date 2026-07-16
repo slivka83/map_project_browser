@@ -280,7 +280,10 @@ describe('computeCentralMeridianRays', () => {
     // The two pole rays (lat = ±90) must land on the cylinder's topmost /
     // bottommost edge — the central-meridian rim of the lateral surface — so the
     // ray visibly reaches the surface instead of shooting into the void. For γ = 0
-    // (λ0 = 0) that edge point is [radius, ±height/2, 0].
+    // (λ0 = 0) that edge point is [radius, ±height/2, 0]. The north (lat = +90)
+    // ray must land on the TOP edge (+y) and the south (lat = -90) on the BOTTOM
+    // edge (−y) — they must NOT be swapped (a sign bug sent the south pole to the
+    // top).
     for (const distortion of ['conformal', 'equalArea', 'equidistant'] as const) {
       const segs = computeCentralMeridianRays({ ...base, family: 'cylindrical', distortion, gamma: 0 });
       const surface = computeAuxSurfaceParams('cylindrical', 0, 0, 1, RADIUS, null, 0, distortion, 'math');
@@ -290,9 +293,9 @@ describe('computeCentralMeridianRays', () => {
       // radius equals the cylinder radius (on the lateral surface rim)
       closeTo(Math.hypot(top.end[0], top.end[2]), surface.radius, 1e-6);
       closeTo(Math.hypot(bot.end[0], bot.end[2]), surface.radius, 1e-6);
-      // y equals the top / bottom edge height
-      closeTo(Math.abs(top.end[1]), surface.height / 2, 1e-6);
-      closeTo(Math.abs(bot.end[1]), surface.height / 2, 1e-6);
+      // north lands on the TOP edge (+y), south on the BOTTOM edge (−y)
+      closeTo(top.end[1], surface.height / 2, 1e-6);
+      closeTo(bot.end[1], -surface.height / 2, 1e-6);
     }
   });
 

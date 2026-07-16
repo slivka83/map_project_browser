@@ -257,11 +257,14 @@ export function cylinderLocalEnd(
   const scale = proj.scale() || 1;
   const [cx] = proj.translate();
   const th = p && isFinite(p[0]) ? (p[0] - (cx ?? 0)) / scale : 0;
-  // The pole projects to y = ±∞ (out of the finite map). Push it to a large
-  // finite value with the correct sign so the height clamp (applied by the
-  // caller) lands it at the cylinder's top / bottom instead of its waist — a
-  // naive `return [r, 0, 0]` would strand the pole ray at height 0.
-  const dy = p && isFinite(p[1]) ? p[1] - cy : (lat >= 0 ? 1e9 : -1e9);
+  // The pole projects to y = ±∞ (out of the finite map). The d3 projection's y
+  // axis points DOWN (north = smaller y), and we convert to the 3D local frame
+  // (north = +y) via `-dy`, so the finite pole at lat≈89 has dy < 0 (north) and
+  // dy > 0 (south). The non-finite fallback must keep that same sign convention:
+  // north → dy < 0, south → dy > 0, so the height clamp (applied by the caller)
+  // lands the north / south pole on the cylinder's top / bottom edge. A reversed
+  // sign would swap them (the south pole flying to the top).
+  const dy = p && isFinite(p[1]) ? p[1] - cy : (lat >= 0 ? -1e9 : 1e9);
   return [r * Math.cos(th), -dy * wpp, r * Math.sin(th)];
 }
 
