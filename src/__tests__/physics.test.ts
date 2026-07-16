@@ -133,6 +133,27 @@ describe('rays link globe point to map point', () => {
         }
       });
 
+      it(`${family}/${distortion}: the ray end matches the projection's own latitude sign (no top/bottom swap)`, () => {
+        // External invariant the self-consistency checks above cannot catch: the
+        // landing's vertical position must follow the globe latitude's sign. For
+        // the central meridian, `end.y` must increase with latitude, the north
+        // pole (lat = +90) must land at +height/2 and the south pole (lat = −90)
+        // at −height/2. A flipped sign in the pole fallback sent the south pole
+        // to the top edge — invisible to the distance/self-consistency tests.
+        const segs = computeCentralMeridianRays({ ...p, radius: RADIUS, rayCount: RAY_COUNT });
+        const surface = computeAuxSurfaceParams(family, p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, p.gamma, distortion, p.azLight);
+        if (surface.kind !== 'cylinder' && surface.kind !== 'cone') return; // azimuthal plane uses ±z, not y
+        const halfH = surface.height / 2;
+        // monotonic in latitude: end.y must not decrease as we go north
+        for (let i = 1; i < segs.length; i++) {
+          expect(segs[i].end[1]).toBeGreaterThanOrEqual(segs[i - 1].end[1] - 1e-6);
+        }
+        const top = segs[segs.length - 1];
+        const bot = segs[0];
+        closeTo(top.end[1], halfH, 1e-6);
+        closeTo(bot.end[1], -halfH, 1e-6);
+      });
+
       it(`${family}/${distortion}: the hover ray (projectToAuxWorld) links globe→map for arbitrary points`, () => {
         for (const [lon, lat] of [[p.lambda0, 10], [p.lambda0 + 30, -20], [p.lambda0 - 40, 50]] as [number, number][]) {
           const ray = projectToAuxWorld(p, lon, lat, RADIUS);
