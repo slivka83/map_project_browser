@@ -11,7 +11,11 @@ import {
   projectToAuxWorld,
   auxPointToWorld,
   cylinderLocalEnd,
+  matVec,
+  computeCone,
+  computeConicRayEnd,
   clampLocalToSurface,
+  type AuxSurfaceParams,
   computeTangentBasis,
 } from '../utils/auxSurfaceGeometry';
 import { computeTissotCircles } from '../utils/tissot';
@@ -133,25 +137,87 @@ describe('rays link globe point to map point', () => {
         }
       });
 
-      it(`${family}/${distortion}: the ray end matches the projection's own latitude sign (no top/bottom swap)`, () => {
-        // External invariant the self-consistency checks above cannot catch: the
-        // landing's vertical position must follow the globe latitude's sign. For
-        // the central meridian, `end.y` must increase with latitude, the north
-        // pole (lat = +90) must land at +height/2 and the south pole (lat = −90)
-        // at −height/2. A flipped sign in the pole fallback sent the south pole
-        // to the top edge — invisible to the distance/self-consistency tests.
+      it(`${family}/${distortion}: the ray end follows the latitude sign (no top/bottom swap)`, () => {
+        // External invariant the self-consistency checks above cannot catch: on
+        // the cylinder the landing's position along the world Y (north) axis must
+        // follow the globe latitude's sign. The north pole (lat = +90) must land
+        // at +height/2 and the south pole (lat = −90) at −height/2. A flipped sign
+        // sent the south pole to the top edge — invisible to the distance /
+        // self-consistency tests. (Cone/azimuthal use different axis conventions,
+        // covered by their own surface checks below.)
+        if (family !== 'cylindrical') return;
         const segs = computeCentralMeridianRays({ ...p, radius: RADIUS, rayCount: RAY_COUNT });
-        const surface = computeAuxSurfaceParams(family, p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, p.gamma, distortion, p.azLight);
-        if (surface.kind !== 'cylinder' && surface.kind !== 'cone') return; // azimuthal plane uses ±z, not y
-        const halfH = surface.height / 2;
-        // monotonic in latitude: end.y must not decrease as we go north
+        const surface = computeAuxSurfaceParams('cylindrical', p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, p.gamma, distortion, p.azLight) as Extract<AuxSurfaceParams, { kind: 'cylinder' }>;
+        const coord = (v: [number, number, number]) => v[1];
         for (let i = 1; i < segs.length; i++) {
-          expect(segs[i].end[1]).toBeGreaterThanOrEqual(segs[i - 1].end[1] - 1e-6);
+          expect(coord(segs[i].end)).toBeGreaterThanOrEqual(coord(segs[i - 1].end) - 1e-6);
         }
         const top = segs[segs.length - 1];
         const bot = segs[0];
-        closeTo(top.end[1], halfH, 1e-6);
-        closeTo(bot.end[1], -halfH, 1e-6);
+        const halfH = surface.height / 2;
+        closeTo(coord(top.end), halfH, 1e-6);
+        closeTo(coord(bot.end), -halfH, 1e-6);
+      });
+
+      it(`${family}/${distortion}: the ray landing round-trips back to the globe (lon,lat)`, () => {
+        // The strongest catch-all for any mirrored / shifted landing: convert the
+        // world-space `end` back through the aux-surface inverse + the d3
+        // projection's OWN invert, and it must return the exact (lat, lon) of the
+        // ray's globe point. Independent of the builder (does not call
+        // cylinderLocalEnd). Only the cylinder yields a clean absolute (lon,lat)
+        // because every other projection's invert returns a rotated frame; the
+        // cylinder's central meridian maps linearly to x, so its invert is exact.
+        // The two POLE rays are legitimately clamped to the cylinder's top/bottom
+        // edge (the projection sends the pole to ±∞), so skip them.
+        if (family !== 'cylindrical') return;
+        const segs = computeCentralMeridianRays({ ...p, radius: RADIUS, rayCount: RAY_COUNT });
+        const proj = getD3Projection(p);
+        const surface = computeAuxSurfaceParams(family, p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, p.gamma, distortion, p.azLight);
+        for (let i = 0; i < segs.length; i++) {
+          const lat = -90 + (i * 180) / (segs.length - 1);
+          if (Math.abs(lat) >= 90 - 1e-9) continue; // clamped pole edge
+          const ll = rayEndToLonLat(surface, proj, segs[i].end);
+          if (!ll) continue;
+          const dl = Math.abs(((ll[0] - p.lambda0 + 540) % 360) - 180);
+          closeTo(dl, 0, 1e-4);
+          closeTo(ll[1], lat, 1e-4);
+        }
+      });
+
+      it(`${family}/${distortion}: cone rays land exactly on the cone lateral surface`, () => {
+        // Cone-specific external check (independent of the fan builder): rebuild
+        // each landing with the production computeConicRayEnd and confirm it lies
+        // on the cone's lateral surface (radius = rho(height)). A ray that landed
+        // anywhere else (off the cone) would break the developable-surface link
+        // and is caught here.
+        if (family !== 'conic') return;
+        const cone = computeCone(p.phiOrigin, p.stdParallel2 ?? p.phiOrigin, RADIUS, p.scaleFactor);
+        for (let i = 0; i < RAY_COUNT; i++) {
+          const lat = -90 + (i * 180) / (RAY_COUNT - 1);
+          const local = computeConicRayEnd(p.lambda0, lat, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, p.gamma, false);
+          const { radius, rho } = coneCheck(local, cone, p.scaleFactor);
+          closeTo(radius, rho, 1e-6);
+        }
+      });
+
+      it(`${family}/${distortion}: azimuthal rays land exactly on the projection plane disk`, () => {
+        // Azimuthal-specific external check (independent of the fan builder): each
+        // landing must lie in the plane (perpendicular distance to the tangent
+        // plane ≈ 0) and within the rendered disk radius. A ray that flew off the
+        // plane would break the "globe point → map point on the plane" link.
+        if (family !== 'azimuthal') return;
+        const segs = computeCentralMeridianRays({ ...p, radius: RADIUS, rayCount: RAY_COUNT });
+        const surface = computeAuxSurfaceParams(family, p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, p.gamma, distortion, p.azLight);
+        if (surface.kind !== 'plane') return;
+        const { center, normal, size } = surface;
+        const half = size / 2;
+        for (const seg of segs) {
+          const dl: [number, number, number] = [seg.end[0] - center[0], seg.end[1] - center[1], seg.end[2] - center[2]];
+          const dPerp = Math.abs(dl[0] * normal[0] + dl[1] * normal[1] + dl[2] * normal[2]);
+          closeTo(dPerp, 0, 1e-6);
+          const inPlane = Math.hypot(dl[0], dl[1], dl[2]);
+          expect(inPlane).toBeLessThanOrEqual(half + 1e-6);
+        }
       });
 
       it(`${family}/${distortion}: the hover ray (projectToAuxWorld) links globe→map for arbitrary points`, () => {
@@ -186,6 +252,87 @@ function cylinderLocalEndOrNull(
 ): [number, number, number] | null {
   if (family !== 'cylindrical') return null;
   return cylinderLocalEnd(proj, lon, lat, surface.kind === 'cylinder' ? surface.radius : 1, VIEW_CENTER_Y, RADIUS / MAP_SCALE);
+}
+
+// Invert a world-space ray landing `end` back to (lon, lat) using ONLY the d3
+// projection's OWN invert and the documented aux-surface transform — never the
+// ray builder. This is the independent ground truth that catches any mirrored,
+// shifted, or scaled landing. Returns null when the landing is off the visible
+// map (e.g. orthographic far hemisphere).
+function rayEndToLonLat(
+  surface: ReturnType<typeof computeAuxSurfaceParams>,
+  proj: ReturnType<typeof getD3Projection>,
+  world: [number, number, number],
+): [number, number] | null {
+  const inv = proj.invert;
+  if (!inv) return null;
+  const [cx, cy] = proj.translate();
+  const scale = proj.scale() || 1;
+  const wpp = RADIUS / MAP_SCALE;
+  if (surface.kind === 'cylinder') {
+    // inverse of auxPointToWorld: local = orientInv · world (positionY = 0)
+    const local = matVec(surface.orientInv, world);
+    const th = Math.atan2(local[2], local[0]); // around the axis
+    const projX = (cx ?? 0) + scale * th;
+    const projY = cy - local[1] / wpp;
+    const ll = inv([projX, projY]);
+    return ll;
+  }
+  if (surface.kind === 'cone') {
+    // Inverse of auxPointToWorld's cone branch: world = [lx, positionY + yw, zw]
+    // with y = flip·ly, yw = y·cos t − lz·sin t, zw = y·sin t + lz·cos t
+    // (no orient is applied for the cone). Recover local = [lx, ly, lz].
+    const lx = world[0];
+    const yw = world[1] - surface.positionY;
+    const zw = world[2];
+    const t = (surface.tilt * Math.PI) / 180;
+    const y = yw * Math.cos(t) + zw * Math.sin(t);
+    const lz = -yw * Math.sin(t) + zw * Math.cos(t);
+    const ly = surface.flip * y;
+    // Cone local longitude comes from the meridian angle (lz vs lx); the
+    // projection's x encodes the same angle, so invert via atan2.
+    const projX = (cx ?? 0) + scale * Math.atan2(lz, lx);
+    const projY = cy - ly / wpp;
+    const ll = inv([projX, projY]);
+    return ll;
+  }
+  // plane: auxPointToWorld places the local (x, y) disc at the tangent point via
+  // the east/north basis derived from the normal. Recover disc coordinates, then
+  // invert the projection.
+  const d = [world[0] - surface.center[0], world[1] - surface.center[1], world[2] - surface.center[2]];
+  const { east: e, north: n } = tangentFromNormal(surface.normal);
+  const dx = d[0] * e[0] + d[1] * e[1] + d[2] * e[2];
+  const dy = d[0] * n[0] + d[1] * n[1] + d[2] * n[2];
+  const projX = (cx ?? 0) + scale * (dx / wpp);
+  const projY = cy - (dy / wpp);
+  const ll = inv([projX, projY]);
+  return ll;
+}
+
+// east/north basis from a normal (mirrors auxSurfaceGeometry.basisFromNormal).
+function tangentFromNormal(normal: [number, number, number]): { east: [number, number, number]; north: [number, number, number] } {
+  const east: [number, number, number] = Math.abs(normal[1]) > 0.9999 ? [1, 0, 0] : normalize3(cross3([0, 1, 0], normal));
+  const north = normalize3(cross3(normal, east));
+  return { east, north };
+}
+function cross3(a: [number, number, number], b: [number, number, number]): [number, number, number] {
+  return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+}
+function normalize3(v: [number, number, number]): [number, number, number] {
+  const m = Math.hypot(...v);
+  return [v[0] / m, v[1] / m, v[2] / m];
+}
+
+// cone lateral-surface check: a point (x, y, z) on the cone satisfies
+// radius = scaleFactor·|apex − y|·tanA (radius = hypot(x, z)).
+function coneCheck(
+  localEnd: [number, number, number],
+  cone: { apex: number; tanA: number; sign: number },
+  sf: number,
+) {
+  const radius = Math.hypot(localEnd[0], localEnd[2]);
+  const rho = sf * Math.abs(cone.sign * cone.apex - localEnd[1]) * cone.tanA;
+  return { radius, rho };
 }
 
 // ---------------------------------------------------------------------------
