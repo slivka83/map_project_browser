@@ -737,19 +737,10 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
       // here would scatter rays along the cylinder height.
       const r = radius * scaleFactor;
       localEnd = cylinderLocalEnd(projNoShift, lambda0, lat, r, cy, wpp);
-      // When the globe point lies exactly on the cylinder axis (a pole aligned
-      // with the axis, e.g. γ = 0), the ray from the centre continues straight
-      // down the axis and must land on the CAP CENTRE (x = z = 0 in the local
-      // frame). Its projection x is degenerate (th = 0 → front of the cap), which
-      // would break the start→globe→end colinearity, so force it onto the axis.
-      if (surface.kind === 'cylinder') {
-        const axis = matVec(surface.orient, [0, 1, 0]);
-        const along = globe[0] * axis[0] + globe[1] * axis[1] + globe[2] * axis[2];
-        if (Math.abs(Math.abs(along) - radius) < 1e-6) {
-          const sign = along >= 0 ? 1 : -1;
-          localEnd = [0, (sign * surface.height) / 2, 0];
-        }
-      }
+      // The two pole rays (lat = ±90) land on the cylinder's topmost / bottommost
+      // edge, at the central-meridian angular position — i.e. on the visible
+      // lateral-surface rim, exactly where the unrolled 2D map puts the pole.
+      // `cylinderLocalEnd` already produces this (th = 0 → front of the cap edge).
       start = [0, 0, 0];
     } else if (family === 'azimuthal') {
       const c = proj([lambda0, phiOrigin]);

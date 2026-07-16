@@ -11,7 +11,6 @@ import {
   projectToAuxWorld,
   auxPointToWorld,
   cylinderLocalEnd,
-  matVec,
   clampLocalToSurface,
   computeTangentBasis,
 } from '../utils/auxSurfaceGeometry';
@@ -165,20 +164,7 @@ function cylinderLocalEndOrNull(
   lat: number,
 ): [number, number, number] | null {
   if (family !== 'cylindrical') return null;
-  const local = cylinderLocalEnd(proj, lon, lat, surface.kind === 'cylinder' ? surface.radius : 1, VIEW_CENTER_Y, RADIUS / MAP_SCALE);
-  // Mirror the on-axis pole handling in computeCentralMeridianRays: when the
-  // globe point lies exactly on the cylinder axis the landing is the cap centre
-  // (x = z = 0 in the local frame) so the ray stays colinear with the globe.
-  if (surface.kind === 'cylinder') {
-    const g = lonLatToVec3(lon, lat, RADIUS);
-    const axis = matVec(surface.orient, [0, 1, 0]);
-    const along = g[0] * axis[0] + g[1] * axis[1] + g[2] * axis[2];
-    if (Math.abs(Math.abs(along) - RADIUS) < 1e-6) {
-      const sign = along >= 0 ? 1 : -1;
-      return [0, (sign * surface.height) / 2, 0];
-    }
-  }
-  return local;
+  return cylinderLocalEnd(proj, lon, lat, surface.kind === 'cylinder' ? surface.radius : 1, VIEW_CENTER_Y, RADIUS / MAP_SCALE);
 }
 
 // ---------------------------------------------------------------------------

@@ -22,31 +22,21 @@ import {
   applyEuler,
   computeAzimuthalLightLamp,
   coneApexWorld,
-  matVec,
 } from './auxSurfaceGeometry';
 
 const closeTo = (a: number, b: number, eps = 1e-6) =>
   expect(Math.abs(a - b)).toBeLessThan(eps);
 
-// Mirror of the on-axis-pole handling inside computeCentralMeridianRays: when the
-// globe point lies exactly on the cylinder axis the landing is the cap centre
-// (x = z = 0 in the local frame). Keeps the independent rebuild in agreement with
-// the fan.
+// Mirror of the pole handling inside computeCentralMeridianRays: the two pole rays
+// land on the cylinder's topmost / bottommost edge (the central-meridian rim), i.e.
+// on the lateral surface at radius = surface.radius. Keeps the independent rebuild
+// in agreement with the fan.
 function cylinderLocalEndWithPole(
   proj: ReturnType<typeof getD3Projection>,
   lon: number,
   lat: number,
   surface: ReturnType<typeof computeAuxSurfaceParams>,
 ): [number, number, number] {
-  if (surface.kind === 'cylinder') {
-    const g = lonLatToVec3(lon, lat, RADIUS);
-    const axis = matVec(surface.orient, [0, 1, 0]);
-    const along = g[0] * axis[0] + g[1] * axis[1] + g[2] * axis[2];
-    if (Math.abs(Math.abs(along) - RADIUS) < 1e-6) {
-      const sign = along >= 0 ? 1 : -1;
-      return [0, (sign * surface.height) / 2, 0];
-    }
-  }
   return cylinderLocalEnd(proj, lon, lat, surface.kind === 'cylinder' ? surface.radius : 1, VIEW_CENTER_Y, RADIUS / MAP_SCALE);
 }
 
@@ -278,34 +268,31 @@ describe('computeCentralMeridianRays', () => {
   it('cylindrical rays touch the aux cylinder', () => {
     const sf = 1.02;
     const segs = computeCentralMeridianRays({ ...base, scaleFactor: sf });
-    // A ray either lands on the lateral surface (distance to axis = radius) or,
-    // for a pole that lies exactly on the cylinder axis, on the cap centre
-    // (distance to axis = 0) — both are points on the cylinder.
+    // Every ray lands on the lateral surface (distance to axis = radius). The
+    // pole rays land on the top/bottom rim, also at radius = RADIUS·scaleFactor.
     for (const { end } of segs) {
       const radial = Math.hypot(end[0], end[2]);
       expect(radial < 1e-9 || Math.abs(radial - RADIUS * sf) < 1e-6).toBe(true);
     }
   });
 
-  it('cylindrical pole rays stay colinear with the globe (cap centre, not front)', () => {
-    // When the pole lies on the cylinder axis (γ = 0, longitude rotations) the
-    // ray from the centre through the pole continues straight down the axis and
-    // must land on the CAP CENTRE, so start→globe→end stay colinear. A naive
-    // landing at the front of the cap ([radius, ±h/2, 0]) would break colinearity.
-    const cross = (a: number[], b: number[], c: number[]) => {
-      const ab = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
-      const ac = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
-      return (
-        Math.abs(ab[1] * ac[2] - ab[2] * ac[1]) +
-        Math.abs(ab[2] * ac[0] - ab[0] * ac[2]) +
-        Math.abs(ab[0] * ac[1] - ab[1] * ac[0])
-      );
-    };
-    for (const lambda0 of [0, 45, 90, -45]) {
-      const segs = computeCentralMeridianRays({ ...base, family: 'cylindrical', lambda0, gamma: 0 });
-      for (const i of [0, segs.length - 1]) {
-        expect(cross(segs[i].start, segs[i].globe, segs[i].end)).toBeLessThan(1e-6);
-      }
+  it('cylindrical pole rays land on the cylinder top/bottom edge (rim), not in empty space', () => {
+    // The two pole rays (lat = ±90) must land on the cylinder's topmost /
+    // bottommost edge — the central-meridian rim of the lateral surface — so the
+    // ray visibly reaches the surface instead of shooting into the void. For γ = 0
+    // (λ0 = 0) that edge point is [radius, ±height/2, 0].
+    for (const distortion of ['conformal', 'equalArea', 'equidistant'] as const) {
+      const segs = computeCentralMeridianRays({ ...base, family: 'cylindrical', distortion, gamma: 0 });
+      const surface = computeAuxSurfaceParams('cylindrical', 0, 0, 1, RADIUS, null, 0, distortion, 'math');
+      if (surface.kind !== 'cylinder') throw new Error('expected cylinder');
+      const top = segs[segs.length - 1];
+      const bot = segs[0];
+      // radius equals the cylinder radius (on the lateral surface rim)
+      closeTo(Math.hypot(top.end[0], top.end[2]), surface.radius, 1e-6);
+      closeTo(Math.hypot(bot.end[0], bot.end[2]), surface.radius, 1e-6);
+      // y equals the top / bottom edge height
+      closeTo(Math.abs(top.end[1]), surface.height / 2, 1e-6);
+      closeTo(Math.abs(bot.end[1]), surface.height / 2, 1e-6);
     }
   });
 
@@ -317,7 +304,7 @@ describe('computeCentralMeridianRays', () => {
       expect(segs.length).toBe(ref.length);
        for (let i = 0; i < segs.length; i++) {
         // rays land on the (non-translating) cylinder of radius RADIUS·scaleFactor
-        // (a pole on the axis lands on the cap centre, radius 0)
+        // (the pole rays land on the top/bottom rim, radius = RADIUS·scaleFactor)
         const radial = Math.hypot(segs[i].end[0], segs[i].end[2]);
         expect(radial < 1e-9 || Math.abs(radial - RADIUS * sf) < 1e-6).toBe(true);
         // and the whole ray fan is invariant under the central-latitude slider
@@ -356,9 +343,8 @@ describe('computeCentralMeridianRays', () => {
         // Axis of the rendered cylinder in world space = orient · Y.
         const axis: [number, number, number] = [surface.orient[1], surface.orient[4], surface.orient[7]];
         for (const { end } of segs) {
-          // Distance from `end` to the cylinder axis must equal the radius — unless
-          // the ray is a pole lying exactly on the axis, in which case it lands on
-          // the cap centre (distance 0), which is also a point on the cylinder.
+          // Distance from `end` to the cylinder axis must equal the radius. The
+          // pole rays land on the top/bottom rim (also at radius).
           const dot = end[0] * axis[0] + end[1] * axis[1] + end[2] * axis[2];
           const perp: [number, number, number] = [end[0] - dot * axis[0], end[1] - dot * axis[1], end[2] - dot * axis[2]];
           const perpLen = Math.hypot(...perp);
@@ -424,8 +410,8 @@ describe('computeCentralMeridianRays', () => {
     const segs = computeCentralMeridianRays(base);
     for (const { end } of segs) {
       const radial = Math.hypot(end[0], end[2]);
-      // a pole on the axis lands on the cap centre (radius 0), otherwise on the
-      // lateral surface (radius = RADIUS)
+      // a pole lands on the top/bottom rim (radius = RADIUS), like every other
+      // ray on the lateral surface
       expect(radial < 1e-9 || Math.abs(radial - RADIUS) < 1e-6).toBe(true);
     }
   });
