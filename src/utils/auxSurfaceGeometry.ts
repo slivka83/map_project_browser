@@ -649,7 +649,12 @@ export function computeAuxSphereIntersections(
 // Convenience wrapper for the 2D map: returns the aux-surface↔globe intersection
 // loops as [lon, lat] (degrees) rings, ready to be fed to the D3 path generator.
 // The returned points lie on the sphere (magnitude = radius), so projecting them
-// with the same projection used by Map2D reproduces the white rings drawn in 3D.
+// with the SAME projection used by Map2D reproduces EXACTLY the white rings drawn
+// in 3D. Every ring point is pushed through `auxPointToWorld` — the exact
+// transform the 3D aux-surface wireframe uses — so the 2D intersection lines
+// follow the real (possibly tilted) surface: a tilted cylinder's ring MOVES with
+// the tilt, exactly like the 3D ring, while the 2D canvas itself stays a plain
+// rectangle (the projection does not bake gamma for the cylindrical family).
 export function computeAuxSphereIntersectionsLonLat(
   family: ProjectionParams['family'],
   lambda0: number,
@@ -657,9 +662,13 @@ export function computeAuxSphereIntersectionsLonLat(
   scaleFactor: number,
   radius = RADIUS,
   stdParallel2: number | null = null,
+  gamma = 0,
+  distortion: ProjectionParams['distortion'] = 'equidistant',
+  azLight: ProjectionParams['azLight'] = 'math',
 ): [number, number][][] {
+  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight);
   const rings = computeAuxSphereIntersections(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2);
-  return rings.map((ring) => ring.map((p) => vec3ToLonLat(p)));
+  return rings.map((ring) => ring.map((p) => vec3ToLonLat(auxPointToWorld(surface, p))));
 }
 
 // axial height of latitude `latRad` on the developable cone (tangent at sp)

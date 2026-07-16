@@ -7,6 +7,7 @@ import {
   vec3ToLonLat,
   computeAuxSurfaceParams,
   computeAuxSphereIntersections,
+  computeAuxSphereIntersectionsLonLat,
   computeCentralMeridianRays,
   projectToAuxWorld,
   auxPointToWorld,
@@ -587,6 +588,25 @@ describe('aux-surface ↔ globe intersection physics', () => {
     const latG = latsAt(45)[0];
     // Tilting the tube must move the intersection off the fixed latitude.
     expect(Math.abs(latG - lat0)).toBeGreaterThan(1e-3);
+  });
+
+  it('the 2D intersection ring (lon/lat) matches the 3D ring exactly under tilt', () => {
+    // The 2D map is a plain rectangle (no gamma baked into the cylindrical
+    // projection), but its white intersection lines must still show the SAME
+    // tilted contact circle the 3D scene draws — otherwise the map and the 3D
+    // scene disagree about where the surface meets the globe.
+    const s = 0.8;
+    for (const g of [0, 25, 60]) {
+      const ring2d = computeAuxSphereIntersectionsLonLat('cylindrical', 0, 0, s, RADIUS, null, g, 'equidistant', 'math')[0];
+      const surface = computeAuxSurfaceParams('cylindrical', 0, 0, s, RADIUS, null, g, 'equidistant', 'math');
+      const raw = computeAuxSphereIntersections('cylindrical', 0, 0, s, RADIUS, null);
+      const ring3d = raw[0].map((p) => vec3ToLonLat(auxPointToWorld(surface, p)));
+      expect(ring2d.length).toBe(ring3d.length);
+      for (let i = 0; i < ring2d.length; i++) {
+        closeTo(ring2d[i][0], ring3d[i][0], 1e-6);
+        closeTo(ring2d[i][1], ring3d[i][1], 1e-6);
+      }
+    }
   });
 
   it('azimuthal tangent plane touches the sphere at a single point (lambda0, phiOrigin)', () => {

@@ -86,9 +86,9 @@ export default function Map2D() {
   const intersectionRings = useMemo(
     () =>
       showIntersection
-        ? computeAuxSphereIntersectionsLonLat(family, lambda0, phiOrigin, scaleFactor, undefined, stdParallel2)
+        ? computeAuxSphereIntersectionsLonLat(family, lambda0, phiOrigin, scaleFactor, undefined, stdParallel2, params.gamma, params.distortion, params.azLight)
         : [],
-    [showIntersection, family, lambda0, phiOrigin, scaleFactor, stdParallel2],
+    [showIntersection, family, lambda0, phiOrigin, scaleFactor, stdParallel2, params],
   );
 
   const containerStyle: CSSProperties = {
