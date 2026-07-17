@@ -15,12 +15,6 @@ const famBtn =
 // Per-family physical labels for the shared params, matching the "direct
 // manipulation" vocabulary of docs/new_spec.md §2 (so the user sees e.g.
 // "Диаметр цилиндра" / "Смещение по оси Y" instead of generic λ₀/φ₀).
-const FAMILY_SECTION: Record<ProjectionFamily, string> = {
-  cylindrical: 'Цилиндрические проекции',
-  conic: 'Конические проекции',
-  azimuthal: 'Азимутальные проекции',
-};
-
 const PARAM_LABELS: Record<ProjectionFamily, { lambda0: string; phiOrigin: string; gamma: string; scaleFactor: string }> = {
   cylindrical: {
     lambda0: 'Поворот вокруг Земли',
@@ -215,8 +209,6 @@ export default function ControlPanel() {
           </button>
         </div>
       </div>
-
-      <div className="mt-1 text-[11px] uppercase tracking-wider text-neon-blue/90">{FAMILY_SECTION[family]}</div>
 
       <div className="flex items-center gap-[12px]">
         <span className={`${labelClass} w-40 shrink-0`}>Тип искажения</span>
