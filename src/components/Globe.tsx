@@ -2,9 +2,8 @@ import { useMemo } from 'react';
 import * as THREE from 'three';
 import { Line } from '@react-three/drei';
 import { NEON_BLUE, BG } from '../constants/designTokens';
-import { RADIUS } from '../constants/geometry';
+import { RADIUS, GLOBE_INFLATE } from '../constants/geometry';
 import { lonLatToVec3, type Vec3 } from '../utils/auxSurfaceGeometry';
-import { GLOBE_INFLATE } from '../constants/geometry';
 import type { FeatureCollection, Geometry } from 'geojson';
 
 function GlobeShell() {

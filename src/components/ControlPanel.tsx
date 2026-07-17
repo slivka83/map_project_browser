@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useAppStore, type ProjectionFamily } from '../store/useAppStore';
 import { useProjectionParams } from '../store/selectors';
-import type { ProjectionVariant } from '../utils/projectionVariants';
-import { variantDef, defaultVariant, CYLINDRICAL_VARIANT_OPTIONS, CONIC_VARIANT_OPTIONS, AZIMUTHAL_VARIANT_OPTIONS } from '../utils/projectionVariants';
+import { variantDef, defaultVariant, CYLINDRICAL_VARIANT_OPTIONS, CONIC_VARIANT_OPTIONS, AZIMUTHAL_VARIANT_OPTIONS, type ProjectionVariant } from '../utils/projectionVariants';
 import EpsgCatalog from './EpsgCatalog';
 import ProjectionSummary from './ProjectionSummary';
 import Dropdown from './Dropdown';

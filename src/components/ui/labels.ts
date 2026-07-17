@@ -1,4 +1,4 @@
-import type { ProjectionFamily, DistortionModel, AzimuthalLight } from '../../store/useAppStore';
+import type { ProjectionFamily, DistortionModel } from '../../store/useAppStore';
 import {
   CYLINDRICAL_VARIANT_OPTIONS,
   CONIC_VARIANT_OPTIONS,
@@ -10,15 +10,13 @@ import {
 export { CYLINDRICAL_VARIANT_OPTIONS, CONIC_VARIANT_OPTIONS, AZIMUTHAL_VARIANT_OPTIONS };
 export { variantDef, type ProjectionVariant };
 
-// Single source for the Russian family / distortion labels, shared by the
-// ControlPanel option lists and the EpsgCatalog table headers.
-export const FAMILY_OPTIONS: { value: ProjectionFamily; label: string }[] = [
+const FAMILY_OPTIONS: { value: ProjectionFamily; label: string }[] = [
   { value: 'cylindrical', label: 'Цилиндрическая' },
   { value: 'conic', label: 'Коническая' },
   { value: 'azimuthal', label: 'Азимутальная' },
 ];
 
-export const DISTORTION_OPTIONS: { value: DistortionModel; label: string }[] = [
+const DISTORTION_OPTIONS: { value: DistortionModel; label: string }[] = [
   { value: 'conformal', label: 'Равноугольная' },
   { value: 'equalArea', label: 'Равновеликая' },
   { value: 'equidistant', label: 'Равнопромежуточная' },
@@ -31,12 +29,3 @@ export const FAMILY_LABEL: Record<ProjectionFamily, string> = Object.fromEntries
 export const DISTORTION_LABEL: Record<DistortionModel, string> = Object.fromEntries(
   DISTORTION_OPTIONS.map((o) => [o.value, o.label]),
 ) as Record<DistortionModel, string>;
-
-// Light-source (projection generator) options for the azimuthal family — shared
-// by the ControlPanel dropdown and the EpsgCatalog table headers.
-export const AZIMUTHAL_LIGHT_OPTIONS: { value: AzimuthalLight; label: string }[] = [
-  { value: 'center', label: 'Из центра (гномоническая)' },
-  { value: 'antipode', label: 'Из антипода (стереографическая)' },
-  { value: 'infinity', label: 'Из бесконечности (ортографическая)' },
-  { value: 'math', label: 'Математическая' },
-];

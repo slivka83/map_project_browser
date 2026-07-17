@@ -9,7 +9,6 @@ import {
   AUX_LENGTH,
   CLIP_LAT,
   CONE_Y_BASE,
-  RING_RADIUS,
   RING_SEGMENTS,
   AZIMUTHAL_POINT_DEG,
   VIEW_CENTER_Y,
@@ -86,13 +85,6 @@ export function projectionRotationMatrix(lambda0: number, phiOrigin: number, gam
   const cY = img(0, 90); // +Y (north pole)
   const cZ = img(90, 0); // +Z-ish (lon 90, lat 0)
   return [cX[0], cY[0], cZ[0], cX[1], cY[1], cZ[1], cX[2], cY[2], cZ[2]];
-}
-
-// The standard parallel (conic tangent latitude), in radians. Magnitude so a
-// southern phiOrigin yields a cone pointing south — consistent across
-// surface/rings/rays (delegates to the shared standardParallelDeg helper).
-function standardParallelRad(phiOrigin: number): number {
-  return (standardParallelDeg(phiOrigin) * Math.PI) / 180;
 }
 
 // East / north tangent basis at the sphere point (lambda0, phiOrigin). The
@@ -481,49 +473,6 @@ export function coneApexWorld(
   const y = yLocal * Math.cos(gammaRad);
   const z = yLocal * Math.sin(gammaRad);
   return [0, surface.positionY + y, z];
-}
-
-// ---- Tangency ring (standard parallel) parameters ----
-export interface TangencyRing {
-  kind: 'cylinder' | 'cone' | 'plane';
-  points: Vec3[];
-  rotateY: number;
-  center?: Vec3;
-  normal?: Vec3;
-}
-
-export function computeTangencyRing(
-  family: ProjectionParams['family'],
-  lambda0: number,
-  phiOrigin: number,
-  scaleFactor: number,
-  radius = RADIUS,
-): TangencyRing {
-  const lonRad = (lambda0 * Math.PI) / 180;
-
-  if (family === 'azimuthal') {
-    const { center, normal } = computeTangentBasis(lambda0, phiOrigin, radius);
-    const r = RING_RADIUS * radius * scaleFactor;
-    const pts: Vec3[] = [];
-    for (let i = 0; i <= RING_SEGMENTS; i++) {
-      const t = (i / RING_SEGMENTS) * Math.PI * 2;
-      pts.push([r * Math.cos(t), r * Math.sin(t), 0]);
-    }
-    return { kind: 'plane', points: pts, rotateY: 0, center, normal };
-  }
-
-  if (family === 'conic') {
-    const sp = standardParallelRad(phiOrigin);
-    const latRad = (phiOrigin * Math.PI) / 180;
-    const y = radius * Math.sin(latRad);
-    // tangency ring radius = sphere radius at the tangent latitude (= cone radius there)
-    const rCone = scaleFactor * radius * Math.cos(sp);
-    return { kind: 'cone', points: circlePoints(rCone, y), rotateY: 0 };
-  }
-
-  // cylindrical
-  const latRad = (phiOrigin * Math.PI) / 180;
-  return { kind: 'cylinder', points: circlePoints(radius * scaleFactor, radius * Math.sin(latRad)), rotateY: lonRad };
 }
 
 // Real intersection of the auxiliary (developable) surface with the globe.

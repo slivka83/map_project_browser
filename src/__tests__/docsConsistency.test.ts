@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as projectionMapper from '../utils/projectionMapper';
 import * as auxSurfaceGeometry from '../utils/auxSurfaceGeometry';
-import * as labels from '../components/ui/labels';
 import * as designTokens from '../constants/designTokens';
 import { MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y, CLIP_LAT } from '../constants/geometry';
 import { defaultParamsForFamily } from '../store/useAppStore';
@@ -152,7 +151,6 @@ describe('docs ↔ code: key exports are documented', () => {
     'FIT_SPHERE',
     'computeAuxSurfaceParams',
     'computeAuxGraticule',
-    'computeTangencyRing',
     'computeAuxSphereIntersections',
     'auxPointToWorld',
     'computeCentralMeridianRays',
@@ -169,10 +167,6 @@ describe('docs ↔ code: key exports are documented', () => {
       expectInDocs(name, `export ${name}`);
     });
   }
-  it('labels expose AZIMUTHAL_LIGHT_OPTIONS', () => {
-    expect(labels.AZIMUTHAL_LIGHT_OPTIONS.length).toBe(4);
-    expectInDocs('AZIMUTHAL_LIGHT_OPTIONS', 'azimuthal light options');
-  });
 });
 
 describe('docs ↔ code: design tokens match', () => {

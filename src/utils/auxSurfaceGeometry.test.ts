@@ -7,7 +7,6 @@ import {
   vec3ToLonLat,
   computeTangentBasis,
   computeAuxSurfaceParams,
-  computeTangencyRing,
   computeAuxGraticule,
   computeAuxSphereIntersections,
   computeAuxSphereIntersectionsLonLat,
@@ -165,29 +164,6 @@ describe('computeAuxSurfaceParams', () => {
   it('uses a fallback standard parallel when phiOrigin is near the equator', () => {
     const p = computeAuxSurfaceParams('conic', 0, 0, 1);
     expect(p.kind).toBe('cone');
-  });
-});
-
-describe('computeTangencyRing', () => {
-  it('cylindrical ring radius matches the aux cylinder radius', () => {
-    const sf = 1.1;
-    const p = computeAuxSurfaceParams('cylindrical', 0, 0, sf);
-    const r = computeTangencyRing('cylindrical', 0, 0, sf);
-    if (p.kind === 'cylinder' && r.kind === 'cylinder') {
-      closeTo(Math.hypot(r.points[0][0], r.points[0][2]), p.radius, 1e-6);
-    } else {
-      throw new Error('expected cylinder');
-    }
-  });
-  it('azimuthal ring is centred on the tangent point', () => {
-    const r = computeTangencyRing('azimuthal', 15, 25, 1);
-    expect(r.kind).toBe('plane');
-    if (r.kind === 'plane' && r.center) {
-      const v = lonLatToVec3(15, 25, RADIUS);
-      closeTo(r.center[0], v[0], 1e-6);
-      closeTo(r.center[1], v[1], 1e-6);
-      closeTo(r.center[2], v[2], 1e-6);
-    }
   });
 });
 
@@ -864,40 +840,6 @@ describe('computeAuxGraticule', () => {
       const g = computeAuxGraticule(surface);
       expect(g.meridians.length).toBeGreaterThan(0);
       expect(g.parallels.length).toBeGreaterThan(0);
-    }
-  });
-});
-
-describe('computeTangencyRing', () => {
-  it('returns a non-empty, finite points array for every surface kind', () => {
-    const expectedKind = { cylindrical: 'cylinder', conic: 'cone', azimuthal: 'plane' } as const;
-    for (const family of ['cylindrical', 'conic', 'azimuthal'] as const) {
-      const ring = computeTangencyRing(family, 0, family === 'azimuthal' ? 30 : 45, 1);
-      expect(ring.kind).toBe(expectedKind[family]);
-      expect(ring.points.length).toBeGreaterThan(0);
-      for (const [x, y, z] of ring.points) {
-        expect(Number.isFinite(x)).toBe(true);
-        expect(Number.isFinite(y)).toBe(true);
-        expect(Number.isFinite(z)).toBe(true);
-      }
-    }
-  });
-
-  it('azimuthal ring lies in the local tangent plane and scales with scaleFactor', () => {
-    const small = computeTangencyRing('azimuthal', 0, 30, 1);
-    const big = computeTangencyRing('azimuthal', 0, 30, 1.1);
-    for (const [, , z] of small.points) expect(z).toBeCloseTo(0, 6);
-    const r1 = Math.hypot(small.points[0][0], small.points[0][1]);
-    const r2 = Math.hypot(big.points[0][0], big.points[0][1]);
-    expect(r2).toBeCloseTo(r1 * 1.1, 4);
-  });
-
-  it('cylindrical ring sits at the standard-parallel height and radius R·scaleFactor', () => {
-    const ring = computeTangencyRing('cylindrical', 0, 45, 1.1);
-    const y = RADIUS * Math.sin((45 * Math.PI) / 180);
-    for (const [x, yy, z] of ring.points) {
-      expect(yy).toBeCloseTo(y, 6);
-      expect(Math.hypot(x, z)).toBeCloseTo(RADIUS * 1.1, 6);
     }
   });
 });
