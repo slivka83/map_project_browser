@@ -94,9 +94,10 @@ export function IntersectionIcon() {
 
 export function HoverRayIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <circle cx="7" cy="7" r="3" />
-      <path d="M9.2 9.2 19 19" />
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <circle cx="7" cy="7" r="3.2" />
+      <path d="M9.3 9.3 19 19" />
+      <circle cx="19" cy="19" r="1.6" fill="currentColor" stroke="none" />
     </svg>
   );
 }
