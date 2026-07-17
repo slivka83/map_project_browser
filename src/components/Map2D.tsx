@@ -82,15 +82,12 @@ export default function Map2D() {
   // White lines where the auxiliary (developable) surface meets the globe —
   // the same rings the 3D scene draws, projected onto the 2D map. Each ring is
   // a [lon, lat] loop fed to the shared path generator (auto-clipped to the
-  // antimeridian and the fitted ±85° sphere).
-  // For the cylindrical family the map is the projection ONTO the cylinder and
-  // does NOT know the cylinder's tilt in space, so the intersection lines are
-  // drawn with gamma = 0 (the un-tilted cylinder meets the globe at the two
-  // contact parallels ±φ_s); the 3D ring still follows the tilted tube.
+  // antimeridian and the fitted ±85° sphere). The tilt (gamma) is included so the
+  // lines shift with the tilted surface exactly as the 3D ring does.
   const intersectionRings = useMemo(
     () =>
       showIntersection
-        ? computeAuxSphereIntersectionsLonLat(family, lambda0, phiOrigin, scaleFactor, undefined, stdParallel2, family === 'cylindrical' ? 0 : params.gamma, params.distortion, params.azLight)
+        ? computeAuxSphereIntersectionsLonLat(family, lambda0, phiOrigin, scaleFactor, undefined, stdParallel2, params.gamma, params.distortion, params.azLight)
         : [],
     [showIntersection, family, lambda0, phiOrigin, scaleFactor, stdParallel2, params],
   );
