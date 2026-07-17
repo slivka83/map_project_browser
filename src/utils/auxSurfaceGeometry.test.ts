@@ -44,11 +44,14 @@ function cylinderLocalEndWithPole(
 // radius = scaleFactor·|apex − axialHeight|·tanA, even after the gamma tilt.
 const coneCheck = (
   localEnd: number[],
-  cone: { apex: number; tanA: number; sign: number },
+  cone: { apex: number; tanA: number; sign: number; flip: number; positionY: number },
   sf: number,
 ) => {
   const radius = Math.hypot(localEnd[0], localEnd[2]);
-  const rho = sf * Math.abs(cone.sign * cone.apex - localEnd[1]) * cone.tanA;
+  // `localEnd[1]` is the cone LOCAL y (height from base); recover the world axial
+  // height (axial = flip·localY + positionY) for the lateral-radius formula.
+  const axial = cone.flip * localEnd[1] + cone.positionY;
+  const rho = sf * Math.abs(cone.sign * cone.apex - axial) * cone.tanA;
   return { radius, rho };
 };
 
@@ -454,9 +457,15 @@ describe('secant cone (stdParallel2)', () => {
   });
 
   it('secant cone intersecting the sphere yields two circles', () => {
+    const surface = computeAuxSurfaceParams('conic', 0, 20, 1, RADIUS, 40);
     const rings = computeAuxSphereIntersections('conic', 0, 20, 1, RADIUS, 40);
     expect(rings.length).toBe(2);
-    for (const ring of rings) for (const [x, y, z] of ring) closeTo(Math.hypot(x, y, z), RADIUS, 1e-6);
+    // Raw rings are in the cone LOCAL frame; transform to world before checking
+    // they lie on the globe surface.
+    for (const ring of rings) for (const p of ring) {
+      const [x, y, z] = auxPointToWorld(surface, p);
+      closeTo(Math.hypot(x, y, z), RADIUS, 1e-6);
+    }
   });
 
   it('conic rays lie on the secant cone lateral surface', () => {
@@ -921,11 +930,17 @@ describe('computeAuxSphereIntersections edge cases', () => {
   });
 
   it('conic immersed gives two circles; enclosing gives none; all on the sphere', () => {
+    const surface = computeAuxSurfaceParams('conic', 0, 45, 0.5, RADIUS, null, 0);
     const immersed = computeAuxSphereIntersections('conic', 0, 45, 0.5);
     expect(immersed.length).toBe(2);
     for (const c of immersed) {
       expect(c.length).toBeGreaterThan(0);
-      for (const [x, y, z] of c) closeTo(Math.hypot(x, y, z), RADIUS, 1e-6);
+      // The raw rings are in the cone's LOCAL frame (like the wireframe); only
+      // after `auxPointToWorld` do they sit in world space on the globe surface.
+      for (const p of c) {
+        const [x, y, z] = auxPointToWorld(surface, p);
+        closeTo(Math.hypot(x, y, z), RADIUS, 1e-6);
+      }
     }
 
     const enclosing = computeAuxSphereIntersections('conic', 0, 45, 1.5);

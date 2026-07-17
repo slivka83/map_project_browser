@@ -445,10 +445,13 @@ function rayEndToLonLat(
     const y = yw * Math.cos(t) + zw * Math.sin(t);
     const lz = -yw * Math.sin(t) + zw * Math.cos(t);
     const ly = surface.flip * y;
+    // `ly` is the cone LOCAL y (height from base); recover the world axial height
+    // (axial = flip·ly + positionY) which the projection's y is measured against.
+    const axial = surface.flip * ly + surface.positionY;
     // Cone local longitude comes from the meridian angle (lz vs lx); the
     // projection's x encodes the same angle, so invert via atan2.
     const projX = (cx ?? 0) + scale * Math.atan2(lz, lx);
-    const projY = cy - ly / wpp;
+    const projY = cy - axial / wpp;
     const ll = inv([projX, projY]);
     return ll;
   }
@@ -479,15 +482,19 @@ function normalize3(v: [number, number, number]): [number, number, number] {
   return [v[0] / m, v[1] / m, v[2] / m];
 }
 
-// cone lateral-surface check: a point (x, y, z) on the cone satisfies
-// radius = scaleFactor·|apex − y|·tanA (radius = hypot(x, z)).
+// cone lateral-surface check: a point (x, y, z) on the cone—in the cone LOCAL
+// frame (height measured from the base, apex at +h/2)—satisfies radius =
+// scaleFactor·|apex − (axial height)|·tanA where the axial height is recovered
+// from the local y via axial = flip·localY + positionY (inverse of the builder's
+// localY = flip·(axial − positionY)).
 function coneCheck(
   localEnd: [number, number, number],
-  cone: { apex: number; tanA: number; sign: number },
+  cone: { apex: number; tanA: number; sign: number; flip: number; positionY: number },
   sf: number,
 ) {
   const radius = Math.hypot(localEnd[0], localEnd[2]);
-  const rho = sf * Math.abs(cone.sign * cone.apex - localEnd[1]) * cone.tanA;
+  const axial = cone.flip * localEnd[1] + cone.positionY;
+  const rho = sf * Math.abs(cone.sign * cone.apex - axial) * cone.tanA;
   return { radius, rho };
 }
 
@@ -691,10 +698,15 @@ describe('aux-surface ↔ globe intersection physics', () => {
   it('conic secant surface passes through both standard parallels', () => {
     const phi1 = 30;
     const phi2 = 50;
+    const surface = computeAuxSurfaceParams('conic', 0, phi1, 1, RADIUS, phi2);
     const rings = computeAuxSphereIntersections('conic', 0, phi1, 1, RADIUS, phi2);
     // secant cone → two circles
     expect(rings.length).toBe(2);
-    const lats = rings.map((r) => Math.abs(vec3ToLonLat(r[0])[1])).sort((a, b) => a - b);
+    // The raw rings are in the cone LOCAL frame; transform to world before
+    // reading latitude.
+    const lats = rings
+      .map((r) => Math.abs(vec3ToLonLat(auxPointToWorld(surface, r[0]))[1]))
+      .sort((a, b) => a - b);
     closeTo(lats[0], phi1, 1e-6);
     closeTo(lats[1], phi2, 1e-6);
   });

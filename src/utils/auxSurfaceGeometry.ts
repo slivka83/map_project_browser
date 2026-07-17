@@ -588,7 +588,11 @@ export function computeAuxSphereIntersections(
   for (const y of roots) {
     const rad = scaleFactor * Math.abs(a - y) * t;
     if (rad <= 1e-6) continue;
-    circles.push(circlePoints(rad, y, RING_SEGMENTS));
+    // `y` here is the WORLD axial height of the intersection; the cone's local
+    // frame (shared with the wireframe and auxPointToWorld) measures height from
+    // the cone's base, so convert: localY = flip·(worldY − positionY).
+    const localY = cone.flip * (y - cone.positionY);
+    circles.push(circlePoints(rad, localY, RING_SEGMENTS));
   }
   return circles;
 }
@@ -732,7 +736,10 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
       const latRad = (lat * Math.PI) / 180;
       const yCone = coneAxialHeight(latRad, cone, radius);
       const radCone = scaleFactor * Math.abs(cone.sign * cone.apex - yCone) * cone.tanA;
-      localEnd = [radCone, yCone, 0];
+      // `yCone` is the WORLD axial height; the cone local frame measures height
+      // from its base, so convert to local: localY = flip·(worldY − positionY).
+      const localY = cone.flip * (yCone - cone.positionY);
+      localEnd = [radCone, localY, 0];
       // The conic branch is only reached when `surface` is a cone (computeAuxSurfaceParams
       // returns a cone for the conic family), so it is safe to use it directly.
       start = coneApexWorld(surface as Extract<AuxSurfaceParams, { kind: 'cone' }>, gamma);
@@ -770,7 +777,8 @@ export function computeConicRayEnd(
   const latRad = (lat * Math.PI) / 180;
   const yCone = coneAxialHeight(latRad, cone, radius);
   const radCone = scaleFactor * Math.abs(cone.sign * cone.apex - yCone) * cone.tanA;
-  const local: Vec3 = [radCone, yCone, 0];
+  const localY = cone.flip * (yCone - cone.positionY);
+  const local: Vec3 = [radCone, localY, 0];
   if (!clamp) return local;
   const surface = computeAuxSurfaceParams('conic', lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma);
   return clampLocalToSurface(surface, local);
@@ -838,7 +846,10 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
     const yCone = coneAxialHeight(latRad, cone, radius);
     const radCone = scaleFactor * Math.abs(cone.sign * cone.apex - yCone) * cone.tanA;
     const theta = radCone > 1e-9 ? (dx * wpp) / radCone : 0;
-    localEnd = [radCone * Math.cos(theta), yCone, radCone * Math.sin(theta)];
+    // `yCone` is the WORLD axial height; convert to the cone local frame
+    // (height measured from the cone base): localY = flip·(worldY − positionY).
+    const localY = cone.flip * (yCone - cone.positionY);
+    localEnd = [radCone * Math.cos(theta), localY, radCone * Math.sin(theta)];
     start = coneApexWorld(surface as Extract<AuxSurfaceParams, { kind: 'cone' }>, gamma);
   }
 
