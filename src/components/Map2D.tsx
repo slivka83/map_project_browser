@@ -9,9 +9,6 @@ import { computeTissotCircles } from '../utils/tissot';
 import { computeAuxSphereIntersectionsLonLat } from '../utils/auxSurfaceGeometry';
 import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT, NEON_YELLOW, NEON_WHITE } from '../constants/designTokens';
 import { iconBtnPlain, iconGlow } from './ui/styles';
-
-// Active overlay-toggle: only an outer neon halo (no background / border).
-const activeBtn = 'shadow-[0_0_22px_4px_var(--color-neon-blue-soft)]';
 import { TissotIcon, BorderIcon, DetailIcon, IntersectionIcon, HoverRayIcon } from './ui/icons';
 import { FIT_MARGIN } from '../constants/geometry';
 
@@ -195,7 +192,7 @@ export default function Map2D() {
           title="Индикатрисы Тиссо"
           aria-label="Индикатрисы Тиссо"
           onClick={() => setShowTissot(!showTissot)}
-          className={`${iconBtnPlain} ${showTissot ? activeBtn : ''}`}
+          className={iconBtnPlain}
           style={{ color: showTissot ? '#00e5ff' : undefined, filter: iconGlow(showTissot) }}
         >
           <TissotIcon />
@@ -204,7 +201,7 @@ export default function Map2D() {
           title="Детализация карты"
           aria-label="Детализация карты"
           onClick={() => setDetailedMap(!detailedMap)}
-          className={`${iconBtnPlain} ${detailedMap ? activeBtn : ''}`}
+          className={iconBtnPlain}
           style={{ color: detailedMap ? '#00e5ff' : undefined, filter: iconGlow(detailedMap) }}
         >
           <DetailIcon />
@@ -213,7 +210,7 @@ export default function Map2D() {
           title="Границы стран"
           aria-label="Границы стран"
           onClick={() => setShowBorders(!showBorders)}
-          className={`${iconBtnPlain} ${showBorders ? activeBtn : ''}`}
+          className={iconBtnPlain}
           style={{ color: showBorders ? '#00e5ff' : undefined, filter: iconGlow(showBorders) }}
         >
           <BorderIcon />
@@ -222,7 +219,7 @@ export default function Map2D() {
           title="Линии пересечения поверхности с глобусом"
           aria-label="Линии пересечения поверхности с глобусом"
           onClick={() => setShowIntersection(!showIntersection)}
-          className={`${iconBtnPlain} ${showIntersection ? activeBtn : ''}`}
+          className={iconBtnPlain}
           style={{ color: showIntersection ? '#00e5ff' : undefined, filter: iconGlow(showIntersection) }}
         >
           <IntersectionIcon />
@@ -231,7 +228,7 @@ export default function Map2D() {
           title="Луч проекции по курсору (показывать при наведении на карту)"
           aria-label="Луч проекции по курсору (показывать при наведении на карту)"
           onClick={() => setShowHoverRay(!showHoverRay)}
-          className={`${iconBtnPlain} ${showHoverRay ? activeBtn : ''}`}
+          className={iconBtnPlain}
           style={{ color: showHoverRay ? '#00e5ff' : undefined, filter: iconGlow(showHoverRay) }}
         >
           <HoverRayIcon />
