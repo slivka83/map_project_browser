@@ -13,8 +13,8 @@ export default function App() {
   }, [loadGeoData]);
 
   return (
-    <div className="relative flex h-full w-full p-3">
-      <div className="relative flex w-1/3 flex-col pr-3">
+    <div className="relative flex h-full w-full flex-col p-3 lg:flex-row">
+      <div className="relative flex w-full flex-col pr-3 lg:w-1/3">
         <div
           className="relative flex min-h-0 flex-1 flex-col rounded-lg p-3"
           style={{
@@ -32,7 +32,7 @@ export default function App() {
           </div>
         </div>
       </div>
-      <div className="w-2/3 pl-3">
+      <div className="w-full pl-3 lg:w-2/3">
         <Map2D />
       </div>
     </div>

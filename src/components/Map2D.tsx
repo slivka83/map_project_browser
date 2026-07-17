@@ -8,7 +8,7 @@ import { getD3Projection, fitProjectionToView, computeAreaDistortion, isPointerO
 import { computeTissotCircles } from '../utils/tissot';
 import { computeAuxSphereIntersectionsLonLat } from '../utils/auxSurfaceGeometry';
 import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT, NEON_YELLOW, NEON_WHITE, GRATICULE_STROKE } from '../constants/designTokens';
-import { iconBtnPlain, iconGlow } from './ui/styles';
+import { iconBtnPlain, iconGlow, glassPanel } from './ui/styles';
 import { TissotIcon, BorderIcon, DetailIcon, IntersectionIcon, HoverRayIcon } from './ui/icons';
 import { FIT_MARGIN } from '../constants/geometry';
 
@@ -241,7 +241,9 @@ export default function Map2D() {
       </div>
       <div
         data-testid="area-distortion-label"
-        className="absolute right-2 bottom-2 z-10 rounded border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-gray-300 backdrop-blur-md"
+        role="status"
+        aria-live="polite"
+        className={`${glassPanel} absolute right-2 bottom-2 z-10 px-2 py-1 text-[11px]`}
         title="Средневзвешенное искажение площадей при текущих настройках"
       >
         Искажение площади:{' '}
@@ -252,7 +254,7 @@ export default function Map2D() {
         target="_blank"
         rel="noopener noreferrer"
         data-testid="stepik-link"
-        className="absolute left-2 bottom-2 z-10 rounded border border-neon-blue/30 bg-white/5 px-2 py-1 text-[11px] text-neon-blue backdrop-blur-md transition hover:bg-neon-blue/10 hover:text-neon-blue"
+        className={`${glassPanel} absolute left-2 bottom-2 z-10 px-2 py-1 text-[11px] text-neon-blue transition hover:bg-neon-blue/10 hover:text-neon-blue`}
       >
         Геопространственный анализ данных на Python
       </a>

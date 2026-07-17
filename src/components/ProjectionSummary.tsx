@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type { ProjectionParams, AzimuthalLight } from '../store/useAppStore';
 import { FAMILY_LABEL, DISTORTION_LABEL } from './ui/labels';
 import { signedStandardParallelDeg } from '../constants/geometry';
+import { modalOverlay, modalShell } from './ui/styles';
 
 const latLabel = (deg: number): string => {
   if (deg === 0) return '0°';
@@ -50,11 +51,11 @@ export default function ProjectionSummary({ params, onClose }: { params: Project
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className={modalOverlay}
       onClick={onClose}
     >
       <div
-        className="flex max-h-[80vh] w-[460px] flex-col overflow-hidden rounded-lg border border-white/10 bg-panel-bg p-4 shadow-2xl"
+        className={`${modalShell} w-[460px]`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
@@ -62,7 +63,7 @@ export default function ProjectionSummary({ params, onClose }: { params: Project
           <button
             onClick={onClose}
             aria-label="Закрыть"
-            className="text-lg leading-none text-white/60 transition hover:text-white"
+            className="text-lg leading-none text-white/60 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70"
           >
             ✕
           </button>
@@ -77,6 +78,8 @@ export default function ProjectionSummary({ params, onClose }: { params: Project
           />
           <Row k="Масштабный коэффициент" v={params.scaleFactor.toFixed(2)} />
           <Row k="Наклон (γ)" v={`${params.gamma}°`} />
+          <Row k="Смещение восток (falseEasting)" v={`${params.falseEasting}`} />
+          <Row k="Смещение север (falseNorthing)" v={`${params.falseNorthing}`} />
           <Row k="Класс проекции" v={describeProjection(params)} />
         </div>
       </div>

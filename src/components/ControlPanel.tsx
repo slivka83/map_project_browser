@@ -5,7 +5,7 @@ import EpsgCatalog from './EpsgCatalog';
 import ProjectionSummary from './ProjectionSummary';
 import Dropdown from './Dropdown';
 import { FamilyIcon, EpsgIcon, ResetIcon, InfoIcon } from './ui/icons';
-import { labelClass, activeTab, inactiveTab, iconBtn } from './ui/styles';
+import { labelClass, activeTab, inactiveTab, iconBtn, sliderClass, fieldRow } from './ui/styles';
 import { FAMILY_OPTIONS, DISTORTION_OPTIONS, AZIMUTHAL_LIGHT_OPTIONS } from './ui/labels';
 import { signedStandardParallelDeg } from '../constants/geometry';
 
@@ -56,7 +56,7 @@ function Slider({
   suffix?: string;
 }) {
   return (
-    <div className="flex items-center gap-[12px]">
+    <div className={fieldRow}>
       <span className={`${labelClass} w-40 shrink-0`}>{label}</span>
       <div className="flex flex-1 items-center gap-[4px]">
         <input
@@ -66,8 +66,9 @@ function Slider({
           step={step}
           value={value}
           aria-label={label}
+          aria-valuetext={`${value}${suffix}`}
           onChange={(e) => onChange(Number(e.target.value))}
-          className="h-1 flex-1 accent-neon-blue"
+          className={sliderClass}
         />
         <span className="w-9 shrink-0 text-right text-[12px] text-neon-blue">
           {value}
@@ -90,7 +91,7 @@ function LightSelect<T extends string>({
   onChange: (v: T) => void;
 }) {
   return (
-    <div className="flex items-center gap-[12px]">
+    <div className={fieldRow}>
       <span className={`${labelClass} w-40 shrink-0`}>{label}</span>
       <Dropdown<T> value={value} options={options} onChange={onChange} />
     </div>
@@ -129,14 +130,14 @@ function StdParallel2Control({
   const secant = value != null;
   const defaultMag = Math.min(89, Math.abs(signedStandardParallelDeg(phiOrigin)) + 20);
   return (
-    <div className="flex items-center gap-[12px]">
+    <div className={fieldRow}>
       <span className={`${labelClass} w-40 shrink-0`}>Вторая параллель</span>
       <button
         type="button"
         aria-pressed={secant}
         aria-label="Секущий конус"
         onClick={() => onChange(secant ? null : defaultMag)}
-        className={`${secant ? activeTab : inactiveTab} rounded px-2 py-1 text-[11px] uppercase`}
+        className={`${secant ? activeTab : inactiveTab} rounded px-2 py-1 text-[11px] uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70`}
         title="Секущий конус касается Земли по двум параллелям вместо одной — две линии нулевых искажений"
       >
         {secant ? 'Секущий' : 'Касательный'}
@@ -149,8 +150,9 @@ function StdParallel2Control({
         value={value ?? defaultMag}
         disabled={!secant}
         aria-label="Вторая стандартная параллель"
+        aria-valuetext={`${value ?? defaultMag}°`}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="h-1 flex-1 accent-neon-blue disabled:opacity-40"
+        className={sliderClass}
       />
     </div>
   );
@@ -169,14 +171,15 @@ export default function ControlPanel() {
   return (
     <div className="flex flex-col gap-3.5 px-3 py-3">
       <div className="flex items-center gap-1">
-        <div className="flex overflow-hidden rounded-md border border-neon-blue/50 bg-panel-bg drop-shadow-[0_0_3px_var(--color-neon-blue-soft)]">
+        <div role="group" aria-label="Семейство проекции" className="flex overflow-hidden rounded-md border border-neon-blue/50 bg-panel-bg drop-shadow-[0_0_3px_var(--color-neon-blue-soft)]">
           {FAMILY_OPTIONS.map((f, i) => (
             <button
               key={f.value}
               title={f.label}
               aria-label={f.label}
+              aria-pressed={family === f.value}
               onClick={() => setFamily(f.value)}
-              className={`${famBtn} rounded-none border-r border-neon-blue/30 last:border-r-0 ${
+              className={`${famBtn} rounded-none border-r border-neon-blue/30 last:border-r-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70 ${
                 i > 0 ? '-ml-px' : ''
               } ${family === f.value ? activeTab : inactiveTab}`}
             >
@@ -189,7 +192,7 @@ export default function ControlPanel() {
             title="Библиотека EPSG"
             aria-label="Библиотека EPSG"
             onClick={() => setCatalogOpen(true)}
-            className={`${iconBtn} hover:bg-neon-blue/10 hover:shadow-[0_0_8px_var(--color-neon-blue-soft)]`}
+            className={iconBtn}
           >
             <EpsgIcon />
           </button>
@@ -197,7 +200,7 @@ export default function ControlPanel() {
             title="Точные параметры проекции"
             aria-label="Точные параметры проекции"
             onClick={() => setShowSummary(true)}
-            className={`${iconBtn} hover:bg-neon-blue/10 hover:shadow-[0_0_8px_var(--color-neon-blue-soft)]`}
+            className={iconBtn}
           >
             <InfoIcon />
           </button>
@@ -205,14 +208,14 @@ export default function ControlPanel() {
             title="Сбросить параметры"
             aria-label="Сбросить параметры"
             onClick={() => resetParams()}
-            className={`${iconBtn} hover:bg-neon-blue/10 hover:shadow-[0_0_8px_var(--color-neon-blue-soft)]`}
+            className={iconBtn}
           >
             <ResetIcon />
           </button>
         </div>
       </div>
 
-      <div className="flex items-center gap-[12px]">
+      <div className={fieldRow}>
         <span className={`${labelClass} w-40 shrink-0`}>Тип искажения</span>
         <DistortionSelect value={distortion} onChange={(v) => setParam('distortion', v)} />
       </div>

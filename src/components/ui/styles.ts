@@ -9,12 +9,31 @@ export const activeTab = 'z-10 bg-neon-blue/15 text-neon-blue shadow-[0_0_10px_v
 export const inactiveTab = 'text-neon-blue/70 hover:text-neon-blue hover:bg-neon-blue/5';
 
 // Square icon button used by overlay toggles and panel actions.
-export const iconBtn = 'flex h-9 w-[54px] items-center justify-center rounded border border-neon-blue/50 bg-panel-bg text-neon-blue drop-shadow-[0_0_3px_var(--color-neon-blue-soft)] transition';
+export const iconBtn = 'flex h-9 w-[54px] items-center justify-center rounded border border-neon-blue/50 bg-panel-bg text-neon-blue drop-shadow-[0_0_3px_var(--color-neon-blue-soft)] transition hover:bg-neon-blue/10 hover:shadow-[0_0_8px_var(--color-neon-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70';
 
 // Icon-only button (no rectangular backing) — just the neon icon.
 export const iconBtnPlain =
-  'flex h-9 w-9 items-center justify-center text-neon-blue/80 transition hover:text-neon-blue';
+  'flex h-9 w-9 items-center justify-center rounded text-neon-blue/80 transition hover:text-neon-blue hover:bg-neon-blue/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70';
 export const iconGlow = (active: boolean): string =>
   active
     ? `drop-shadow(0 0 4px ${NEON_BLUE}) drop-shadow(0 0 10px rgba(0,229,255,1)) drop-shadow(0 0 20px rgba(0,229,255,0.9)) drop-shadow(0 0 32px rgba(0,229,255,0.6))`
     : 'drop-shadow(0 0 4px rgba(0,229,255,0.45))';
+
+// ---- Shared layout / surface primitives (design system) ----
+
+// The translucent "glass" panel used by modals and the map's floating chips.
+export const glassPanel =
+  'rounded-lg border border-white/10 bg-white/5 backdrop-blur-md text-gray-300';
+
+// Full-screen modal overlay (dimmed, blurred) + the centred modal shell.
+export const modalOverlay =
+  'fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm';
+export const modalShell =
+  'flex max-h-[80vh] flex-col overflow-hidden rounded-lg border border-white/10 bg-panel-bg p-4 shadow-2xl';
+
+// A labelled section inside the control panel.
+export const fieldRow = 'flex items-center gap-[12px]';
+
+// Slider track styling (accent + accessible focus ring).
+export const sliderClass =
+  'h-1 flex-1 cursor-pointer rounded-full bg-white/10 accent-neon-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70 disabled:opacity-40';

@@ -68,8 +68,8 @@ export default function Dropdown<T extends string = string>({
 
   const triggerClass =
     variant === 'button'
-      ? 'flex w-full items-center justify-between rounded border border-neon-blue/50 bg-panel-bg px-2 py-1 text-[12px] font-medium text-neon-blue outline-none transition drop-shadow-[0_0_3px_var(--color-neon-blue-soft)] focus:border-neon-blue focus:bg-neon-blue/10'
-      : 'flex h-full w-full items-center justify-between gap-1 text-left text-neon-blue';
+      ? 'flex w-full items-center justify-between rounded border border-neon-blue/50 bg-panel-bg px-2 py-1 text-[12px] font-medium text-neon-blue outline-none transition drop-shadow-[0_0_3px_var(--color-neon-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70 focus-visible:border-neon-blue'
+      : 'flex h-full w-full items-center justify-between gap-1 text-left text-neon-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70';
 
   const menuClass =
     variant === 'button'

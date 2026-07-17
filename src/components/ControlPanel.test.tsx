@@ -131,4 +131,12 @@ describe('ControlPanel', () => {
     expect(screen.getByText('Класс проекции')).toBeTruthy();
     expect(screen.getByText('Касательная Цилиндрическая Равноугольная')).toBeTruthy();
   });
+
+  it('shows falseEasting / falseNorthing in the geodesic summary', () => {
+    useAppStore.setState({ family: 'cylindrical', distortion: 'conformal', falseEasting: 120, falseNorthing: -45 });
+    render(<ControlPanel />);
+    fireEvent.click(screen.getByRole('button', { name: 'Точные параметры проекции' }));
+    expect(screen.getByText('Смещение восток (falseEasting)')).toBeTruthy();
+    expect(screen.getByText('Смещение север (falseNorthing)')).toBeTruthy();
+  });
 });

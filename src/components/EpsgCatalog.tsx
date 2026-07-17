@@ -4,6 +4,7 @@ import { EPSG_PRESETS } from '../constants/epsgPresets';
 import type { ProjectionParams } from '../store/useAppStore';
 import Dropdown from './Dropdown';
 import { FAMILY_LABEL, DISTORTION_LABEL } from './ui/labels';
+import { modalOverlay, modalShell } from './ui/styles';
 
 type Col = 'code' | 'type' | 'distortion' | 'name' | 'units';
 type ColKind = 'text' | 'select';
@@ -96,11 +97,11 @@ export default function EpsgCatalog({ onClose, applyPreset }: Props) {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className={modalOverlay}
       onClick={onClose}
     >
       <div
-        className="flex h-[80vh] w-[920px] flex-col overflow-hidden rounded-lg border border-white/10 bg-panel-bg p-4 shadow-2xl"
+        className={`${modalShell} h-[80vh] w-[920px]`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
@@ -108,7 +109,7 @@ export default function EpsgCatalog({ onClose, applyPreset }: Props) {
           <button
             onClick={onClose}
             aria-label="Закрыть"
-            className="text-lg leading-none text-white/60 hover:text-white"
+            className="text-lg leading-none text-white/60 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70"
           >
             ✕
           </button>
