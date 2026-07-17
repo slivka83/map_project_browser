@@ -1,26 +1,59 @@
 import * as d3Geo from 'd3-geo';
 import type { GeoProjection, GeoConicProjection } from 'd3-geo';
 import type { Polygon } from 'geojson';
-import { geoCylindricalEqualArea } from './d3GeoProjection';
 import type { ProjectionParams } from '../store/useAppStore';
 import { MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y, CLIP_LAT, FIT_MARGIN, signedStandardParallelDeg } from '../constants/geometry';
 
 const clampScale = (s: number): number => Math.max(0, Math.min(1, s));
-const clampLat = (lat: number): number => Math.max(-85, Math.min(85, lat));
 
-// Equidistant cylindrical projection whose standard parallel is `phi0Rad`
-// (the secant contact latitude). Raw projection: x = λ·cos φ0, y = φ, so the
-// map narrows as the cylinder diameter shrinks (x ∝ scaleFactor, y fixed) —
-// the genuine geometric effect of the diameter, which d3's plain
-// geoEquirectangular (φ0 = 0 only) cannot express.
-function makeCylindricalEquidistant(phi0Rad: number): GeoProjection {
-  const cos0 = Math.cos(phi0Rad);
+// Geometric cylindrical projection in the CYLINDER-LOCAL frame (the cylinder
+// axis is the local y-axis; a d3 rotation of [-lambda0, -phiOrigin, -gamma]
+// brings the globe into this frame, so the tilt is absorbed BEFORE this runs).
+// The cylinder is a FINITE tube of radius r = scaleFactor·R touching the globe
+// at the contact latitudes ±φ_s (φ_s = arccos(scaleFactor)) measured from the
+// cylinder axis. The projection keeps the chosen property (conformal / equal-
+// area / equidistant) by its height law, with the standard parallel at φ_s, and
+// is clipped to the tube's finite height (±CLIP_LAT from the axis) so there is
+// no Mercator-style pole singularity: points beyond the tube are simply not on
+// the surface, exactly like the 3D tube. This makes the 2D map the literal
+// unrolling of the 3D cylinder where the rays land — consistent with the scene
+// and free of the broken transverse-Mercator infinity under a tilt.
+function makeCylindricalProjection(
+  distortion: ProjectionParams['distortion'],
+  scaleFactor: number,
+): GeoProjection {
+  const s = clampScale(scaleFactor);
+  const phiS = Math.acos(s); // contact latitude from the cylinder axis (radians)
+  const cosS = Math.cos(phiS);
   type RawProjection = ((λ: number, φ: number) => [number, number]) & {
     invert?: (x: number, y: number) => [number, number];
   };
-  const raw: RawProjection = (λ: number, φ: number): [number, number] => [λ * cos0, φ];
-  raw.invert = (x: number, y: number): [number, number] => [x / cos0, y];
-  return d3Geo.geoProjection(raw);
+  let raw: RawProjection;
+  if (distortion === 'conformal') {
+    // Secant Mercator in the local frame: x = λ·cosφ_s, y = cosφ_s·ln(tan(π/4+φ/2)).
+    // Uniform scale cosφ_s keeps it conformal and makes φ_s true-to-scale.
+    raw = ((λ: number, φ: number): [number, number] => [
+      λ * cosS,
+      cosS * Math.log(Math.tan(Math.PI / 4 + φ / 2)),
+    ]) as RawProjection;
+    raw.invert = (x: number, y: number): [number, number] => [
+      x / cosS,
+      2 * Math.atan(Math.exp(y / cosS)) - Math.PI / 2,
+    ];
+  } else if (distortion === 'equalArea') {
+    // x = λ·cosφ_s, y = sinφ / cosφ_s  → area scale = cosφ_s (constant) on the band.
+    raw = ((λ: number, φ: number): [number, number] => [λ * cosS, Math.sin(φ) / cosS]) as RawProjection;
+    raw.invert = (x: number, y: number): [number, number] => [x / cosS, Math.asin(Math.max(-1, Math.min(1, y * cosS)))];
+  } else {
+    // Equidistant: x = λ·cosφ_s, y = φ  (aspect narrows as the diameter shrinks).
+    raw = ((λ: number, φ: number): [number, number] => [λ * cosS, φ]) as RawProjection;
+    raw.invert = (x: number, y: number): [number, number] => [x / cosS, y];
+  }
+  const proj = d3Geo.geoProjection(raw);
+  // Clip to the finite tube: keep only points within ±CLIP_LAT of the cylinder
+  // axis (the local equator). Points beyond are off the tube — no infinity.
+  proj.clipAngle(CLIP_LAT);
+  return proj;
 }
 
 export const getD3Projection = (state: ProjectionParams): GeoProjection => {
@@ -43,12 +76,11 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
     // equidistant set their standard parallel directly to the contact (measured
     // from the cylinder axis, not from phiOrigin).
     if (distortion === 'conformal') {
-      proj = d3Geo.geoMercator();
+      proj = makeCylindricalProjection('conformal', scaleFactor);
     } else if (distortion === 'equalArea') {
-      const phiS = (Math.acos(clampScale(scaleFactor)) * 180) / Math.PI;
-      proj = geoCylindricalEqualArea().parallel(clampLat(phiS));
+      proj = makeCylindricalProjection('equalArea', scaleFactor);
     } else {
-      proj = makeCylindricalEquidistant(Math.acos(clampScale(scaleFactor)));
+      proj = makeCylindricalProjection('equidistant', scaleFactor);
     }
   } else if (family === 'conic') {
     if (distortion === 'conformal') proj = d3Geo.geoConicConformal();

@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import * as d3Geo from 'd3-geo';
 import type { ProjectionParams, ProjectionFamily, DistortionModel } from '../store/useAppStore';
 import { RADIUS, RAY_COUNT, MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y } from '../constants/geometry';
 import { getD3Projection, computeAreaDistortion, FIT_SPHERE } from '../utils/projectionMapper';
@@ -97,6 +98,30 @@ describe('globe ↔ map projection consistency', () => {
       closeTo(ra, rb, 1e-6);
     }
   });
+
+  // Regression: the old cylindrical map was d3 geoMercator() with the tilt baked
+  // into rotate([,,-gamma]); at gamma = 90 the Earth's equator lands on the
+  // Mercator pole → y = ±Infinity, so the whole tilted map "broke" (null / NaN
+  // segments). The new geometric unrolling works in the cylinder-LOCAL frame and
+  // is clipped to the finite tube, so a tilted cylindrical map renders finite for
+  // every distortion. Rendering through geoPath (which applies the clip) must
+  // never emit a non-finite coordinate.
+  for (const distortion of DISTORTIONS) {
+    for (const gamma of [0, 45, 90]) {
+      it(`cylindrical/${distortion}: the tilted map renders finite at gamma=${gamma} (no Mercator-pole infinity)`, () => {
+        const proj = getD3Projection(base({ family: 'cylindrical', distortion, gamma }));
+        proj.scale(120).translate([400, 300]);
+        const path = d3Geo.geoPath().projection(proj);
+        const d = path(d3Geo.geoGraticule10());
+        expect(d).toBeTruthy();
+        expect(d!.length).toBeGreaterThan(0);
+        expect(/null|NaN|Infinity/.test(d!)).toBe(false);
+        for (const n of d!.match(/-?\d+(\.\d+)?/g) ?? []) {
+          expect(Number.isFinite(Number(n))).toBe(true);
+        }
+      });
+    }
+  }
 });
 
 // ---------------------------------------------------------------------------
