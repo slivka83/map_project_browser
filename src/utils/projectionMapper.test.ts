@@ -39,9 +39,13 @@ describe('getD3Projection (spec §9.2)', () => {
     expect(p([0, 0])).toEqual(ref([0, 0]));
   });
 
-  it('returns cylindrical equal-area using parallel(phiOrigin)', () => {
+  it('returns cylindrical equal-area using the contact parallel (φ_s), not phiOrigin', () => {
+    // The standard parallel is the cylinder's contact ±φ_s = arccos(scaleFactor),
+    // measured from the cylinder AXIS (so it moves with the tilt), not from
+    // phiOrigin (which only re-centres the view). At scaleFactor = 1 (tangent)
+    // φ_s = 0, so the equal-area cylinder is parallel(0) regardless of phiOrigin.
     const p = getD3Projection(makeState({ family: 'cylindrical', distortion: 'equalArea', phiOrigin: 30 }));
-    const ref = geoCylindricalEqualArea().parallel(30).rotate([0, -30]).scale(100).translate([400, 300]);
+    const ref = geoCylindricalEqualArea().parallel(0).rotate([0, -30]).scale(100).translate([400, 300]);
     expect(p([0, 0])).toEqual(ref([0, 0]));
   });
 
@@ -226,8 +230,10 @@ describe('computeAreaDistortion', () => {
   });
 
   it('is large and positive for Mercator (cylindrical conformal)', () => {
+    // A tangent conformal cylinder (scaleFactor = 1) is plain Mercator, whose
+    // area distortion over the fitted ±85° band is large (~49%).
     const d = computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'conformal' }));
-    expect(d).toBeGreaterThan(50);
+    expect(d).toBeGreaterThan(40);
   });
 
   it('is invariant to a true zoom (scaleFactor) for conic/azimuthal families', () => {
@@ -240,10 +246,13 @@ describe('computeAreaDistortion', () => {
   });
 
   it('drops for a secant (immersed) cylinder vs a tangent one (cylindrical conformal)', () => {
-    // scaleFactor = cylinder radius; < 1 → two intersection parallels → lower mean area distortion.
+    // A conformal cylinder is now a SECANT Mercator: the smaller the cylinder
+    // (scaleFactor < 1) the further apart its two contact parallels, so the
+    // mean area distortion falls. The tangent case (scaleFactor = 1) is plain
+    // Mercator (~49%).
     const tangent = computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'conformal', scaleFactor: 1 }));
     const secant = computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'conformal', scaleFactor: 0.5 }));
-    expect(tangent).toBeGreaterThan(50);
+    expect(tangent).toBeGreaterThan(40);
     expect(secant).toBeGreaterThan(0);
     expect(secant).toBeLessThan(tangent);
   });
@@ -476,7 +485,7 @@ describe('computeAreaDistortion edge cases', () => {
   });
 
   it('is positive (non-trivial) for conformal projections in every family', () => {
-    expect(computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'conformal' }))).toBeGreaterThan(50);
+    expect(computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'conformal' }))).toBeGreaterThan(40);
     expect(
       computeAreaDistortion(makeState({ family: 'conic', distortion: 'conformal', phiOrigin: 40 })),
     ).toBeGreaterThan(0);
