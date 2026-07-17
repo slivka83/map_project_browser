@@ -147,15 +147,6 @@ function StdParallel2Control({
   );
 }
 
-function LockedLabel({ label, value, suffix = '' }: { label: string; value: string; suffix?: string }) {
-  return (
-    <div className={fieldRow}>
-      <span className={`${labelClass} w-40 shrink-0 opacity-40`}>🔒 {label}</span>
-      <span className="text-[12px] text-gray-400">{value}{suffix}</span>
-    </div>
-  );
-}
-
 export default function ControlPanel() {
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
@@ -177,17 +168,13 @@ export default function ControlPanel() {
 
   const gammaLocked = def.lockedGamma !== null;
   const scaleLocked = def.lockedScaleFactor !== null;
-  const stdParallelLocked = def.lockedStdParallel !== null;
   const stdParallel2Locked = def.lockedStdParallel2 !== null;
 
-  const stdParallel2Tooltip = def.tooltips.stdParallel2 ?? null;
   const scaleTooltip = def.tooltips.scaleFactor ?? null;
+  const gammaTooltip = def.tooltips.gamma ?? null;
 
   const isCyl = family === 'cylindrical';
-  const isConic = family === 'conic';
   const isAz = family === 'azimuthal';
-
-  const orientationLabel = isCyl ? def.orientationLabel : '';
 
   const lightLabel = useMemo(() => {
     if (!isAz) return null;
@@ -256,25 +243,6 @@ export default function ControlPanel() {
         />
       </div>
 
-      {isCyl && gammaLocked && orientationLabel && (
-        <LockedLabel
-          label="Ориентация"
-          value={orientationLabel}
-        />
-      )}
-
-      {isCyl && !gammaLocked && (
-        <ParamSlider
-          label={PARAM_LABELS[family].gamma}
-          value={gamma}
-          min={-180}
-          max={180}
-          step={1}
-          suffix="°"
-          onChange={(v) => setParam('gamma', v)}
-        />
-      )}
-
       <ParamSlider
         label={PARAM_LABELS[family].lambda0}
         value={lambda0}
@@ -297,57 +265,27 @@ export default function ControlPanel() {
         />
       )}
 
-      {isCyl && (
-        <ParamSlider
-          label={def.cylinderOrientation === 'transverse' ? 'Линия касания цилиндра' : 'Стандартная параллель 1'}
-          value={stdParallelLocked ? (def.lockedStdParallel ?? 0) : phiOrigin}
-          min={-90}
-          max={90}
-          step={1}
-          suffix="°"
-          disabled={stdParallelLocked}
-          tooltip={stdParallelLocked ? 'Эта проекция фиксирует параллель касания' : null}
-          onChange={(v) => setParam('phiOrigin', v)}
-        />
-      )}
-
       {!isAz && (
-        stdParallel2Locked ? (
-          <LockedLabel label="Параллель 2" value={`${def.lockedStdParallel2}°`} />
-        ) : (
-          <StdParallel2Control
-            value={stdParallel2}
-            phiOrigin={phiOrigin}
-            onChange={(v) => setParam('stdParallel2', v)}
-            disabled={!!stdParallel2Tooltip}
-            tooltip={stdParallel2Tooltip}
-          />
-        )
-      )}
-
-      {isConic && !gammaLocked && (
-        <ParamSlider
-          label={PARAM_LABELS[family].gamma}
-          value={gamma}
-          min={-180}
-          max={180}
-          step={1}
-          suffix="°"
-          onChange={(v) => setParam('gamma', v)}
+        <StdParallel2Control
+          value={stdParallel2}
+          phiOrigin={phiOrigin}
+          onChange={(v) => setParam('stdParallel2', v)}
+          disabled={stdParallel2Locked}
+          tooltip={stdParallel2Locked ? (def.tooltips.stdParallel2 ?? null) : null}
         />
       )}
 
-      {isAz && !gammaLocked && (
-        <ParamSlider
-          label={PARAM_LABELS[family].gamma}
-          value={gamma}
-          min={-180}
-          max={180}
-          step={1}
-          suffix="°"
-          onChange={(v) => setParam('gamma', v)}
-        />
-      )}
+      <ParamSlider
+        label={PARAM_LABELS[family].gamma}
+        value={gammaLocked ? (def.lockedGamma ?? 0) : gamma}
+        min={-180}
+        max={180}
+        step={1}
+        suffix="°"
+        disabled={gammaLocked}
+        tooltip={gammaTooltip}
+        onChange={(v) => setParam('gamma', v)}
+      />
 
       <ParamSlider
         label={PARAM_LABELS[family].scaleFactor}
@@ -370,13 +308,7 @@ export default function ControlPanel() {
         </div>
       )}
 
-      {!isAz && !isCyl && def.formulaDescription && (
-        <div className="text-[11px] text-neon-blue/50 italic">
-          {def.formulaDescription}
-        </div>
-      )}
-
-      {def.formulaDescription && isCyl && (
+      {def.formulaDescription && !isAz && (
         <div className="text-[11px] text-neon-blue/50 italic">
           {def.formulaDescription}
         </div>
