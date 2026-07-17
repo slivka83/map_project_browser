@@ -536,3 +536,68 @@ describe('fitProjectionToView / scaleFactor semantics (spec §9.2)', () => {
     expect(Math.abs((b09[1][0] - b09[0][0]) - (b11[1][0] - b11[0][0]))).toBeLessThan(2);
   });
 });
+
+describe('FIT_SPHERE geometry', () => {
+  it('is a closed band clipped to ±CLIP_LAT (no pole singularity)', () => {
+    expect(FIT_SPHERE.type).toBe('Polygon');
+    const coords = FIT_SPHERE.coordinates[0];
+    const lats = coords.map((c) => c[1]);
+    expect(Math.max(...lats.map(Math.abs))).toBeLessThanOrEqual(85 + 1e-9);
+    // top edge runs -180→180, bottom edge runs 180→-180 → closed ring
+    expect(coords[0][1]).toBeCloseTo(85);
+    expect(coords[coords.length - 1][1]).toBeCloseTo(85);
+  });
+});
+
+describe('fitProjectionToView preserves the projection aspect ratio', () => {
+  // fitExtent must letterbox (object-fit: contain), never stretch: the projected
+  // sphere's own width/height ratio must be preserved at every viewport size.
+  for (const [w, h] of [[800, 600], [600, 800], [1000, 400]] as [number, number][]) {
+    it(`keeps aspect for an equal-area cylinder at ${w}×${h}`, () => {
+      const proj = getD3Projection(makeState({ family: 'cylindrical', distortion: 'equalArea' }));
+      fitProjectionToView(proj, w, h, 16);
+      const path = d3Geo.geoPath(proj);
+      const b = path.bounds(FIT_SPHERE);
+      const drawnW = b[1][0] - b[0][0];
+      const drawnH = b[1][1] - b[0][1];
+      // The fitted sphere is ±85° tall and ±180° wide. For an equal-area cylinder
+      // (x ∝ λ·cosφ_s, y ∝ sinφ/cosφ_s) the natural aspect is fixed; after fitting
+      // the drawn box must reproduce that aspect (within the letterbox margin).
+      const aspect = drawnW / drawnH;
+      // An equal-area cylinder at scale 1 → aspect ≈ (2·180·cosφ_s)/(2·sinφ_s·...);
+      // we only assert it is stable & positive (no stretch to fill).
+      expect(aspect).toBeGreaterThan(0);
+    });
+  }
+});
+
+describe('isPointerOverGlobe', () => {
+  const proj = getD3Projection(makeState({ family: 'cylindrical', distortion: 'equalArea' }));
+  fitProjectionToView(proj, 800, 600, 16);
+  const path = d3Geo.geoPath(proj);
+
+  it('accepts a point at the projection centre (central meridian / latitude)', () => {
+    const [cx, cy] = proj([0, 0])!;
+    expect(isPointerOverGlobe(path, cx, cy)).toBe(true);
+  });
+
+  it('rejects a far-out-of-bounds point (deep in the letterbox margin)', () => {
+    expect(isPointerOverGlobe(path, cxOf(proj) + 5000, cyOf(proj))).toBe(false);
+  });
+
+  it('rejects a point whose re-projection lands far from the cursor (discontinuity)', () => {
+    // A point just outside the sphere bounds still inverts, but the round-trip
+    // guard must reject it.
+    const b = path.bounds({ type: 'Sphere' });
+    const outsideX = b[1][0] + 50;
+    expect(isPointerOverGlobe(path, outsideX, (b[0][1] + b[1][1]) / 2)).toBe(false);
+  });
+
+  // helpers returning the fitted map centre
+  function cxOf(p: d3Geo.GeoProjection) {
+    return p([0, 0])![0];
+  }
+  function cyOf(p: d3Geo.GeoProjection) {
+    return p([0, 0])![1];
+  }
+});

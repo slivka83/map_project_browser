@@ -5,7 +5,6 @@ import type { ProjectionParams } from '../store/useAppStore';
 import {
   RADIUS,
   RAY_COUNT,
-  MAP_SCALE,
   AUX_LENGTH,
   CLIP_LAT,
   CONE_Y_BASE,
@@ -14,6 +13,8 @@ import {
   AZIMUTHAL_POINT_DEG,
   VIEW_CENTER_Y,
   standardParallelDeg,
+  worldPerPixel,
+  parallelBeamLength,
 } from '../constants/geometry';
 
 export type Vec3 = [number, number, number];
@@ -85,10 +86,6 @@ export function projectionRotationMatrix(lambda0: number, phiOrigin: number, gam
   const cZ = img(90, 0); // +Z-ish (lon 90, lat 0)
   return [cX[0], cY[0], cZ[0], cX[1], cY[1], cZ[1], cX[2], cY[2], cZ[2]];
 }
-
-// pixels -> world units. Chosen so the unrolled map width (2π·100·scaleFactor px)
-// wraps exactly around the auxiliary cylinder (circumference 2π·RADIUS·scaleFactor).
-const worldPerPixel = (radius: number) => radius / MAP_SCALE;
 
 // The standard parallel (conic tangent latitude), in radians. Magnitude so a
 // southern phiOrigin yields a cone pointing south — consistent across
@@ -662,7 +659,7 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
   const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight);
   const cy = VIEW_CENTER_Y;
   const wpp = worldPerPixel(radius);
-  const PARALLEL_LEN = AUX_LENGTH * radius;
+  const PARALLEL_LEN = parallelBeamLength(radius);
 
   // The rays are bound to the tube and rotate with it: the landing is taken from
   // the UNTILTED projection (gamma = 0), so a tilt merely rotates the whole rigid
@@ -736,8 +733,9 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
       const yCone = coneAxialHeight(latRad, cone, radius);
       const radCone = scaleFactor * Math.abs(cone.sign * cone.apex - yCone) * cone.tanA;
       localEnd = [radCone, yCone, 0];
-      const coneSurface = surface.kind === 'cone' ? surface : (computeAuxSurfaceParams('conic', lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma) as Extract<AuxSurfaceParams, { kind: 'cone' }>);
-      start = coneApexWorld(coneSurface, gamma);
+      // The conic branch is only reached when `surface` is a cone (computeAuxSurfaceParams
+      // returns a cone for the conic family), so it is safe to use it directly.
+      start = coneApexWorld(surface as Extract<AuxSurfaceParams, { kind: 'cone' }>, gamma);
     }
 
     const end = auxPointToWorld(surface, clampLocalToSurface(surface, localEnd));
@@ -788,11 +786,15 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
 
   const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight);
   const proj = getD3Projection({ family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight });
-  const projNoShift = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2, azLight });
+  // The UNTILTED, phiOrigin=0 projection. For the cylindrical family the central
+  // latitude and the tilt do not enter the projection rotation at all (rotZ = 0,
+  // and rotate only sees lambda0/phiOrigin), so `projNoShift` would be identical
+  // to `projFlat` here — `projFlat` is the single untilted projection used by the
+  // landing math for every family.
   const projFlat = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma: 0, stdParallel2, azLight });
   const cy = VIEW_CENTER_Y;
   const wpp = worldPerPixel(radius);
-  const PARALLEL_LEN = AUX_LENGTH * radius;
+  const PARALLEL_LEN = parallelBeamLength(radius);
 
   const { center, normal } = computeTangentBasis(lambda0, phiOrigin, radius);
   const phi2c = stdParallel2 != null ? stdParallel2 : phiOrigin;
@@ -803,7 +805,7 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
   let localEnd: Vec3 | null = null;
 
   if (family === 'cylindrical') {
-    const p = projNoShift([lon, lat]);
+    const p = projFlat([lon, lat]);
     if (!p || !isFinite(p[0]) || !isFinite(p[1])) return null;
     const r = radius * scaleFactor;
     localEnd = cylinderLocalEnd(projFlat, lon, lat, r, cy, wpp);
@@ -837,8 +839,7 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
     const radCone = scaleFactor * Math.abs(cone.sign * cone.apex - yCone) * cone.tanA;
     const theta = radCone > 1e-9 ? (dx * wpp) / radCone : 0;
     localEnd = [radCone * Math.cos(theta), yCone, radCone * Math.sin(theta)];
-    const coneSurface = surface.kind === 'cone' ? surface : (computeAuxSurfaceParams('conic', lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma) as Extract<AuxSurfaceParams, { kind: 'cone' }>);
-    start = coneApexWorld(coneSurface, gamma);
+    start = coneApexWorld(surface as Extract<AuxSurfaceParams, { kind: 'cone' }>, gamma);
   }
 
   if (!localEnd) return null;

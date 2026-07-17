@@ -7,6 +7,15 @@
 // the unrolled map width wraps exactly around the auxiliary surface.
 export const MAP_SCALE = 100;
 
+// Pixels → world units for a given sphere radius. Single source so every 3D
+// helper (rays, aux surface) agrees on the pixel/world scale factor.
+export const worldPerPixel = (radius: number): number => radius / MAP_SCALE;
+
+// Length of a "parallel" light beam (azimuthal light from infinity / orthographic),
+// expressed relative to the sphere radius. Single source so the beam length is
+// identical across the ray builders.
+export const parallelBeamLength = (radius: number): number => AUX_LENGTH * radius;
+
 // View-centre translate applied by getD3Projection (spec §4). The 3D ray math
 // reuses VIEW_CENTER_Y to stay aligned with the 2D pixel space.
 export const VIEW_CENTER_X = 400;

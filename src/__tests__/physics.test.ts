@@ -409,6 +409,12 @@ function cylinderLocalEndOrNull(
 // ray builder. This is the independent ground truth that catches any mirrored,
 // shifted, or scaled landing. Returns null when the landing is off the visible
 // map (e.g. orthographic far hemisphere).
+//
+// NOTE: the helpers below (rayEndToLonLat, tangentFromNormal, coneCheck) are
+// DELIBERATE re-implementations of the production transforms, not dead code to
+// be de-duplicated. They must stay independent of auxSurfaceGeometry so a
+// regression in the production transform is caught by the mismatch, not hidden
+// by sharing code. Do not replace them with production imports.
 function rayEndToLonLat(
   surface: ReturnType<typeof computeAuxSurfaceParams>,
   proj: ReturnType<typeof getD3Projection>,

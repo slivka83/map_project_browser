@@ -83,7 +83,7 @@ describe('docs ↔ code: removed features are documented as removed (not as curr
   });
   it('cylindrical rod control is gone from code and from live control descriptions', () => {
     // negative on the live store field / helper (they must not exist in code)
-    expect((projectionMapper as Record<string, unknown>)['computeCylindricalLightRod']).toBeUndefined();
+    expect(Object.prototype.hasOwnProperty.call(projectionMapper, 'computeCylindricalLightRod')).toBe(false);
     // if mentioned in docs it must be inside a historical correction note, not a live control list
     if (docsText.includes('Ось источника')) {
       expect(docsText).toMatch(/Ось источника[^\n]*удал|удал[^\n]*Ось источника|Ось источника[^\n]*removed/i);
@@ -163,8 +163,7 @@ describe('docs ↔ code: key exports are documented', () => {
   for (const name of exported) {
     it(`documents exported symbol ${name}`, () => {
       expect(
-        (projectionMapper as Record<string, unknown>)[name] !== undefined ||
-          (auxSurfaceGeometry as Record<string, unknown>)[name] !== undefined,
+        Object.prototype.hasOwnProperty.call(projectionMapper, name) || Object.prototype.hasOwnProperty.call(auxSurfaceGeometry, name),
       ).toBe(true);
       expectInDocs(name, `export ${name}`);
     });
@@ -185,7 +184,7 @@ describe('docs ↔ code: design tokens match', () => {
   ];
   for (const [name, hex] of checks) {
     it(`documents ${name} = ${hex}`, () => {
-      expect((designTokens as Record<string, unknown>)[name]).toBe(hex);
+      expect(Object.prototype.hasOwnProperty.call(designTokens, name) && (designTokens as Record<string, unknown>)[name]).toBe(hex);
       // tolerant: the token NAME must appear in the docs (value match already
       // verified above), regardless of how the doc phrases the assignment.
       expectInDocs(name, `${name} value`);
