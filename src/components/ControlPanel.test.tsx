@@ -109,6 +109,27 @@ describe('ControlPanel', () => {
     expect(useAppStore.getState().azLight).toBe('infinity');
   });
 
+  it('conformal azimuthal hides incompatible light sources in the dropdown', () => {
+    useAppStore.setState({ family: 'azimuthal', distortion: 'conformal', azLight: 'math' });
+    render(<ControlPanel />);
+    // Конформная азимутальная — только «Математическая» и «Из антипода»;
+    // «Из центра» (гномоническая) и «Из бесконечности» (ортографическая)
+    // не являются конформными, поэтому их быть не должно.
+    fireEvent.click(screen.getByRole('button', { name: 'Математическая' }));
+    expect(screen.queryByRole('button', { name: 'Из центра (гномоническая)' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Из бесконечности (ортографическая)' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Из антипода (стереографическая)' })).toBeTruthy();
+  });
+
+  it('non-conformal azimuthal shows all four light sources', () => {
+    useAppStore.setState({ family: 'azimuthal', distortion: 'equalArea', azLight: 'math' });
+    render(<ControlPanel />);
+    fireEvent.click(screen.getByRole('button', { name: 'Математическая' }));
+    expect(screen.getByRole('button', { name: 'Из центра (гномоническая)' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Из бесконечности (ортографическая)' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Из антипода (стереографическая)' })).toBeTruthy();
+  });
+
   it('toggles a secant conic (stdParallel2) and adjusts the second parallel', () => {
     render(<ControlPanel />);
     fireEvent.click(screen.getByRole('button', { name: 'Коническая' }));

@@ -67,6 +67,33 @@ describe('useAppStore', () => {
     expect(s.showTissot).toBe(false);
   });
 
+  it('conformal azimuthal only keeps compatible light sources (center/infinity reset to math)', () => {
+    // Несовместимый источник света («из центра») при конформной азимутальной
+    // не существует как конформная проекция — при смене искажения на conformal
+    // он должен быть переведён в допустимый «math».
+    useAppStore.setState({ family: 'azimuthal', distortion: 'equalArea', azLight: 'center' });
+    useAppStore.getState().setParam('distortion', 'conformal');
+    const s = useAppStore.getState();
+    expect(s.distortion).toBe('conformal');
+    expect(s.azLight).toBe('math');
+
+    // «Из антипода» (стереографическая) совместим с конформной — сохраняется.
+    useAppStore.setState({ family: 'azimuthal', distortion: 'equalArea', azLight: 'antipode' });
+    useAppStore.getState().setParam('distortion', 'conformal');
+    expect(useAppStore.getState().azLight).toBe('antipode');
+
+    // Смена на не-конформную искажения не трогает источник света.
+    useAppStore.setState({ family: 'azimuthal', distortion: 'conformal', azLight: 'center' });
+    useAppStore.getState().setParam('distortion', 'equalArea');
+    expect(useAppStore.getState().azLight).toBe('center');
+
+    // Фильтрация касается только азимутальной семьи: для цилиндрической
+    // конформная допустима со своими проекциями, azLight не сбрасывается.
+    useAppStore.setState({ family: 'cylindrical', distortion: 'equalArea', azLight: 'center' });
+    useAppStore.getState().setParam('distortion', 'conformal');
+    expect(useAppStore.getState().azLight).toBe('center');
+  });
+
   it('applies a preset, overwriting several fields at once (spec §9.1)', () => {
     const preset = {
       family: 'azimuthal' as const,

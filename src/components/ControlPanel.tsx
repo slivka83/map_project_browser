@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAppStore, type DistortionModel, type AzimuthalLight, type ProjectionFamily } from '../store/useAppStore';
 import { useProjectionParams } from '../store/selectors';
 import EpsgCatalog from './EpsgCatalog';
@@ -168,6 +168,19 @@ export default function ControlPanel() {
   const resetParams = useAppStore((s) => s.resetParams);
   const applyPreset = useAppStore((s) => s.applyPreset);
 
+  // Для азимутальной проекции не каждый источник света совместим с каждым
+  // типом искажения: конформная азимутальная существует только как
+  // стереографическая, поэтому для неё допустимы лишь «Математическая» и
+  // «Из антипода». Равновеликая и равнопромежуточная совместимы со всеми
+  // четырьмя режимами. Пользователь не должен видеть неработающие варианты.
+  const azimuthalLightOptions = useMemo(
+    () =>
+      distortion === 'conformal'
+        ? AZIMUTHAL_LIGHT_OPTIONS.filter((o) => o.value === 'math' || o.value === 'antipode')
+        : AZIMUTHAL_LIGHT_OPTIONS,
+    [distortion],
+  );
+
   return (
     <div className="flex flex-col gap-3.5 px-3 py-3">
       <div className="flex items-center gap-1">
@@ -242,7 +255,7 @@ export default function ControlPanel() {
         <LightSelect<AzimuthalLight>
           label="Источник света"
           value={azLight}
-          options={AZIMUTHAL_LIGHT_OPTIONS}
+          options={azimuthalLightOptions}
           onChange={(v) => setParam('azLight', v)}
         />
       )}

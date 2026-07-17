@@ -92,7 +92,7 @@ interface AppState extends ProjectionParams {
   applyPreset: (preset: Partial<ProjectionParams>) => void;
 }
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>((set, get) => ({
   ...defaultParamsForFamily('cylindrical'),
   showTissot: false,
   showBorders: false,
@@ -109,7 +109,19 @@ export const useAppStore = create<AppState>((set) => ({
   setHoverLonLat: (v, source) => set({ hoverLonLat: v, hoverSource: source ?? null }),
   setShowHoverRay: (value) => set({ showHoverRay: value }),
 
-  setParam: (key, value) => set({ [key]: value } as Pick<AppState, typeof key>),
+  setParam: (key, value) => {
+    if (key === 'distortion' && value === 'conformal') {
+      // Конформная азимутальная проекция существует только как стереографическая,
+      // поэтому для азимутальной семьи допустимы лишь режимы «math» и «antipode».
+      // Если текущий источник света несовместим, переводим в «math».
+      const s = get();
+      if (s.family === 'azimuthal' && s.azLight !== 'math' && s.azLight !== 'antipode') {
+        set({ distortion: value, azLight: 'math' });
+        return;
+      }
+    }
+    set({ [key]: value } as Pick<AppState, typeof key>);
+  },
   setShowTissot: (value) => set({ showTissot: value }),
   setShowBorders: (value) => set({ showBorders: value }),
   setShowIntersection: (value) => set({ showIntersection: value }),
