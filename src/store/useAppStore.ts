@@ -60,6 +60,9 @@ interface AppState extends ProjectionParams {
   geoJsonData: FeatureCollection | null;
   land50GeoJson: FeatureCollection | null;
   countriesGeoJson: FeatureCollection | null;
+  // True while the bundled geodata is being fetched (used to show a loading hint
+  // and to ignore a late response after unmount / re-fetch).
+  geoLoading: boolean;
   // 110m country borders, used by the lightweight (non-detailed) 2D map.
   countries110GeoJson: FeatureCollection | null;
   // When true the 2D map uses the detailed 50m land + country borders; otherwise the
@@ -98,6 +101,7 @@ export const useAppStore = create<AppState>((set) => ({
   land50GeoJson: null,
   countriesGeoJson: null,
   countries110GeoJson: null,
+  geoLoading: false,
   detailedMap: false,
   hoverLonLat: null,
   hoverSource: null,
@@ -114,6 +118,13 @@ export const useAppStore = create<AppState>((set) => ({
   resetParams: () => set((s) => ({ ...defaultParamsForFamily(s.family) })),
   applyPreset: (preset: Partial<ProjectionParams>) => set({ ...preset }),
   loadGeoData: async () => {
+    // A monotonically increasing token lets a later call supersede an earlier one
+    // (e.g. on a fast remount): only the most recent fetch may commit its result.
+    const token = (useAppStore.getState() as AppState & { _geoToken?: number })._geoToken ?? 0;
+    const next = token + 1;
+    (useAppStore.getState() as AppState & { _geoToken?: number })._geoToken = next;
+    set({ geoLoading: true });
+
     const load = async (url: string, object: string): Promise<FeatureCollection | null> => {
       try {
         const response = await fetch(url);
@@ -132,11 +143,15 @@ export const useAppStore = create<AppState>((set) => ({
       load('/countries-50m.json', 'countries'),
       load('/countries-110m.json', 'countries'),
     ]);
+    // Ignore stale results: if a newer load started while we were fetching, the
+    // newer call owns the committed state and this one must not overwrite it.
+    if ((useAppStore.getState() as AppState & { _geoToken?: number })._geoToken !== next) return;
     set({
       geoJsonData: land110,
       land50GeoJson: land50,
       countriesGeoJson: countries,
       countries110GeoJson: countries110,
+      geoLoading: false,
     });
   },
 }));

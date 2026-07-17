@@ -46,6 +46,7 @@ export default function Map2D() {
   const countriesGeoJson = useAppStore((s) => s.countriesGeoJson);
   const countries110GeoJson = useAppStore((s) => s.countries110GeoJson);
   const geoJsonData = useAppStore((s) => s.geoJsonData);
+  const geoLoading = useAppStore((s) => s.geoLoading);
   const hoverLonLat = useAppStore((s) => s.hoverLonLat);
   const hoverSource = useAppStore((s) => s.hoverSource);
   const setHoverLonLat = useAppStore((s) => s.setHoverLonLat);
@@ -53,9 +54,13 @@ export default function Map2D() {
   // Detailed 2D map (50m land + 50m country borders) when enabled; otherwise the
   // lightweight 110m land shared with the 3D globe, drawn with 110m borders.
   // If the detailed 50m land failed to load, fall back to the lightweight 110m
-  // land so enabling "Детализация карты" never blanks the whole map.
-  const baseLand = detailedMap ? (land50GeoJson ?? geoJsonData) : geoJsonData;
-  const borders = detailedMap ? (countriesGeoJson ?? countries110GeoJson) : countries110GeoJson;
+  // land so enabling "Детализация карты" never blanks the whole map. Memoised so
+  // the datasets are only re-picked when the relevant inputs actually change.
+  const { baseLand, borders } = useMemo(() => {
+    const land = detailedMap ? land50GeoJson ?? geoJsonData : geoJsonData;
+    const border = detailedMap ? countriesGeoJson ?? countries110GeoJson : countries110GeoJson;
+    return { baseLand: land, borders: border };
+  }, [detailedMap, land50GeoJson, geoJsonData, countriesGeoJson, countries110GeoJson]);
 
   const { ref, size } = useElementSize();
   const width = size.width || 800;
@@ -132,6 +137,11 @@ export default function Map2D() {
 
   return (
     <div ref={ref} style={containerStyle}>
+      {!baseLand && (
+        <div className={`${glassPanel} absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 px-3 py-1.5 text-[12px] text-neon-blue`}>
+          {geoLoading ? 'Загрузка геоданных…' : 'Нет геоданных'}
+        </div>
+      )}
       {baseLand && (
         <svg
           width="100%"
