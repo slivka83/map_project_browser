@@ -13,11 +13,9 @@ const MARKER_R = 0.13;
 // (developable) surface — the unrolled surface IS the 2D map, so the landing
 // points are where those globe points end up on the map. A brighter ray is
 // drawn for the point currently hovered (in either the 3D globe or the 2D map),
-// making the "globe point → map point" link explicit. `math` mode (no physical
-// light) draws the beams as dashed formula vectors (docs/specification.md §3).
+// making the "globe point → map point" link explicit. All beams are drawn as
+// solid lines regardless of the family / light-source mode.
 export default function Rays({ params }: { params: ProjectionParams }) {
-  const { family, azLight } = params;
-  const dashed = family === 'azimuthal' && azLight === 'math';
   const hoverLonLat = useAppStore((s) => s.hoverLonLat);
   const hoverSource = useAppStore((s) => s.hoverSource);
   const showHoverRay = useAppStore((s) => s.showHoverRay);
@@ -52,9 +50,6 @@ export default function Rays({ params }: { params: ProjectionParams }) {
             transparent
             opacity={0.85}
             depthTest={false}
-            dashed={dashed}
-            dashSize={0.6}
-            gapSize={0.4}
           />
           <mesh position={seg.globe} renderOrder={11}>
             <sphereGeometry args={[MARKER_R, 12, 12]} />
@@ -75,9 +70,6 @@ export default function Rays({ params }: { params: ProjectionParams }) {
             transparent
             opacity={1}
             depthTest={false}
-            dashed={dashed}
-            dashSize={0.6}
-            gapSize={0.4}
           />
         </group>
       )}

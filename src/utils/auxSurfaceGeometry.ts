@@ -619,7 +619,12 @@ export function computeAuxSphereIntersectionsLonLat(
 ): [number, number][][] {
   const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight);
   const rings = computeAuxSphereIntersections(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2);
-  return rings.map((ring) => ring.map((p) => vec3ToLonLat(auxPointToWorld(surface, p))));
+  // Для azimuthal кольцо уже построено в мировых координатах (на сфере, в
+  // точке касания) — повторно прогонять его через auxPointToWorld нельзя (это
+  // сдвинуло бы кольцо). У cylinder/cone точки локальные, поэтому их переводим.
+  return rings.map((ring) =>
+    ring.map((p) => (surface.kind === 'plane' ? vec3ToLonLat(p) : vec3ToLonLat(auxPointToWorld(surface, p)))),
+  );
 }
 
 // axial height of latitude `latRad` on the developable cone (tangent at sp)

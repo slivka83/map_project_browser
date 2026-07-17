@@ -695,6 +695,32 @@ describe('aux-surface ↔ globe intersection physics', () => {
     closeTo(lat, 25, 0.5);
   });
 
+  it('azimuthal ring is already in world space (no auxPointToWorld in the render path)', () => {
+    // Regression: the azimuthal intersection ring is built directly on the
+    // sphere (world coordinates) at the tangent point. The render path (and
+    // computeAuxSphereIntersectionsLonLat) must NOT pass it through
+    // auxPointToWorld again, or the ring would be shifted away from the contact
+    // point. Verify the 2D lon/lat ring lands at (lambda0, phiOrigin) and that
+    // re-applying auxPointToWorld would actually move it (proving the skip is
+    // what keeps it correct).
+    const lambda0 = 40;
+    const phiOrigin = 25;
+    const surface = computeAuxSurfaceParams('azimuthal', lambda0, phiOrigin, 1, RADIUS, null, 0);
+    const ll = computeAuxSphereIntersectionsLonLat('azimuthal', lambda0, phiOrigin, 1, RADIUS)[0];
+    const c = ll.reduce((acc, p) => [acc[0] + p[0], acc[1] + p[1]], [0, 0] as [number, number]);
+    const lon = c[0] / ll.length;
+    const lat = c[1] / ll.length;
+    closeTo(lon, lambda0, 0.5);
+    closeTo(lat, phiOrigin, 0.5);
+    // Applying auxPointToWorld (the old, buggy path) must move the ring off the
+    // contact point — otherwise this test would not protect against a regression.
+    const raw = computeAuxSphereIntersections('azimuthal', lambda0, phiOrigin, 1, RADIUS)[0];
+    const moved = raw.map((p) => auxPointToWorld(surface, p));
+    const mc = moved.reduce((acc, p) => [acc[0] + p[0], acc[1] + p[1], acc[2] + p[2]], [0, 0, 0] as [number, number, number]);
+    const [mlon, mlat] = vec3ToLonLat([mc[0] / moved.length, mc[1] / moved.length, mc[2] / moved.length]);
+    expect(Math.hypot(mlon - lambda0, mlat - phiOrigin)).toBeGreaterThan(1);
+  });
+
   it('conic secant surface passes through both standard parallels', () => {
     const phi1 = 30;
     const phi2 = 50;
