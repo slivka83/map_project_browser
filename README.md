@@ -13,7 +13,7 @@
 - **Tailwind CSS v4** — стилизация (тёмная «космическая» тема)
 - **Zustand** — глобальное состояние
 - **three** + **@react-three/fiber** + **@react-three/drei** — 3D-сцена
-- **d3-geo**, **d3-geo-projection**, **topojson-client** — 2D-карта и проекционная математика
+- **d3-geo**, **topojson-client** — 2D-карта и проекционная математика
 - **Vitest** + **React Testing Library** + **jsdom** — тесты
 
 Приложение полностью клиентское (SPA), без бэкенда и внешних API.
@@ -60,8 +60,7 @@ npm run dev      # дев-сервер (http://localhost:5173)
 | `src/components/EpsgCatalog.tsx` | Модальный каталог EPSG-пресетов (через `createPortal`)          |
 | `src/constants/designTokens.ts` | Общая палитра `NEON_BLUE` / `NEON_ORANGE` / `BG` и производные  |
 | `src/constants/geometry.ts`  | Общие числовые константы (`MAP_SCALE`, `VIEW_CENTER_*`, `RADIUS`, `RAY_COUNT`, …) и `standardParallelDeg` |
-| `src/store/selectors.ts`     | `useProjectionParams()` / `useGeoData()` — мемоизированные селекторы стора |
-| `src/utils/threeHelpers.ts`  | `quatFromNormal` — кватернион поворота +Z на нормаль (3D-сцена) |
+| `src/store/selectors.ts`     | `useProjectionParams()` — мемоизированный селектор стора |
 | `src/components/ui/`         | Общие иконки (`icons.tsx`), стили (`styles.ts`) и подписи (`labels.ts`) |
 | `src/App.tsx`                | Компоновка из трёх панелей + загрузка геоданных при монтировании   |
 
@@ -123,9 +122,8 @@ object-fit: contain), поэтому глобус всегда заполняе�
 - `NEON_ORANGE` `#ff6a00` — каркас вспомогательной поверхности
 - `NEON_YELLOW` `#ffe600` — источник света и лучи проекции
 - `NEON_WHITE` `#ffffff` — диски пересечения вспомогательной поверхности с глобусом
-- `PANEL_BG` `#0b0b14` — фон стеклянных панелей
-- `NEON_BLUE_SOFT` / `NEON_BLUE_LINE` / `NEON_ORANGE_SOFT` — альфа-варианты неона
-- Стеклянные панели: `bg-white/5 backdrop-blur-md border-white/10`
+- `NEON_BLUE_LINE` / `NEON_ORANGE_SOFT` — альфа-варианты неона
+- Стеклянные панели: `bg-panel-bg` (CSS-переменная `--color-panel-bg`) + `backdrop-blur` + тонкая рамка
 
 ## Тестирование
 
@@ -145,7 +143,7 @@ WebGL/`<Canvas>` и атрибуты `d` SVG-путей (хрупко и зав�
 Если вы работаете в смонтированном Windows-диске (`/mnt/d`, 9P/DrvFS), `npm install`
 там падает с `ENOTDIR` при создании `node_modules`, а испорченный dentry не удаляется
 изнутри контейнера. В этом окружении зависимости устанавливаются на нативную ФС
-(`/tmp/opencode/mbp-deps/node_modules`), а `node_modules` в проекте — симлинк на неё
+(`~/mbp-deps/node_modules`), а `node_modules` в проекте — симлинк на неё
 (исходники остаются локальными, `preserveSymlinks` не нужен); `vite.config.ts`
 использует `server.watch.usePolling`, так как DrvFS не шлёт `inotify`-события и HMR
 иначе не срабатывает. На обычных Linux/macOS/CI это не нужно — достаточно

@@ -18,13 +18,13 @@ body,
 }
 
 body {
-  background-color: #05050a;
-  color: #00e5ff;
+  background-color: var(--color-space-bg);
+  color: #d1d5db;
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
 .neon-text {
-  color: #00e5ff;
-  text-shadow: 0 0 5px #00e5ff;
+  color: var(--color-neon-blue);
+  text-shadow: 0 0 5px var(--color-neon-blue);
 }

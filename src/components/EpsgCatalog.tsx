@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { EPSG_PRESETS } from '../constants/epsgPresets';
 import type { ProjectionParams } from '../store/useAppStore';
@@ -34,6 +34,14 @@ export default function EpsgCatalog({ onClose, applyPreset }: Props) {
   const [typeSel, setTypeSel] = useState('');
   const [distortionSel, setDistortionSel] = useState('');
   const [unitSel, setUnitSel] = useState('');
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
   const familyOptions = useMemo(
     () => Array.from(new Set(EPSG_PRESETS.map((e) => FAMILY_LABEL[e.params.family]))),

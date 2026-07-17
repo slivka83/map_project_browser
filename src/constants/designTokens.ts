@@ -10,6 +10,15 @@ export const BG = '#05050A';
 export const NEON_BLUE_LINE = 'rgba(0, 229, 255, 0.55)';
 export const NEON_ORANGE_SOFT = 'rgba(255, 106, 0, 0.4)';
 
+// Muted stroke for the map graticule (parallels/meridians grid).
+export const GRATICULE_STROKE = '#334155';
+
 // Thin divider line + glow between the control panel and the 3D globe column.
 export const NEON_DIVIDER = 'rgba(0, 229, 255, 0.16)';
 export const NEON_DIVIDER_GLOW = '0 0 3px rgba(0, 229, 255, 0.28), 0 0 6px rgba(0, 229, 255, 0.15)';
+
+// Neon underlay behind the left column (ControlPanel + GlobeScene): a thin
+// neon-blue border with a soft inner/outer glow.
+export const NEON_UNDERLAY_BORDER = '1px solid rgba(0, 229, 255, 0.30)';
+export const NEON_UNDERLAY_BG = 'rgba(0, 229, 255, 0.04)';
+export const NEON_UNDERLAY_GLOW = '0 0 22px rgba(0, 229, 255, 0.18), inset 0 0 16px rgba(0, 229, 255, 0.06)';

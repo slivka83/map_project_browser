@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { ProjectionParams, AzimuthalLight } from '../store/useAppStore';
 import { FAMILY_LABEL, DISTORTION_LABEL } from './ui/labels';
@@ -39,6 +40,14 @@ function Row({ k, v }: { k: string; v: string }) {
 // exact geodetic parameters of the current projection (the old inline summary
 // block moved here so the control panel stays compact).
 export default function ProjectionSummary({ params, onClose }: { params: ProjectionParams; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"

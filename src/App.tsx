@@ -3,7 +3,7 @@ import { useAppStore } from './store/useAppStore';
 import ControlPanel from './components/ControlPanel';
 import Map2D from './components/Map2D';
 import GlobeScene from './components/GlobeScene';
-import { NEON_DIVIDER, NEON_DIVIDER_GLOW } from './constants/designTokens';
+import { NEON_DIVIDER, NEON_DIVIDER_GLOW, NEON_UNDERLAY_BORDER, NEON_UNDERLAY_BG, NEON_UNDERLAY_GLOW } from './constants/designTokens';
 
 export default function App() {
   const loadGeoData = useAppStore((s) => s.loadGeoData);
@@ -18,9 +18,9 @@ export default function App() {
         <div
           className="relative flex min-h-0 flex-1 flex-col rounded-lg p-3"
           style={{
-            border: '1px solid rgba(0, 229, 255, 0.30)',
-            background: 'rgba(0, 229, 255, 0.04)',
-            boxShadow: '0 0 22px rgba(0, 229, 255, 0.18), inset 0 0 16px rgba(0, 229, 255, 0.06)',
+            border: NEON_UNDERLAY_BORDER,
+            background: NEON_UNDERLAY_BG,
+            boxShadow: NEON_UNDERLAY_GLOW,
           }}
         >
           <div className="pb-3">

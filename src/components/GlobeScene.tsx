@@ -1,4 +1,4 @@
-import { useMemo, type ComponentType } from 'react';
+import { useMemo } from 'react';
 import { Canvas, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { useAppStore } from '../store/useAppStore';
@@ -8,12 +8,9 @@ import AuxSurface from './AuxSurface';
 import IntersectionDisks from './IntersectionDisks';
 import LightSource from './LightSource';
 import Rays from './Rays';
-import { computeAuxSurfaceParams, lonLatToVec3, vec3ToLonLat, type AuxSurfaceParams } from '../utils/auxSurfaceGeometry';
+import { computeAuxSurfaceParams, lonLatToVec3, vec3ToLonLat } from '../utils/auxSurfaceGeometry';
 import { RADIUS } from '../constants/geometry';
 import { NEON_YELLOW } from '../constants/designTokens';
-import type { ProjectionParams } from '../store/useAppStore';
-
-type SurfaceProps = { surface: AuxSurfaceParams; params: ProjectionParams };
 
 export default function GlobeScene() {
   const params = useProjectionParams();
@@ -55,7 +52,7 @@ export default function GlobeScene() {
     <Canvas camera={{ position: [0, 5, 42], fov: 50 }} className="rounded-lg">
       <OrbitControls makeDefault enablePan={false} enableDamping dampingFactor={0.08} minDistance={18} maxDistance={90} />
       <Globe geoJson={geoJson} />
-      <AuxSurface surface={surface} params={params} />
+      <AuxSurface surface={surface} />
       <IntersectionDisks surface={surface} params={params} />
       <LightSource surface={surface} params={params} />
       <Rays params={params} />

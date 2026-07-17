@@ -7,7 +7,7 @@ import { useProjectionParams } from '../store/selectors';
 import { getD3Projection, fitProjectionToView, computeAreaDistortion, isPointerOverGlobe } from '../utils/projectionMapper';
 import { computeTissotCircles } from '../utils/tissot';
 import { computeAuxSphereIntersectionsLonLat } from '../utils/auxSurfaceGeometry';
-import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT, NEON_YELLOW, NEON_WHITE } from '../constants/designTokens';
+import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT, NEON_YELLOW, NEON_WHITE, GRATICULE_STROKE } from '../constants/designTokens';
 import { iconBtnPlain, iconGlow } from './ui/styles';
 import { TissotIcon, BorderIcon, DetailIcon, IntersectionIcon, HoverRayIcon } from './ui/icons';
 import { FIT_MARGIN } from '../constants/geometry';
@@ -143,7 +143,7 @@ export default function Map2D() {
           onPointerMove={handlePointerMove}
           onPointerLeave={() => setHoverLonLat(null)}
         >
-          <path d={graticulePath} fill="none" stroke="#334155" strokeWidth={0.5} />
+          <path d={graticulePath} fill="none" stroke={GRATICULE_STROKE} strokeWidth={0.5} />
           {(baseLand as FeatureCollection).features.map((feature, i) => (
             <path
               key={i}
@@ -192,8 +192,9 @@ export default function Map2D() {
           title="Индикатрисы Тиссо"
           aria-label="Индикатрисы Тиссо"
           onClick={() => setShowTissot(!showTissot)}
+          aria-pressed={showTissot}
           className={iconBtnPlain}
-          style={{ color: showTissot ? '#00e5ff' : undefined, filter: iconGlow(showTissot) }}
+          style={{ color: showTissot ? NEON_BLUE : undefined, filter: iconGlow(showTissot) }}
         >
           <TissotIcon />
         </button>
@@ -201,8 +202,9 @@ export default function Map2D() {
           title="Детализация карты"
           aria-label="Детализация карты"
           onClick={() => setDetailedMap(!detailedMap)}
+          aria-pressed={detailedMap}
           className={iconBtnPlain}
-          style={{ color: detailedMap ? '#00e5ff' : undefined, filter: iconGlow(detailedMap) }}
+          style={{ color: detailedMap ? NEON_BLUE : undefined, filter: iconGlow(detailedMap) }}
         >
           <DetailIcon />
         </button>
@@ -210,8 +212,9 @@ export default function Map2D() {
           title="Границы стран"
           aria-label="Границы стран"
           onClick={() => setShowBorders(!showBorders)}
+          aria-pressed={showBorders}
           className={iconBtnPlain}
-          style={{ color: showBorders ? '#00e5ff' : undefined, filter: iconGlow(showBorders) }}
+          style={{ color: showBorders ? NEON_BLUE : undefined, filter: iconGlow(showBorders) }}
         >
           <BorderIcon />
         </button>
@@ -219,8 +222,9 @@ export default function Map2D() {
           title="Линии пересечения поверхности с глобусом"
           aria-label="Линии пересечения поверхности с глобусом"
           onClick={() => setShowIntersection(!showIntersection)}
+          aria-pressed={showIntersection}
           className={iconBtnPlain}
-          style={{ color: showIntersection ? '#00e5ff' : undefined, filter: iconGlow(showIntersection) }}
+          style={{ color: showIntersection ? NEON_BLUE : undefined, filter: iconGlow(showIntersection) }}
         >
           <IntersectionIcon />
         </button>
@@ -228,8 +232,9 @@ export default function Map2D() {
           title="Луч проекции по курсору (показывать при наведении на карту)"
           aria-label="Луч проекции по курсору (показывать при наведении на карту)"
           onClick={() => setShowHoverRay(!showHoverRay)}
+          aria-pressed={showHoverRay}
           className={iconBtnPlain}
-          style={{ color: showHoverRay ? '#00e5ff' : undefined, filter: iconGlow(showHoverRay) }}
+          style={{ color: showHoverRay ? NEON_BLUE : undefined, filter: iconGlow(showHoverRay) }}
         >
           <HoverRayIcon />
         </button>
@@ -240,7 +245,7 @@ export default function Map2D() {
         title="Средневзвешенное искажение площадей при текущих настройках"
       >
         Искажение площади:{' '}
-        <span className="text-[#ffe600]">{formatDistortion(areaDistortion)}</span>%
+        <span style={{ color: NEON_YELLOW }}>{formatDistortion(areaDistortion)}</span>%
       </div>
       <a
         href="https://stepik.org/a/258792"

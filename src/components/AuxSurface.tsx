@@ -2,14 +2,13 @@ import { useMemo } from 'react';
 import { Line } from '@react-three/drei';
 import { NEON_ORANGE } from '../constants/designTokens';
 import { computeAuxGraticule, auxPointToWorld, type Vec3, type AuxSurfaceParams } from '../utils/auxSurfaceGeometry';
-import type { ProjectionParams } from '../store/useAppStore';
 
 // Auxiliary (developable) surface, drawn as a fully transparent neon wireframe
 // of its own meridians and parallels (orange, matching the aux-surface palette).
 // Geometry is computed once in GlobeScene and passed down; it is pushed through
 // `auxPointToWorld` — the exact transform the rays use — so the wireframe and
 // the light rays can never drift apart.
-export default function AuxSurface({ surface, params }: { surface: AuxSurfaceParams; params: ProjectionParams }) {
+export default function AuxSurface({ surface }: { surface: AuxSurfaceParams }) {
   const { meridians, parallels } = useMemo(
     () => computeAuxGraticule(surface),
     [surface],

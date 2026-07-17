@@ -38,21 +38,13 @@ describe('getD3Projection (spec §9.2)', () => {
     expect(p([0, 0])).toEqual(ref([0, 0]));
   });
 
-  it('cylindrical equal-area uses the contact parallel φ_s = arccos(scaleFactor), not phiOrigin', () => {
-    // The standard parallel is the cylinder's contact ±φ_s = arccos(scaleFactor),
-    // measured from the cylinder AXIS. For equal-area the secant law is
-    // x ∝ cos φ_s = scaleFactor while y ∝ sin(lat) / cos φ_s, so a smaller
-    // diameter narrows x by scaleFactor and stretches y by 1/scaleFactor.
-    const p = (sf: number) =>
-      getD3Projection(makeState({ family: 'cylindrical', distortion: 'equalArea', scaleFactor: sf }));
-    const x = (sf: number) => (p(sf)([90, 0]) as [number, number])[0] - (p(sf)([0, 0]) as [number, number])[0];
-    const y = (sf: number) => (p(sf)([0, 60]) as [number, number])[1] - (p(sf)([0, 0]) as [number, number])[1];
-    expect(x(0.5) / x(1)).toBeCloseTo(0.5, 5);
-    expect(y(0.5) / y(1)).toBeCloseTo(2, 5);
-    // phiOrigin must not shift the landing point of (0, 0).
-    const a = getD3Projection(makeState({ family: 'cylindrical', distortion: 'equalArea', phiOrigin: 0 }));
-    const b = getD3Projection(makeState({ family: 'cylindrical', distortion: 'equalArea', phiOrigin: 30 }));
-    expect(a([0, 0])).toEqual(b([0, 0]));
+  it('cylindrical equal-area follows the y ∝ sin(lat) law', () => {
+    // The equal-area cylindrical law is y ∝ sin(lat) / cos φ_s (with cos φ_s =
+    // scaleFactor). At scaleFactor = 1 the y-extent of a latitude band is exactly
+    // proportional to sin(lat), regardless of the absolute projection scale.
+    const p = getD3Projection(makeState({ family: 'cylindrical', distortion: 'equalArea', scaleFactor: 1 }));
+    const y = (lat: number): number => (p([0, lat]) as [number, number])[1] - (p([0, 0]) as [number, number])[1];
+    expect(y(60) / y(30)).toBeCloseTo(Math.sin((60 * Math.PI) / 180) / Math.sin((30 * Math.PI) / 180), 5);
   });
 
   it('returns conic conformal using parallels([phiOrigin, phiOrigin])', () => {

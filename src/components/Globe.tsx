@@ -48,29 +48,37 @@ function Graticule() {
 }
 
 function Coastlines({ geoJson }: { geoJson: FeatureCollection }) {
-  const rings = useMemo<Vec3[][]>(() => {
-    const out: Vec3[][] = [];
-    const collect = (geom: Geometry) => {
-      if (geom.type === 'Polygon') {
-        for (const ring of geom.coordinates) out.push(ring.map(([lon, lat]) => lonLatToVec3(lon, lat, RADIUS * GLOBE_INFLATE)));
-      } else if (geom.type === 'MultiPolygon') {
-        for (const poly of geom.coordinates) {
-          for (const ring of poly) out.push(ring.map(([lon, lat]) => lonLatToVec3(lon, lat, RADIUS * GLOBE_INFLATE)));
-        }
+  // Collect every coastline ring, then flatten all of them into a single
+  // LineSegments geometry (consecutive vertex pairs = one segment). This draws
+  // the whole 110m coastline in ONE draw call instead of one <Line> per ring
+  // (hundreds of draw calls), which matters once a denser 50m dataset is used.
+  const segments = useMemo<Float32Array>(() => {
+    const verts: number[] = [];
+    const pushRing = (ring: [number, number][]) => {
+      for (let i = 0; i < ring.length - 1; i++) {
+        const a = lonLatToVec3(ring[i][0], ring[i][1], RADIUS * GLOBE_INFLATE);
+        const b = lonLatToVec3(ring[i + 1][0], ring[i + 1][1], RADIUS * GLOBE_INFLATE);
+        verts.push(a[0], a[1], a[2], b[0], b[1], b[2]);
       }
     };
-    for (const f of geoJson.features) {
-      if (f.geometry) collect(f.geometry);
-    }
-    return out;
+    const collect = (geom: Geometry) => {
+      if (geom.type === 'Polygon') {
+        for (const ring of geom.coordinates) pushRing(ring as [number, number][]);
+      } else if (geom.type === 'MultiPolygon') {
+        for (const poly of geom.coordinates) for (const ring of poly) pushRing(ring as [number, number][]);
+      }
+    };
+    for (const f of geoJson.features) if (f.geometry) collect(f.geometry);
+    return new Float32Array(verts);
   }, [geoJson]);
 
   return (
-    <group>
-      {rings.map((pts, i) => (
-        <Line key={i} points={pts} color={NEON_BLUE} lineWidth={1} transparent opacity={0.95} />
-      ))}
-    </group>
+    <lineSegments>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[segments, 3]} />
+      </bufferGeometry>
+      <lineBasicMaterial color={NEON_BLUE} transparent opacity={0.95} />
+    </lineSegments>
   );
 }
 

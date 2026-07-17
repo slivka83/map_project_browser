@@ -12,7 +12,7 @@
 * **Фреймворк:** React 18+ (Vite).
 * **Стейт-менеджер:** Zustand.
 * **3D-движок:** `@react-three/fiber` (R3F), `@react-three/drei`.
-* **Математика и 2D:** `d3-geo`, `d3-geo-projection`.
+* **Математика и 2D:** `d3-geo`, `topojson-client`.
 * **Стилизация:** Tailwind CSS.
 
 ## 2. Структура проекта (Обязательная)
@@ -26,13 +26,12 @@ src/
 │   └── ui/           # Общие иконки (icons.tsx), стили (styles.ts), подписи (labels.ts)
 ├── store/
 │   ├── useAppStore.ts  # Единый источник истины
-│   └── selectors.ts    # useProjectionParams() / useGeoData()
+│   └── selectors.ts    # useProjectionParams()
 ├── utils/
 │   ├── projectionMapper.ts     # Маппинг параметров в D3 функции
-│   ├── auxSurfaceGeometry.ts   # Единый источник геометрии поверхности/колец/лучей
-│   └── threeHelpers.ts         # quatFromNormal (кватернион поворота)
+│   └── auxSurfaceGeometry.ts   # Единый источник геометрии поверхности/колец/лучей
 ├── constants/       # designTokens.ts, geometry.ts, epsgPresets.ts
-└── types/           # index.ts (реэкспорт типов), d3-geo-projection.d.ts (декларация)
+└── types/           # index.ts (реэкспорт типов)
 
 ```
 Геоданные лежат в `public/` (не в `src/assets/`): `world-110m.topojson`, `land-50m.json`,
