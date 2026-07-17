@@ -22,5 +22,5 @@ export const iconBtnPlain =
   'flex h-9 w-9 items-center justify-center text-neon-blue/80 transition hover:text-neon-blue';
 export const iconGlow = (active: boolean): string =>
   active
-    ? `drop-shadow(0 0 6px ${NEON_BLUE}) drop-shadow(0 0 12px rgba(0,229,255,0.8))`
+    ? `drop-shadow(0 0 8px ${NEON_BLUE}) drop-shadow(0 0 18px rgba(0,229,255,1)) drop-shadow(0 0 30px rgba(0,229,255,0.7))`
     : 'drop-shadow(0 0 4px rgba(0,229,255,0.45))';
