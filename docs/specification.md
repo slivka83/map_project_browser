@@ -80,8 +80,9 @@ export const getD3Projection = (state: AppState) => {
   // - азимутальная -> d3.geoStereographic...
   
   // ПРИМЕНЕНИЕ:
+  const rotZ = state.family === 'cylindrical' ? 0 : -state.gamma; // цилиндрическая: наклон не вращает карту (карта — развертка трубы в её СОБСТВЕННОМ кадре), наклон учтён в 3D-геометрии
   proj = proj
-    .rotate([-state.lambda0, -state.phiOrigin, -state.gamma]) // Вращение (отрицательные знаки; 3-й компонент — наклон)
+    .rotate([-state.lambda0, -state.phiOrigin, rotZ]) // Вращение (отрицательные знаки; 3-й компонент — наклон, только коническая/азимутальная)
     .scale(MAP_SCALE * state.scaleFactor) // Масштаб (MAP_SCALE = 100); константа из src/constants/geometry.ts
     .translate([VIEW_CENTER_X + state.falseEasting, VIEW_CENTER_Y + state.falseNorthing]); // Смещение
     // Константы MAP_SCALE / VIEW_CENTER_X(400) / VIEW_CENTER_Y(300) — в src/constants/geometry.ts
