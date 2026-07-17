@@ -23,31 +23,6 @@ function makeCylindricalEquidistant(phi0Rad: number): GeoProjection {
   return d3Geo.geoProjection(raw);
 }
 
-// Conformal (Mercator-family) cylindrical projection whose standard parallel is
-// `phi0Rad` — a SECANT Mercator. Raw: x = λ·cos φ0, y = cos φ0·ln(tan(π/4+φ/2)).
-// A uniform scale cos φ0 makes the map true-to-scale on ±φ0 (the cylinder's
-// contact parallels) while PRESERVING conformality everywhere (Mercator is
-// conformal under any uniform scale). This is the physically correct conformal
-// cylinder: an immersed (secant) cylinder of radius r<R touches the globe at
-// ±arccos(r/R), so its standard parallel is NOT the equator — it is the contact.
-// A tangent cylinder (r = R) reduces to ordinary Mercator (φ0 = 0).
-function makeCylindricalConformal(phi0Rad: number): GeoProjection {
-  const cos0 = Math.cos(phi0Rad);
-  type RawProjection = ((λ: number, φ: number) => [number, number]) & {
-    invert?: (x: number, y: number) => [number, number];
-  };
-  const raw: RawProjection = (λ: number, φ: number): [number, number] => {
-    // d3 passes λ, φ in RADIANS; the raw projection also returns RADIANS.
-    const y = cos0 * Math.log(Math.tan(Math.PI / 4 + φ / 2));
-    return [λ * cos0, y];
-  };
-  raw.invert = (x: number, y: number): [number, number] => {
-    const lat = 2 * Math.atan(Math.exp(y / cos0)) - Math.PI / 2;
-    return [x / cos0, lat];
-  };
-  return d3Geo.geoProjection(raw);
-}
-
 export const getD3Projection = (state: ProjectionParams): GeoProjection => {
   const { family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, azLight } = state;
 
@@ -56,18 +31,21 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
   if (family === 'cylindrical') {
     // The cylinder radius is `scaleFactor`·R, so it meets the globe at the contact
     // parallels ±φ_s where cos φ_s = scaleFactor (φ_s = arccos(scaleFactor)). Those
-    // are the standard parallels (true scale) of the developed surface — for EVERY
-    // distortion type, including the conformal one (a secant Mercator, not a plain
-    // tangent Mercator). The contact is measured from the CYLINDER AXIS; the tilt
-    // (gamma) re-orients that axis, so after the d3 rotation below the cylinder's
-    // equator is the tilted axis and the contact is ±φ_s from it — i.e. tilting the
-    // cylinder moves the low-distortion band with it (Antarctica on the new equator
-    // keeps the least scale error). phiOrigin only re-centres the view along the
-    // axis and must NOT shift the standard parallel.
-    const phiS = (Math.acos(clampScale(scaleFactor)) * 180) / Math.PI;
+    // are the (true-scale) standard parallels of the developed surface — for the
+    // conformal family a uniformly-scaled Mercator: rendering uses d3's plain
+    // `geoMercator()` (a tangent Mercator, whose SHAPE is independent of the
+    // uniform scale, so a secant conformal cylinder looks identical). The
+    // cylinder's CONTACT (±φ_s) is what moves with the tilt: the d3 rotation below
+    // re-orients the cylinder axis, so tilting the cylinder (gamma) carries the
+    // low-distortion band to the new cylinder equator (Antarctica on it keeps the
+    // least scale error). `computeAreaDistortion` references the contact ±φ_s, so
+    // the reported distortion still drops as the diameter shrinks. Equal-area /
+    // equidistant set their standard parallel directly to the contact (measured
+    // from the cylinder axis, not from phiOrigin).
     if (distortion === 'conformal') {
-      proj = makeCylindricalConformal((phiS * Math.PI) / 180);
+      proj = d3Geo.geoMercator();
     } else if (distortion === 'equalArea') {
+      const phiS = (Math.acos(clampScale(scaleFactor)) * 180) / Math.PI;
       proj = geoCylindricalEqualArea().parallel(clampLat(phiS));
     } else {
       proj = makeCylindricalEquidistant(Math.acos(clampScale(scaleFactor)));
