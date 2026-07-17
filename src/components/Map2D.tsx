@@ -8,7 +8,7 @@ import { getD3Projection, fitProjectionToView, computeAreaDistortion, isPointerO
 import { computeTissotCircles } from '../utils/tissot';
 import { computeAuxSphereIntersectionsLonLat } from '../utils/auxSurfaceGeometry';
 import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT, NEON_YELLOW, NEON_WHITE } from '../constants/designTokens';
-import { mapIconBtn, iconGlow } from './ui/styles';
+import { iconBtnPlain, iconGlow } from './ui/styles';
 import { TissotIcon, BorderIcon, DetailIcon, IntersectionIcon, HoverRayIcon } from './ui/icons';
 import { FIT_MARGIN } from '../constants/geometry';
 
@@ -192,7 +192,7 @@ export default function Map2D() {
           title="Индикатрисы Тиссо"
           aria-label="Индикатрисы Тиссо"
           onClick={() => setShowTissot(!showTissot)}
-          className={mapIconBtn}
+          className={iconBtnPlain}
           style={{ color: showTissot ? '#00e5ff' : undefined, filter: iconGlow(showTissot) }}
         >
           <TissotIcon />
@@ -201,7 +201,7 @@ export default function Map2D() {
           title="Детализация карты"
           aria-label="Детализация карты"
           onClick={() => setDetailedMap(!detailedMap)}
-          className={mapIconBtn}
+          className={iconBtnPlain}
           style={{ color: detailedMap ? '#00e5ff' : undefined, filter: iconGlow(detailedMap) }}
         >
           <DetailIcon />
@@ -210,7 +210,7 @@ export default function Map2D() {
           title="Границы стран"
           aria-label="Границы стран"
           onClick={() => setShowBorders(!showBorders)}
-          className={mapIconBtn}
+          className={iconBtnPlain}
           style={{ color: showBorders ? '#00e5ff' : undefined, filter: iconGlow(showBorders) }}
         >
           <BorderIcon />
@@ -219,8 +219,8 @@ export default function Map2D() {
           title="Линии пересечения поверхности с глобусом"
           aria-label="Линии пересечения поверхности с глобусом"
           onClick={() => setShowIntersection(!showIntersection)}
-          className={mapIconBtn}
-          style={{ color: showIntersection ? NEON_WHITE : undefined, filter: iconGlow(showIntersection) }}
+          className={iconBtnPlain}
+          style={{ color: showIntersection ? '#00e5ff' : undefined, filter: iconGlow(showIntersection) }}
         >
           <IntersectionIcon />
         </button>
@@ -228,8 +228,8 @@ export default function Map2D() {
           title="Луч проекции по курсору (показывать при наведении на карту)"
           aria-label="Луч проекции по курсору (показывать при наведении на карту)"
           onClick={() => setShowHoverRay(!showHoverRay)}
-          className={mapIconBtn}
-          style={{ color: showHoverRay ? NEON_YELLOW : undefined, filter: iconGlow(showHoverRay) }}
+          className={iconBtnPlain}
+          style={{ color: showHoverRay ? '#00e5ff' : undefined, filter: iconGlow(showHoverRay) }}
         >
           <HoverRayIcon />
         </button>
