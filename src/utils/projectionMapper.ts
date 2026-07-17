@@ -123,19 +123,18 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
     else proj = d3Geo.geoAzimuthalEquidistant();
   }
 
-  // Apply rotation / scale / translate from the store state (spec §4). The 2D
-  // map is the projection ONTO the (developable) surface. Tilting a cylinder is
-  // geometrically equivalent to tilting the GLOBE relative to the (fixed, straight)
-  // cylinder — i.e. it shifts the cylinder's central latitude. So for the
-  // cylindrical family `gamma` is folded into `phiOrigin` (NOT as a roll/third
-  // rotation component, which would skew the map into an "egg"). The map therefore
-  // stays a straight rectangle (precision(0) keeps its parallels flat) while its
-  // CONTENT (coastlines, graticule) shifts exactly as the 3D tube does when tilted.
-  // Conic / azimuthal genuinely change their orientation in space, so they keep
-  // the true `gamma` roll.
-  const tiltLat = family === 'cylindrical' ? phiOrigin + gamma : phiOrigin;
+  // Apply rotation / scale / translate from the store state (spec §4). The 2D map
+  // is the projection ONTO the (developable) surface in the surface's OWN frame.
+  // For the cylindrical family the map is the unrolled tube and must NOT know
+  // about the tube's tilt in space — `gamma` is left out of the rotation, so the
+  // map is invariant under the cylinder tilt (the 3D tube simply rotates in space;
+  // its flat development does not change). The rays are bound to the tube and
+  // rotate with it (via auxPointToWorld), so the map still shows exactly what the
+  // rays project onto the tube — just in the tube's own frame. Conic / azimuthal
+  // keep the true `gamma` roll (their orientation genuinely changes in space).
+  const rotZ = family === 'cylindrical' ? 0 : -gamma;
   proj
-    .rotate([-(lambda0), -tiltLat, family === 'cylindrical' ? 0 : -gamma])
+    .rotate([-(lambda0), -phiOrigin, rotZ])
     .scale(MAP_SCALE * scaleFactor)
     .translate([VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing]);
 

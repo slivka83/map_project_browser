@@ -450,13 +450,10 @@ export function computeAuxSurfaceParams(
     const height = Math.min(AUX_LENGTH * radius * AUX_SIZE_CAP, Math.max(AUX_LENGTH * radius * 0.5, band));
     // The cylinder is always equatorial and does NOT translate with the
     // central-latitude slider (variant A), so phiOrigin does not move the 3D tube.
-    // Tilting the cylinder is geometrically equivalent to tilting the GLOBE
-    // relative to the (fixed) cylinder, i.e. it shifts the cylinder's central
-    // latitude — so gamma is folded in here as that latitude shift (exactly as the
-    // 2D map does: rotate([-(lambda0), -(phiOrigin + gamma), 0])), keeping the 3D
-    // tube and the 2D map on one logic. phiOrigin itself is left out of the 3D
-    // orientation (variant A).
-    const orient = projectionRotationMatrix(lambda0, gamma, 0);
+    // The tilt (gamma) only ROTATES the rigid tube in space (its size is fixed at
+    // gamma = 0); the rays are bound to the tube and rotate with it via
+    // auxPointToWorld. The map (unrolled tube) is invariant under this rotation.
+    const orient = projectionRotationMatrix(lambda0, 0, gamma);
     // Height is fixed at gamma = 0 (tilting only rotates, never resizes). The
     // rays are built from the UNTILTED projection too, so their latitude→y extent
     // already matches this band exactly: the landing y is `-dy * wpp` (no extra
@@ -718,19 +715,12 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
   const wpp = worldPerPixel(radius);
   const PARALLEL_LEN = AUX_LENGTH * radius;
 
-  // For the cylinder the tilt (gamma) is geometrically a shift of the cylinder's
-  // central latitude (see projectionMapper.ts), NOT a roll — so a tilted cylinder
-  // keeps a STRAIGHT central-meridian fan (no spiral). The ray's landing uses the
-  // projection that folds gamma into phiOrigin (so the rays and the 2D map agree
-  // on the tilt); the central-latitude *slider* (phiOrigin) does NOT move the 3D
-  // tube (variant A), so it is kept at 0 here — only the tilt gamma re-lands the
-  // rays. For conic / azimuthal the tilt is a true roll, so we use the UNTILTED
-  // projection (gamma = 0, phiOrigin = 0) to keep the fan straight; the roll is
-  // applied by `orient` only.
-  const projFlat =
-    family === 'cylindrical'
-      ? getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2, azLight })
-      : getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma: 0, stdParallel2, azLight });
+  // The rays are bound to the tube and rotate with it: the landing is taken from
+  // the UNTILTED projection (gamma = 0), so a tilt merely rotates the whole rigid
+  // fan with the cylinder (via auxPointToWorld) — it does not re-land the rays or
+  // bend the fan. This keeps the rays attached to the tube (synchronous rotation).
+  // Conic / azimuthal keep the same untilted projection for the fan too.
+  const projFlat = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma: 0, stdParallel2, azLight });
   const proj = getD3Projection({
     family,
     distortion,

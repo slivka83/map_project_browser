@@ -128,31 +128,33 @@ describe('getD3Projection — light source & visual params (spec концепт)
     expect(p([0, 0])).toEqual(ref([0, 0]));
   });
 
-  it('cylindrical folds the tilt (gamma) into the central latitude, not as a roll', () => {
-    // Tilting the cylinder is geometrically a shift of the cylinder's central
-    // latitude (the globe tilts relative to the fixed cylinder), so gamma is added
-    // to phiOrigin in the d3 rotation — the map redraws but stays a straight
-    // rectangle (no "egg"). It is NOT a roll (rot[2] stays 0 for cylindrical).
+  it('cylindrical 2D map ignores the tilt (gamma) — it is the unrolled tube', () => {
+    // The map is the projection ONTO the cylinder in the cylinder's own frame, so
+    // it must NOT know about the cylinder's tilt in space. gamma is left out of the
+    // d3 rotation for the cylindrical family (unlike conic / azimuthal): tilting the
+    // 3D tube merely rotates it in space; its flat development (the map) is invariant.
+    // The rays are bound to the tube and rotate with it, so the map still shows
+    // exactly what the rays project onto the tube — in the tube's own frame.
     const p = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', lambda0: 15, phiOrigin: 5, gamma: 40 }));
     const rot = p.rotate();
     expect(rot[0]).toBeCloseTo(-15);
-    expect(rot[1]).toBeCloseTo(-(5 + 40));
+    expect(rot[1]).toBeCloseTo(-5);
     expect(rot[2]).toBeCloseTo(0);
   });
 
-  it('cylindrical rotation uses lambda0/phiOrigin and folds gamma into phiOrigin', () => {
+  it('cylindrical rotation uses lambda0/phiOrigin and leaves gamma out', () => {
     // The central meridian is set by lambda0 (the "Поворот вокруг Земли" control);
-    // the tilt (gamma) shifts the central latitude so the map content redraws with
-    // the tilted tube.
+    // the tilt (gamma) does NOT change the unrolled map — the map does not know the
+    // cylinder is tilted in space.
     const p = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', lambda0: 15 }));
     expect(p.rotate()[0]).toBeCloseTo(-15);
     const tilted = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', lambda0: 15, gamma: 30 }));
-    expect(tilted.rotate()[1]).toBeCloseTo(-30);
     expect(tilted.rotate()[2]).toBeCloseTo(0);
-    // And the same globe point lands at a DIFFERENT pixel once gamma changes.
-    const a = p([55, 20]) as [number, number];
-    const b = tilted([55, 20]) as [number, number];
-    expect(Math.hypot(a[0] - b[0], a[1] - b[1])).toBeGreaterThan(1);
+    // And the same globe point lands at the identical pixel regardless of gamma.
+    const a = p([15, 20]) as [number, number];
+    const b = tilted([15, 20]) as [number, number];
+    expect(a[0]).toBeCloseTo(b[0]);
+    expect(a[1]).toBeCloseTo(b[1]);
   });
 
   it('azimuthal gnomonic honours lambda0/phiOrigin/gamma in its rotation', () => {

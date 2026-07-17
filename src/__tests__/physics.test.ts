@@ -321,15 +321,17 @@ describe('rays link globe point to map point', () => {
         }
       });
 
-      it(`${family}/${distortion}: the cylindrical 2D map redraws when the cylinder tilts (gamma)`, () => {
-        // Tilting the cylinder changes WHICH slice of the globe lands on the tube,
-        // so the map content must move: the same globe point lands at a different
-        // pixel when gamma changes. (The map FRAME stays a straight rectangle — no
-        // "egg" — but the coastlines/graticule shift, exactly like the 3D tube.)
+      it(`${family}/${distortion}: the cylindrical 2D map is INVARIANT under the tilt (gamma)`, () => {
+        // The map is the unrolled tube in the tube's own frame; tilting the 3D tube
+        // in space leaves its flat development unchanged, so the same globe point
+        // lands at the identical pixel regardless of gamma. The rays are bound to
+        // the tube and rotate with it, so the map still shows exactly what the rays
+        // project onto the tube.
         if (family !== 'cylindrical') return;
-        const a = getD3Projection({ ...p, gamma: 0 })([p.lambda0 + 40, 20]) as [number, number];
-        const b = getD3Projection({ ...p, gamma: 45 })([p.lambda0 + 40, 20]) as [number, number];
-        expect(Math.hypot(a[0] - b[0], a[1] - b[1])).toBeGreaterThan(1);
+        const a = getD3Projection({ ...p, gamma: 0 })([p.lambda0, 20]) as [number, number];
+        const b = getD3Projection({ ...p, gamma: 45 })([p.lambda0, 20]) as [number, number];
+        closeTo(a[0], b[0], 1e-9);
+        closeTo(a[1], b[1], 1e-9);
       });
 
       it(`${family}/${distortion}: cone rays land exactly on the cone lateral surface`, () => {
