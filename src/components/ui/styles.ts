@@ -3,7 +3,6 @@ import { NEON_BLUE } from '../../constants/designTokens';
 // Shared glass-panel + control styling (spec §5 "spaceship control panel" look).
 // Colors come from CSS variables defined in index.css @theme so Tailwind can
 // detect the literal class strings at build time.
-export const panelClass = 'bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-3';
 export const labelClass = 'text-[11px] uppercase tracking-wider text-neon-blue/80 whitespace-nowrap text-left';
 
 export const activeTab = 'z-10 bg-neon-blue/15 text-neon-blue shadow-[0_0_10px_var(--color-neon-blue-soft)]';

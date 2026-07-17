@@ -8,7 +8,7 @@ const latLabel = (deg: number): string => {
   return `${Math.abs(deg)}° ${deg > 0 ? 'с.ш.' : 'ю.ш.'}`;
 };
 
-// Human-readable projection class (docs/new_spec.md §4): the developable surface
+// Human-readable projection class (docs/specification.md §4): the developable surface
 // and the distortion model, with the azimuthal family resolved via its light source.
 function describeProjection(p: ProjectionParams): string {
   const fam = FAMILY_LABEL[p.family];

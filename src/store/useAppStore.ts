@@ -69,7 +69,7 @@ interface AppState extends ProjectionParams {
   detailedMap: boolean;
 
   // The point currently hovered in either the 2D map or the 3D globe, shared so
-  // the other view can mirror the highlight (docs/new_spec.md §2 cross-linking).
+  // the other view can mirror the highlight (docs/specification.md §2 cross-linking).
   // `hoverSource` records which view set it, so the projection ray is drawn only
   // when the 2D map is hovered (the 3D globe mirrors the marker, not the ray).
   hoverLonLat: [number, number] | null;

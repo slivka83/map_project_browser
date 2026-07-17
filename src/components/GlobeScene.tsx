@@ -1,3 +1,4 @@
+import { useMemo, type ComponentType } from 'react';
 import { Canvas, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { useAppStore } from '../store/useAppStore';
@@ -7,9 +8,12 @@ import AuxSurface from './AuxSurface';
 import IntersectionDisks from './IntersectionDisks';
 import LightSource from './LightSource';
 import Rays from './Rays';
-import { lonLatToVec3, vec3ToLonLat } from '../utils/auxSurfaceGeometry';
+import { computeAuxSurfaceParams, lonLatToVec3, vec3ToLonLat, type AuxSurfaceParams } from '../utils/auxSurfaceGeometry';
 import { RADIUS } from '../constants/geometry';
 import { NEON_YELLOW } from '../constants/designTokens';
+import type { ProjectionParams } from '../store/useAppStore';
+
+type SurfaceProps = { surface: AuxSurfaceParams; params: ProjectionParams };
 
 export default function GlobeScene() {
   const params = useProjectionParams();
@@ -19,7 +23,27 @@ export default function GlobeScene() {
   const showHoverRay = useAppStore((s) => s.showHoverRay);
   const setHoverLonLat = useAppStore((s) => s.setHoverLonLat);
 
-  // Shared hover linkage (docs/new_spec.md §2): hovering the globe reads the
+  // Single source of truth: compute the developable-surface geometry ONCE per
+  // frame-input change and hand it to every 3D sub-component, instead of each
+  // recomputing it independently. Keeps the wireframe, rays, rings and light
+  // marker in perfect alignment and avoids triple work.
+  const surface = useMemo(
+    () =>
+      computeAuxSurfaceParams(
+        params.family,
+        params.lambda0,
+        params.phiOrigin,
+        params.scaleFactor,
+        RADIUS,
+        params.stdParallel2,
+        params.gamma,
+        params.distortion,
+        params.azLight,
+      ),
+    [params.family, params.lambda0, params.phiOrigin, params.scaleFactor, params.distortion, params.azLight, params.stdParallel2, params.gamma],
+  );
+
+  // Shared hover linkage (docs/specification.md §2): hovering the globe reads the
   // (lon, lat) under the cursor and mirrors it into the 2D map (and vice-versa).
   const handleGlobeMove = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
@@ -29,12 +53,11 @@ export default function GlobeScene() {
 
   return (
     <Canvas camera={{ position: [0, 5, 42], fov: 50 }} className="rounded-lg">
-      <ambientLight intensity={0.8} />
       <OrbitControls makeDefault enablePan={false} enableDamping dampingFactor={0.08} minDistance={18} maxDistance={90} />
       <Globe geoJson={geoJson} />
-      <AuxSurface params={params} />
-      <IntersectionDisks params={params} />
-      <LightSource params={params} />
+      <AuxSurface surface={surface} params={params} />
+      <IntersectionDisks surface={surface} params={params} />
+      <LightSource surface={surface} params={params} />
       <Rays params={params} />
       <mesh onPointerMove={handleGlobeMove} onPointerOut={() => setHoverLonLat(null)}>
         <sphereGeometry args={[RADIUS, 48, 48]} />

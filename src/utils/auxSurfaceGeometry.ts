@@ -54,17 +54,6 @@ const DEG = Math.PI / 180;
 // ---- 3x3 matrix helpers (row-major, [m00, m01, m02, m10, ...]) ----
 export type Mat3 = number[];
 
-export function matMul(a: Mat3, b: Mat3): Mat3 {
-  const r = new Array(9).fill(0);
-  for (let i = 0; i < 3; i++)
-    for (let j = 0; j < 3; j++) {
-      let s = 0;
-      for (let k = 0; k < 3; k++) s += a[i * 3 + k] * b[k * 3 + j];
-      r[i * 3 + j] = s;
-    }
-  return r;
-}
-
 export function matVec(m: Mat3, v: Vec3): Vec3 {
   return [
     m[0] * v[0] + m[1] * v[1] + m[2] * v[2],
@@ -95,44 +84,6 @@ export function projectionRotationMatrix(lambda0: number, phiOrigin: number, gam
   const cY = img(0, 90); // +Y (north pole)
   const cZ = img(90, 0); // +Z-ish (lon 90, lat 0)
   return [cX[0], cY[0], cZ[0], cX[1], cY[1], cZ[1], cX[2], cY[2], cZ[2]];
-}
-
-// Rotate a world point about the Y axis by `a` radians (used to place the
-// surface's central meridian at longitude lambda0).
-function rotateAroundY(v: Vec3, a: number): Vec3 {
-  const c = Math.cos(a);
-  const s = Math.sin(a);
-  return [v[0] * c + v[2] * s, v[1], -v[0] * s + v[2] * c];
-}
-
-// Rotate a world point about the X axis by `a` radians (the `gamma` tilt that
-// produces oblique / transverse aspects).
-function rotateAroundX(v: Vec3, a: number): Vec3 {
-  const c = Math.cos(a);
-  const s = Math.sin(a);
-  return [v[0], v[1] * c - v[2] * s, v[1] * s + v[2] * c];
-}
-
-// Replicate Three.js Euler 'XYZ' order (R = Rx * Ry, Rz = 0): apply Ry then Rx.
-// `rotX`/`rotY` are in radians.
-export function applyEuler(v: Vec3, rotX: number, rotY: number): Vec3 {
-  return rotateAroundX(rotateAroundY(v, rotY), rotX);
-}
-
-// Rotate `v` about an arbitrary unit `axis` by `a` radians (Rodrigues).
-export function rotateAroundAxis(v: Vec3, axis: Vec3, a: number): Vec3 {
-  const [x, y, z] = axis;
-  const c = Math.cos(a);
-  const s = Math.sin(a);
-  const dot = v[0] * x + v[1] * y + v[2] * z;
-  const cx = y * v[2] - z * v[1];
-  const cy = z * v[0] - x * v[2];
-  const cz = x * v[1] - y * v[0];
-  return [
-    v[0] * c + cx * s + x * dot * (1 - c),
-    v[1] * c + cy * s + y * dot * (1 - c),
-    v[2] * c + cz * s + z * dot * (1 - c),
-  ];
 }
 
 // pixels -> world units. Chosen so the unrolled map width (2π·100·scaleFactor px)
@@ -361,7 +312,7 @@ export function circlePoints(radius: number, y: number, segments = RING_SEGMENTS
 
 // ---- Auxiliary (developable) surface parameters (pure; no Three.js) ----
 export type AuxSurfaceParams =
-  | { kind: 'cylinder'; radius: number; height: number; orient: Mat3; orientInv: Mat3; positionY: number; yScale: number }
+  | { kind: 'cylinder'; radius: number; height: number; orient: Mat3; orientInv: Mat3; positionY: number }
   | { kind: 'plane'; center: Vec3; normal: Vec3; size: number; tilt: number }
   | { kind: 'cone'; radius: number; height: number; positionY: number; flip: 1 | -1; tilt: number };
 
@@ -456,13 +407,11 @@ export function computeAuxSurfaceParams(
     const orient = projectionRotationMatrix(lambda0, 0, gamma);
     // Height is fixed at gamma = 0 (tilting only rotates, never resizes). The
     // rays are built from the UNTILTED projection too, so their latitude→y extent
-    // already matches this band exactly: the landing y is `-dy * wpp` (no extra
-    // yScale), which maps the full ±CLIP_LAT band into exactly ±height/2, so every
-    // latitude lands at its own distinct height — the rays fill the whole tube
-    // under any tilt without collapsing/merging. `yScale` stays 1 (kept on the
-    // surface for API stability / shared source of truth).
-    const yScale = 1;
-    return { kind: 'cylinder', radius: radius * scaleFactor, height, orient, orientInv: matTranspose(orient), positionY: 0, yScale };
+    // already matches this band exactly: the landing y is `-dy * wpp`, which maps
+    // the full ±CLIP_LAT band into exactly ±height/2, so every latitude lands at
+    // its own distinct height — the rays fill the whole tube under any tilt
+    // without collapsing/merging.
+    return { kind: 'cylinder', radius: radius * scaleFactor, height, orient, orientInv: matTranspose(orient), positionY: 0 };
   }
 
   if (family === 'azimuthal') {
@@ -499,7 +448,7 @@ export function computeAuxSurfaceParams(
 }
 
 // ---- Light-source geometry (single source of truth for the 3D light marker) ----
-// Mirrors the physical model in docs/new_spec.md §3.
+// Mirrors the physical model in docs/specification.md §3.
 
 // Azimuthal point-light position (world space). `center` → globe centre,
 // `antipode` → the point opposite the tangent point. `infinity` and `math`

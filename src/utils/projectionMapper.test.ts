@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as d3Geo from 'd3-geo';
 import { getD3Projection, fitProjectionToView, FIT_SPHERE, computeAreaDistortion, isPointerOverGlobe } from './projectionMapper';
-import { geoCylindricalEqualArea } from './d3GeoProjection';
 import type { ProjectionParams, ProjectionFamily, DistortionModel } from '../store/useAppStore';
 
 const makeState = (over: Partial<ProjectionParams> = {}): ProjectionParams => ({
@@ -39,14 +38,21 @@ describe('getD3Projection (spec §9.2)', () => {
     expect(p([0, 0])).toEqual(ref([0, 0]));
   });
 
-  it('returns cylindrical equal-area using the contact parallel (φ_s), not phiOrigin', () => {
+  it('cylindrical equal-area uses the contact parallel φ_s = arccos(scaleFactor), not phiOrigin', () => {
     // The standard parallel is the cylinder's contact ±φ_s = arccos(scaleFactor),
-    // measured from the cylinder AXIS (so it moves with the tilt), not from
-    // phiOrigin (which only re-centres the view). At scaleFactor = 1 (tangent)
-    // φ_s = 0, so the equal-area cylinder is parallel(0) regardless of phiOrigin.
-    const p = getD3Projection(makeState({ family: 'cylindrical', distortion: 'equalArea', phiOrigin: 30 }));
-    const ref = geoCylindricalEqualArea().parallel(0).rotate([0, -30]).scale(100).translate([400, 300]);
-    expect(p([0, 0])).toEqual(ref([0, 0]));
+    // measured from the cylinder AXIS. For equal-area the secant law is
+    // x ∝ cos φ_s = scaleFactor while y ∝ sin(lat) / cos φ_s, so a smaller
+    // diameter narrows x by scaleFactor and stretches y by 1/scaleFactor.
+    const p = (sf: number) =>
+      getD3Projection(makeState({ family: 'cylindrical', distortion: 'equalArea', scaleFactor: sf }));
+    const x = (sf: number) => (p(sf)([90, 0]) as [number, number])[0] - (p(sf)([0, 0]) as [number, number])[0];
+    const y = (sf: number) => (p(sf)([0, 60]) as [number, number])[1] - (p(sf)([0, 0]) as [number, number])[1];
+    expect(x(0.5) / x(1)).toBeCloseTo(0.5, 5);
+    expect(y(0.5) / y(1)).toBeCloseTo(2, 5);
+    // phiOrigin must not shift the landing point of (0, 0).
+    const a = getD3Projection(makeState({ family: 'cylindrical', distortion: 'equalArea', phiOrigin: 0 }));
+    const b = getD3Projection(makeState({ family: 'cylindrical', distortion: 'equalArea', phiOrigin: 30 }));
+    expect(a([0, 0])).toEqual(b([0, 0]));
   });
 
   it('returns conic conformal using parallels([phiOrigin, phiOrigin])', () => {

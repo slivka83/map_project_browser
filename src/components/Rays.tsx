@@ -14,7 +14,7 @@ const MARKER_R = 0.13;
 // points are where those globe points end up on the map. A brighter ray is
 // drawn for the point currently hovered (in either the 3D globe or the 2D map),
 // making the "globe point → map point" link explicit. `math` mode (no physical
-// light) draws the beams as dashed formula vectors (docs/new_spec.md §3).
+// light) draws the beams as dashed formula vectors (docs/specification.md §3).
 export default function Rays({ params }: { params: ProjectionParams }) {
   const { family, azLight } = params;
   const dashed = family === 'azimuthal' && azLight === 'math';
@@ -79,14 +79,6 @@ export default function Rays({ params }: { params: ProjectionParams }) {
             dashSize={0.6}
             gapSize={0.4}
           />
-          <mesh position={hoverRay.globe} renderOrder={12}>
-            <sphereGeometry args={[MARKER_R, 12, 12]} />
-            <meshBasicMaterial color={NEON_YELLOW} toneMapped={false} depthTest={false} />
-          </mesh>
-          <mesh position={hoverRay.end} renderOrder={12}>
-            <sphereGeometry args={[MARKER_R, 12, 12]} />
-            <meshBasicMaterial color={NEON_YELLOW} toneMapped={false} depthTest={false} />
-          </mesh>
         </group>
       )}
     </group>

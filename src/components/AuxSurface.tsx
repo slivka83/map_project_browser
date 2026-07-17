@@ -1,21 +1,15 @@
 import { useMemo } from 'react';
 import { Line } from '@react-three/drei';
 import { NEON_ORANGE } from '../constants/designTokens';
-import { RADIUS } from '../constants/geometry';
-import { computeAuxSurfaceParams, computeAuxGraticule, auxPointToWorld, type Vec3 } from '../utils/auxSurfaceGeometry';
+import { computeAuxGraticule, auxPointToWorld, type Vec3, type AuxSurfaceParams } from '../utils/auxSurfaceGeometry';
 import type { ProjectionParams } from '../store/useAppStore';
 
 // Auxiliary (developable) surface, drawn as a fully transparent neon wireframe
 // of its own meridians and parallels (orange, matching the aux-surface palette).
-// Geometry comes from the single source of truth in auxSurfaceGeometry and is
-// pushed through `auxPointToWorld` — the exact transform the rays use — so the
-// wireframe and the light rays can never drift apart.
-export default function AuxSurface({ params }: { params: ProjectionParams }) {
-  const { family, lambda0, phiOrigin, scaleFactor, distortion, azLight, stdParallel2, gamma } = params;
-  const surface = useMemo(
-    () => computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, RADIUS, stdParallel2, gamma, distortion, azLight),
-    [family, lambda0, phiOrigin, scaleFactor, distortion, azLight, stdParallel2, gamma],
-  );
+// Geometry is computed once in GlobeScene and passed down; it is pushed through
+// `auxPointToWorld` — the exact transform the rays use — so the wireframe and
+// the light rays can never drift apart.
+export default function AuxSurface({ surface, params }: { surface: AuxSurfaceParams; params: ProjectionParams }) {
   const { meridians, parallels } = useMemo(
     () => computeAuxGraticule(surface),
     [surface],
@@ -23,8 +17,10 @@ export default function AuxSurface({ params }: { params: ProjectionParams }) {
 
   const toWorld = useMemo(() => (p: Vec3): Vec3 => auxPointToWorld(surface, p), [surface]);
 
+  // NOTE: `auxPointToWorld` already bakes `positionY` into every world point,
+  // so the group must NOT re-apply it (that would double-offset cylinder/cone).
   return (
-    <group position={[0, surface.kind === 'plane' ? 0 : surface.positionY, 0]}>
+    <group>
       {parallels.map((pts, i) => (
         <Line key={`p${i}`} points={pts.map(toWorld)} color={NEON_ORANGE} lineWidth={0.8} transparent opacity={0.5} />
       ))}

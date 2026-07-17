@@ -13,9 +13,11 @@ const famBtn =
   'relative flex h-9 w-[54px] items-center justify-center transition';
 
 // Per-family physical labels for the shared params, matching the "direct
-// manipulation" vocabulary of docs/new_spec.md §2 (so the user sees e.g.
+// manipulation" vocabulary of docs/specification.md §2 (so the user sees e.g.
 // "Диаметр цилиндра" / "Смещение по оси Y" instead of generic λ₀/φ₀).
 const PARAM_LABELS: Record<ProjectionFamily, { lambda0: string; phiOrigin: string; gamma: string; scaleFactor: string }> = {
+  // NOTE: cylindrical has no phiOrigin slider (see render guard below); the
+  // value is kept only so the label map stays complete for the other families.
   cylindrical: {
     lambda0: 'Поворот вокруг Земли',
     phiOrigin: 'Центральная широта (φ₀)',

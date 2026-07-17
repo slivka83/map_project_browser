@@ -22,15 +22,11 @@ export const DISTORTION_LABEL: Record<DistortionModel, string> = Object.fromEntr
   DISTORTION_OPTIONS.map((o) => [o.value, o.label]),
 ) as Record<DistortionModel, string>;
 
-// Light-source (projection generator) options for the azimuthal and cylindrical
-// families — shared by the ControlPanel dropdowns and any future labels.
+// Light-source (projection generator) options for the azimuthal family — shared
+// by the ControlPanel dropdown and the EpsgCatalog table headers.
 export const AZIMUTHAL_LIGHT_OPTIONS: { value: AzimuthalLight; label: string }[] = [
   { value: 'center', label: 'Из центра (гномоническая)' },
   { value: 'antipode', label: 'Из антипода (стереографическая)' },
   { value: 'infinity', label: 'Из бесконечности (ортографическая)' },
   { value: 'math', label: 'Математическая' },
 ];
-
-export const AZIMUTHAL_LIGHT_LABEL: Record<AzimuthalLight, string> = Object.fromEntries(
-  AZIMUTHAL_LIGHT_OPTIONS.map((o) => [o.value, o.label]),
-) as Record<AzimuthalLight, string>;

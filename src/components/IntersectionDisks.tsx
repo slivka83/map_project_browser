@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Line } from '@react-three/drei';
 import { NEON_WHITE } from '../constants/designTokens';
-import { computeAuxSphereIntersections, computeAuxSurfaceParams, auxPointToWorld } from '../utils/auxSurfaceGeometry';
+import { computeAuxSphereIntersections, auxPointToWorld, type AuxSurfaceParams } from '../utils/auxSurfaceGeometry';
 import { RADIUS } from '../constants/geometry';
 import type { ProjectionParams } from '../store/useAppStore';
 
@@ -13,12 +13,14 @@ import type { ProjectionParams } from '../store/useAppStore';
 // the REAL intersection of the (possibly tilted) surface with the globe. A
 // cylinder tilts with its axis, so its intersection circles MOVE when the tilt
 // (gamma) changes — exactly like the 3D tube does.
-export default function IntersectionDisks({ params }: { params: ProjectionParams }) {
-  const { family, lambda0, phiOrigin, scaleFactor, stdParallel2, gamma, distortion, azLight } = params;
-  const surface = useMemo(
-    () => computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, RADIUS, stdParallel2, gamma, distortion, azLight),
-    [family, lambda0, phiOrigin, scaleFactor, stdParallel2, gamma, distortion, azLight],
-  );
+export default function IntersectionDisks({
+  surface,
+  params,
+}: {
+  surface: AuxSurfaceParams;
+  params: ProjectionParams;
+}) {
+  const { family, lambda0, phiOrigin, scaleFactor, stdParallel2 } = params;
   const circles = useMemo(() => {
     const raw = computeAuxSphereIntersections(family, lambda0, phiOrigin, scaleFactor, RADIUS, stdParallel2);
     // Azimuthal tangent point and cone/cylinder rings all live in the surface's
