@@ -122,6 +122,28 @@ describe('globe ↔ map projection consistency', () => {
       });
     }
   }
+
+  // Regression: the cylindrical map is a rectangular band — a parallel must render
+  // as a STRAIGHT horizontal line. The clipAngle/resampler variants bent the top
+  // and bottom edges into an arc, so the whole map looked like an "egg". With the
+  // resampler off (precision 0) every parallel stays flat (constant screen-y).
+  for (const distortion of DISTORTIONS) {
+    it(`cylindrical/${distortion}: a parallel renders as a straight horizontal line (no "egg")`, () => {
+      const proj = getD3Projection(base({ family: 'cylindrical', distortion }));
+      proj.scale(120).translate([400, 300]);
+      const path = d3Geo.geoPath().projection(proj);
+      for (const lat of [80, 60, 40, -40, -80]) {
+        const d = path({
+          type: 'LineString',
+          coordinates: [[-180, lat], [-90, lat], [0, lat], [90, lat], [180, lat]],
+        })!;
+        const ys = (d.match(/-?\d+(\.\d+)?/g) ?? [])
+          .map(Number)
+          .filter((_, i) => i % 2 === 1);
+        expect(Math.max(...ys) - Math.min(...ys)).toBeLessThan(0.01);
+      }
+    });
+  }
 });
 
 // ---------------------------------------------------------------------------

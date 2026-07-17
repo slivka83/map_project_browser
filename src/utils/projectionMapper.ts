@@ -25,6 +25,16 @@ function makeCylindricalProjection(
   const s = clampScale(scaleFactor);
   const phiS = Math.acos(s); // contact latitude from the cylinder axis (radians)
   const cosS = Math.cos(phiS);
+  // The tube is finite: latitudes beyond ±CLIP_LAT (measured from the cylinder
+  // axis, i.e. the LOCAL frame) are off the surface. We clamp φ into that band
+  // INSIDE the height law rather than using proj.clipAngle(): clipAngle cuts by a
+  // small-circle around the projection centre, which bends the top/bottom edges
+  // of the map into an arc (the "egg") — a normal cylindrical map's parallels
+  // must stay straight horizontal lines. Clamping φ keeps every parallel straight
+  // and the map a proper rectangular band, while still finite (no Mercator-pole
+  // infinity under a tilt).
+  const clipRad = (CLIP_LAT * Math.PI) / 180;
+  const clampPhi = (φ: number): number => Math.max(-clipRad, Math.min(clipRad, φ));
   type RawProjection = ((λ: number, φ: number) => [number, number]) & {
     invert?: (x: number, y: number) => [number, number];
   };
@@ -34,7 +44,7 @@ function makeCylindricalProjection(
     // Uniform scale cosφ_s keeps it conformal and makes φ_s true-to-scale.
     raw = ((λ: number, φ: number): [number, number] => [
       λ * cosS,
-      cosS * Math.log(Math.tan(Math.PI / 4 + φ / 2)),
+      cosS * Math.log(Math.tan(Math.PI / 4 + clampPhi(φ) / 2)),
     ]) as RawProjection;
     raw.invert = (x: number, y: number): [number, number] => [
       x / cosS,
@@ -42,17 +52,22 @@ function makeCylindricalProjection(
     ];
   } else if (distortion === 'equalArea') {
     // x = λ·cosφ_s, y = sinφ / cosφ_s  → area scale = cosφ_s (constant) on the band.
-    raw = ((λ: number, φ: number): [number, number] => [λ * cosS, Math.sin(φ) / cosS]) as RawProjection;
+    raw = ((λ: number, φ: number): [number, number] => [λ * cosS, Math.sin(clampPhi(φ)) / cosS]) as RawProjection;
     raw.invert = (x: number, y: number): [number, number] => [x / cosS, Math.asin(Math.max(-1, Math.min(1, y * cosS)))];
   } else {
     // Equidistant: x = λ·cosφ_s, y = φ  (aspect narrows as the diameter shrinks).
-    raw = ((λ: number, φ: number): [number, number] => [λ * cosS, φ]) as RawProjection;
+    raw = ((λ: number, φ: number): [number, number] => [λ * cosS, clampPhi(φ)]) as RawProjection;
     raw.invert = (x: number, y: number): [number, number] => [x / cosS, y];
   }
   const proj = d3Geo.geoProjection(raw);
-  // Clip to the finite tube: keep only points within ±CLIP_LAT of the cylinder
-  // axis (the local equator). Points beyond are off the tube — no infinity.
-  proj.clipAngle(CLIP_LAT);
+  // precision(0) disables adaptive resampling. With it ON, d3's resampler treats
+  // the rotate-wrapped cylindrical projection as oblique and approximates each
+  // segment with great-circle arcs — bending the straight top/bottom parallels
+  // into an arc, so the whole map looked like an "egg". Turning it off keeps the
+  // parallels straight (a proper rectangular cylindrical map); the input data
+  // (graticule / coastlines) already carry enough vertices to stay smooth, and
+  // under a tilt the straight-in-data lines correctly bend on the globe.
+  proj.precision(0);
   return proj;
 }
 
