@@ -321,14 +321,15 @@ describe('rays link globe point to map point', () => {
         }
       });
 
-      it(`${family}/${distortion}: the 2D cylindrical map changes with the tilt (gamma)`, () => {
-        // The user requires the 2D map to actually reflect the tilt, not stay a
-        // fixed rectangle while only the 3D scene moves. The same globe point must
-        // land at a DIFFERENT pixel when gamma changes.
+      it(`${family}/${distortion}: the cylindrical 2D map is INVARIANT under the tilt (gamma)`, () => {
+        // The map is the projection onto the cylinder in the cylinder's OWN frame;
+        // it must not know about the cylinder's tilt in space. Tilting the 3D tube
+        // rotates it in space but leaves its flat development (the map) unchanged.
         if (family !== 'cylindrical') return;
         const a = getD3Projection({ ...p, gamma: 0 })([p.lambda0, 20]) as [number, number];
         const b = getD3Projection({ ...p, gamma: 45 })([p.lambda0, 20]) as [number, number];
-        expect(Math.hypot(a[0] - b[0], a[1] - b[1])).toBeGreaterThan(1);
+        closeTo(a[0], b[0], 1e-9);
+        closeTo(a[1], b[1], 1e-9);
       });
 
       it(`${family}/${distortion}: cone rays land exactly on the cone lateral surface`, () => {

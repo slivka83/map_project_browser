@@ -123,15 +123,17 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
     else proj = d3Geo.geoAzimuthalEquidistant();
   }
 
-  // Apply rotation / scale / translate from the store state (spec §4). The tilt
-  // `gamma` is folded into EVERY family's projection — including the cylindrical
-  // one. The 3D scene shows the cylinder as a tube that tilts in space, and the
-  // rays land on it at the tilted positions; the unrolled 2D map must be the very
-  // same projection (an oblique / transverse cylindrical map under gamma) so the
-  // map always matches where the rays hit the tube. This keeps the 2D map and the
-  // 3D scene on ONE consistent logic: the surface is one object.
+  // Apply rotation / scale / translate from the store state (spec §4). The map
+  // is the projection ONTO the (developable) surface in the surface's OWN frame,
+  // so it must NOT know about the surface's tilt in space. For the cylindrical
+  // family the tilt `gamma` is therefore deliberately LEFT OUT: the unrolled map
+  // shows the projection onto the cylinder and is invariant under the 3D tilt
+  // (the 3D tube simply rotates in space; the map is its flat development). The
+  // conic/azimuthal families DO fold gamma in, because their tilt genuinely
+  // changes what is projected (the plane/cone orientation in space).
+  const rotZ = family === 'cylindrical' ? 0 : -gamma;
   proj
-    .rotate([-(lambda0), -phiOrigin, -gamma])
+    .rotate([-(lambda0), -phiOrigin, rotZ])
     .scale(MAP_SCALE * scaleFactor)
     .translate([VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing]);
 
