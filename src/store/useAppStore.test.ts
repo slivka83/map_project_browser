@@ -67,25 +67,25 @@ describe('useAppStore', () => {
     expect(s.showTissot).toBe(false);
   });
 
-  it('conformal azimuthal only keeps compatible light sources (center/infinity reset to math)', () => {
-    // Несовместимый источник света («из центра») при конформной азимутальной
-    // не существует как конформная проекция — при смене искажения на conformal
-    // он должен быть переведён в допустимый «math».
+  it('conformal azimuthal fixes the light source to antipode (select hidden)', () => {
+    // Конформная азимутальная существует только как стереографическая, и оба
+    // допустимых режима дают одну карту, поэтому переключатель скрывается, а
+    // источник фиксируется в «antipode» (канонический источник стереографической).
     useAppStore.setState({ family: 'azimuthal', distortion: 'equalArea', azLight: 'center' });
     useAppStore.getState().setParam('distortion', 'conformal');
     const s = useAppStore.getState();
     expect(s.distortion).toBe('conformal');
-    expect(s.azLight).toBe('math');
+    expect(s.azLight).toBe('antipode');
 
-    // «Из антипода» (стереографическая) совместим с конформной — сохраняется.
-    useAppStore.setState({ family: 'azimuthal', distortion: 'equalArea', azLight: 'antipode' });
+    // Любой другой режим при смене на conformal тоже сводится к «antipode».
+    useAppStore.setState({ family: 'azimuthal', distortion: 'equalArea', azLight: 'math' });
     useAppStore.getState().setParam('distortion', 'conformal');
     expect(useAppStore.getState().azLight).toBe('antipode');
 
     // Смена на не-конформную искажения не трогает источник света.
-    useAppStore.setState({ family: 'azimuthal', distortion: 'conformal', azLight: 'center' });
+    useAppStore.setState({ family: 'azimuthal', distortion: 'conformal', azLight: 'antipode' });
     useAppStore.getState().setParam('distortion', 'equalArea');
-    expect(useAppStore.getState().azLight).toBe('center');
+    expect(useAppStore.getState().azLight).toBe('antipode');
 
     // Фильтрация касается только азимутальной семьи: для цилиндрической
     // конформная допустима со своими проекциями, azLight не сбрасывается.

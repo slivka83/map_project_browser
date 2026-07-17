@@ -112,11 +112,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   setParam: (key, value) => {
     if (key === 'distortion' && value === 'conformal') {
       // Конформная азимутальная проекция существует только как стереографическая,
-      // поэтому для азимутальной семьи допустимы лишь режимы «math» и «antipode».
-      // Если текущий источник света несовместим, переводим в «math».
+      // и оба допустимых режима («math» и «antipode») дают одну и ту же карту,
+      // поэтому переключатель скрывается, а источник фиксируется в «antipode»
+      // (канонический источник стереографической проекции).
       const s = get();
-      if (s.family === 'azimuthal' && s.azLight !== 'math' && s.azLight !== 'antipode') {
-        set({ distortion: value, azLight: 'math' });
+      if (s.family === 'azimuthal' && s.azLight !== 'antipode') {
+        set({ distortion: value, azLight: 'antipode' });
         return;
       }
     }

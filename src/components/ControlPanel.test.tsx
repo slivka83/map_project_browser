@@ -109,22 +109,23 @@ describe('ControlPanel', () => {
     expect(useAppStore.getState().azLight).toBe('infinity');
   });
 
-  it('conformal azimuthal hides incompatible light sources in the dropdown', () => {
-    useAppStore.setState({ family: 'azimuthal', distortion: 'conformal', azLight: 'math' });
+  it('conformal azimuthal keeps the light-source select visible but disabled (both modes identical)', () => {
+    useAppStore.setState({ family: 'azimuthal', distortion: 'conformal', azLight: 'antipode' });
     render(<ControlPanel />);
-    // Конформная азимутальная — только «Математическая» и «Из антипода»;
-    // «Из центра» (гномоническая) и «Из бесконечности» (ортографическая)
-    // не являются конформными, поэтому их быть не должно.
-    fireEvent.click(screen.getByRole('button', { name: 'Математическая' }));
-    expect(screen.queryByRole('button', { name: 'Из центра (гномоническая)' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Из бесконечности (ортографическая)' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Из антипода (стереографическая)' })).toBeTruthy();
+    // Переключатель остаётся видимым, но неактивным: оба допустимых режима
+    // дают одну стереографическую проекцию, поэтому выбор бесполезен.
+    expect(screen.getByText('Источник света')).toBeTruthy();
+    const trigger = screen.getByRole('button', { name: 'Из антипода (стереографическая)' });
+    expect((trigger as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it('non-conformal azimuthal shows all four light sources', () => {
+  it('non-conformal azimuthal shows all four light sources and is enabled', () => {
     useAppStore.setState({ family: 'azimuthal', distortion: 'equalArea', azLight: 'math' });
     render(<ControlPanel />);
-    fireEvent.click(screen.getByRole('button', { name: 'Математическая' }));
+    expect(screen.getByText('Источник света')).toBeTruthy();
+    const trigger = screen.getByRole('button', { name: 'Математическая' });
+    expect((trigger as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(trigger);
     expect(screen.getByRole('button', { name: 'Из центра (гномоническая)' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Из бесконечности (ортографическая)' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Из антипода (стереографическая)' })).toBeTruthy();

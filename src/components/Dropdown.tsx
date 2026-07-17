@@ -15,6 +15,7 @@ interface Props<T extends string> {
   onClose?: () => void;
   variant?: 'button' | 'inline';
   initialOpen?: boolean;
+  disabled?: boolean;
 }
 
 function Caret({ open }: { open: boolean }) {
@@ -44,6 +45,7 @@ export default function Dropdown<T extends string = string>({
   onClose,
   variant = 'button',
   initialOpen = false,
+  disabled = false,
 }: Props<T>) {
   const [open, setOpen] = useState(initialOpen);
   const ref = useRef<HTMLDivElement>(null);
@@ -68,8 +70,14 @@ export default function Dropdown<T extends string = string>({
 
   const triggerClass =
     variant === 'button'
-      ? 'flex w-full items-center justify-between rounded border border-neon-blue/50 bg-panel-bg px-2 py-1 text-[12px] font-medium text-neon-blue outline-none transition drop-shadow-[0_0_3px_var(--color-neon-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70 focus-visible:border-neon-blue'
-      : 'flex h-full w-full items-center justify-between gap-1 text-left text-neon-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70';
+      ? `flex w-full items-center justify-between rounded border px-2 py-1 text-[12px] font-medium outline-none transition ${
+          disabled
+            ? 'cursor-not-allowed border-white/10 bg-white/5 text-white/40 drop-shadow-none'
+            : 'border-neon-blue/50 bg-panel-bg text-neon-blue drop-shadow-[0_0_3px_var(--color-neon-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70 focus-visible:border-neon-blue'
+        }`
+      : `flex h-full w-full items-center justify-between gap-1 text-left ${
+          disabled ? 'cursor-not-allowed text-white/40' : 'text-neon-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70'
+        }`;
 
   const menuClass =
     variant === 'button'
@@ -78,7 +86,7 @@ export default function Dropdown<T extends string = string>({
 
   return (
     <div ref={ref} className={variant === 'button' ? 'relative w-full flex-1' : 'relative'}>
-      <button type="button" onClick={() => setOpen((o) => !o)} className={triggerClass}>
+      <button type="button" disabled={disabled} onClick={() => !disabled && setOpen((o) => !o)} className={triggerClass}>
         <span className="truncate">{current?.label ?? ''}</span>
         <Caret open={open} />
       </button>

@@ -84,16 +84,18 @@ function LightSelect<T extends string>({
   value,
   options,
   onChange,
+  disabled,
 }: {
   label: string;
   value: T;
   options: { value: T; label: string }[];
   onChange: (v: T) => void;
+  disabled?: boolean;
 }) {
   return (
     <div className={fieldRow}>
       <span className={`${labelClass} w-40 shrink-0`}>{label}</span>
-      <Dropdown<T> value={value} options={options} onChange={onChange} />
+      <Dropdown<T> value={value} options={options} onChange={onChange} disabled={disabled} />
     </div>
   );
 }
@@ -169,17 +171,14 @@ export default function ControlPanel() {
   const applyPreset = useAppStore((s) => s.applyPreset);
 
   // Для азимутальной проекции не каждый источник света совместим с каждым
-  // типом искажения: конформная азимутальная существует только как
-  // стереографическая, поэтому для неё допустимы лишь «Математическая» и
-  // «Из антипода». Равновеликая и равнопромежуточная совместимы со всеми
-  // четырьмя режимами. Пользователь не должен видеть неработающие варианты.
-  const azimuthalLightOptions = useMemo(
-    () =>
-      distortion === 'conformal'
-        ? AZIMUTHAL_LIGHT_OPTIONS.filter((o) => o.value === 'math' || o.value === 'antipode')
-        : AZIMUTHAL_LIGHT_OPTIONS,
-    [distortion],
-  );
+  // типом искажения. Конформная азимутальная существует только как
+  // стереографическая, и ОБА допустимых режима («Математическая» и «Из
+  // антипода») дают одну и ту же проекцию, поэтому переключатель для неё
+  // показывается, но делается неактивным (источник зафиксирован в «antipode»
+  // в сторе). Равновеликая и равнопромежуточная совместимы со всеми четырьмя
+  // режимами и остаются активными.
+  const lightSelectDisabled = family === 'azimuthal' && distortion === 'conformal';
+  const azimuthalLightOptions = useMemo(() => AZIMUTHAL_LIGHT_OPTIONS, []);
 
   return (
     <div className="flex flex-col gap-3.5 px-3 py-3">
@@ -256,6 +255,7 @@ export default function ControlPanel() {
           label="Источник света"
           value={azLight}
           options={azimuthalLightOptions}
+          disabled={lightSelectDisabled}
           onChange={(v) => setParam('azLight', v)}
         />
       )}
