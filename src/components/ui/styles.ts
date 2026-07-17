@@ -12,6 +12,11 @@ export const inactiveTab = 'text-neon-blue/70 hover:text-neon-blue hover:bg-neon
 // Square icon button used by overlay toggles and panel actions.
 export const iconBtn = 'flex h-9 w-[54px] items-center justify-center rounded border border-neon-blue/50 bg-panel-bg text-neon-blue drop-shadow-[0_0_3px_var(--color-neon-blue-soft)] transition';
 
+// Square glass icon button (same backing as `iconBtn` but square, for the
+// icon-only overlay toggles on the map) so every map button shares one look.
+export const mapIconBtn =
+  'flex h-9 w-9 items-center justify-center rounded border border-neon-blue/50 bg-panel-bg text-neon-blue drop-shadow-[0_0_3px_var(--color-neon-blue-soft)] transition hover:bg-neon-blue/10';
+
 // Icon-only button (no rectangular backing) — just the neon icon.
 export const iconBtnPlain =
   'flex h-9 w-9 items-center justify-center text-neon-blue/80 transition hover:text-neon-blue';
