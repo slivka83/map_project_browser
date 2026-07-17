@@ -123,17 +123,19 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
     else proj = d3Geo.geoAzimuthalEquidistant();
   }
 
-  // Apply rotation / scale / translate from the store state (spec §4). Tilting a
-  // developable surface changes WHICH part of the globe lands on it, so `gamma`
-  // rotates the globe into the surface's own frame before projecting — for EVERY
-  // family, cylindrical included. The 2D map is the projection onto the surface
-  // in the surface's own frame: its FRAME stays a rectangle with straight surface
-  // parallels (guaranteed by precision(0) in makeCylindricalProjection, so no
-  // "egg"), but the CONTENT (coastlines, globe graticule) shifts and skews as the
-  // cylinder tilts, because a different slice of the globe is now projected. This
-  // is exactly what the 3D tube shows: tilting it re-lands the globe on the tube.
+  // Apply rotation / scale / translate from the store state (spec §4). The 2D
+  // map is the projection ONTO the (developable) surface. Tilting a cylinder is
+  // geometrically equivalent to tilting the GLOBE relative to the (fixed, straight)
+  // cylinder — i.e. it shifts the cylinder's central latitude. So for the
+  // cylindrical family `gamma` is folded into `phiOrigin` (NOT as a roll/third
+  // rotation component, which would skew the map into an "egg"). The map therefore
+  // stays a straight rectangle (precision(0) keeps its parallels flat) while its
+  // CONTENT (coastlines, graticule) shifts exactly as the 3D tube does when tilted.
+  // Conic / azimuthal genuinely change their orientation in space, so they keep
+  // the true `gamma` roll.
+  const tiltLat = family === 'cylindrical' ? phiOrigin + gamma : phiOrigin;
   proj
-    .rotate([-(lambda0), -phiOrigin, -gamma])
+    .rotate([-(lambda0), -tiltLat, family === 'cylindrical' ? 0 : -gamma])
     .scale(MAP_SCALE * scaleFactor)
     .translate([VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing]);
 

@@ -19,7 +19,6 @@ import {
   computeConicRayEnd,
   computeCone,
   coneAxialHeight,
-  applyEuler,
   computeAzimuthalLightLamp,
   coneApexWorld,
 } from './auxSurfaceGeometry';
@@ -365,7 +364,7 @@ describe('computeCentralMeridianRays', () => {
         // auxPointToWorld and confirm it matches the fan (single source of truth).
         // The on-axis-pole override must be mirrored here so the rebuild agrees
         // with the fan.
-        const proj = getD3Projection({ family: 'cylindrical', distortion, lambda0: 0, phiOrigin: 0, scaleFactor: 1, falseEasting: 0, falseNorthing: 0, gamma: 0, stdParallel2: null, azLight: 'math' });
+        const proj = getD3Projection({ family: 'cylindrical', distortion, lambda0: 0, phiOrigin: 0, scaleFactor: 1, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2: null, azLight: 'math' });
         segs.forEach((seg, i) => {
           const lat = -90 + (i * 180) / (segs.length - 1);
           const local = cylinderLocalEndWithPole(proj, 0, lat, surface);
@@ -482,8 +481,12 @@ describe('gamma tilt (oblique / transverse)', () => {
     const sf = 1.02;
     const g = 45;
     const segs = computeCentralMeridianRays({ ...base, family: 'cylindrical', scaleFactor: sf, gamma: g, lambda0: 0 });
-    // cylinder axis = the world Y axis taken through the same Euler (gamma about X, lambda0 about Y)
-    const axisDir = applyEuler([0, 1, 0], (g * Math.PI) / 180, 0);
+    // Axis of the rendered (tilted) cylinder in world space = orient · Y. Tilting
+    // the cylinder is a shift of its central latitude, so orient = geoRotation of
+    // (lambda0, gamma, 0); the axis is read from that same matrix.
+    const surface = computeAuxSurfaceParams('cylindrical', 0, 0, sf, RADIUS, null, g, 'conformal', 'math');
+    if (surface.kind !== 'cylinder') throw new Error('expected cylinder');
+    const axisDir: [number, number, number] = [surface.orient[1], surface.orient[4], surface.orient[7]];
     for (const { end } of segs) {
       const cross = [
         end[1] * axisDir[2] - end[2] * axisDir[1],

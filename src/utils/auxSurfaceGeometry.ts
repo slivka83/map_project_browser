@@ -449,10 +449,14 @@ export function computeAuxSurfaceParams(
     const band = Math.abs(yTop - yBot) * worldPerPixel(radius);
     const height = Math.min(AUX_LENGTH * radius * AUX_SIZE_CAP, Math.max(AUX_LENGTH * radius * 0.5, band));
     // The cylinder is always equatorial and does NOT translate with the
-    // central-latitude slider (variant A), so its 3D orientation folds in
-    // phiOrigin = 0; the slider's effect (re-centring the 2D map) is handled
-    // separately by the no-shift projection used for the rays.
-    const orient = projectionRotationMatrix(lambda0, 0, gamma);
+    // central-latitude slider (variant A), so phiOrigin does not move the 3D tube.
+    // Tilting the cylinder is geometrically equivalent to tilting the GLOBE
+    // relative to the (fixed) cylinder, i.e. it shifts the cylinder's central
+    // latitude — so gamma is folded in here as that latitude shift (exactly as the
+    // 2D map does: rotate([-(lambda0), -(phiOrigin + gamma), 0])), keeping the 3D
+    // tube and the 2D map on one logic. phiOrigin itself is left out of the 3D
+    // orientation (variant A).
+    const orient = projectionRotationMatrix(lambda0, gamma, 0);
     // Height is fixed at gamma = 0 (tilting only rotates, never resizes). The
     // rays are built from the UNTILTED projection too, so their latitude→y extent
     // already matches this band exactly: the landing y is `-dy * wpp` (no extra
@@ -714,14 +718,19 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
   const wpp = worldPerPixel(radius);
   const PARALLEL_LEN = AUX_LENGTH * radius;
 
-  // For the cylinder the tilt (gamma) must ONLY rotate the rigid tube, never
-  // bend the central-meridian fan. So the ray's angular position and height are
-  // taken from the UNTILTED projection (gamma = 0); the tilt is applied purely by
-  // the surface `orient` below. Using the tilted projection here made every
-  // latitude land at a different angle (a spiral around the tube) — the "crooked"
-  // look. With the flat projection the central meridian stays one straight
-  // generator that rotates cleanly with the cylinder.
-  const projFlat = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma: 0, stdParallel2, azLight });
+  // For the cylinder the tilt (gamma) is geometrically a shift of the cylinder's
+  // central latitude (see projectionMapper.ts), NOT a roll — so a tilted cylinder
+  // keeps a STRAIGHT central-meridian fan (no spiral). The ray's landing uses the
+  // projection that folds gamma into phiOrigin (so the rays and the 2D map agree
+  // on the tilt); the central-latitude *slider* (phiOrigin) does NOT move the 3D
+  // tube (variant A), so it is kept at 0 here — only the tilt gamma re-lands the
+  // rays. For conic / azimuthal the tilt is a true roll, so we use the UNTILTED
+  // projection (gamma = 0, phiOrigin = 0) to keep the fan straight; the roll is
+  // applied by `orient` only.
+  const projFlat =
+    family === 'cylindrical'
+      ? getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2, azLight })
+      : getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma: 0, stdParallel2, azLight });
   const proj = getD3Projection({
     family,
     distortion,

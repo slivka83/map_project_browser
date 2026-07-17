@@ -128,25 +128,27 @@ describe('getD3Projection — light source & visual params (spec концепт)
     expect(p([0, 0])).toEqual(ref([0, 0]));
   });
 
-  it('cylindrical folds the tilt (gamma) into the rotation so the map redraws', () => {
-    // Tilting the cylinder changes which slice of the globe lands on the tube, so
-    // gamma IS part of the d3 rotation for the cylindrical family: the map content
-    // shifts/skews with the tilt (its frame stays a straight rectangle via
-    // precision(0)), matching what the 3D tube shows.
+  it('cylindrical folds the tilt (gamma) into the central latitude, not as a roll', () => {
+    // Tilting the cylinder is geometrically a shift of the cylinder's central
+    // latitude (the globe tilts relative to the fixed cylinder), so gamma is added
+    // to phiOrigin in the d3 rotation — the map redraws but stays a straight
+    // rectangle (no "egg"). It is NOT a roll (rot[2] stays 0 for cylindrical).
     const p = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', lambda0: 15, phiOrigin: 5, gamma: 40 }));
     const rot = p.rotate();
     expect(rot[0]).toBeCloseTo(-15);
-    expect(rot[1]).toBeCloseTo(-5);
-    expect(rot[2]).toBeCloseTo(-40);
+    expect(rot[1]).toBeCloseTo(-(5 + 40));
+    expect(rot[2]).toBeCloseTo(0);
   });
 
-  it('cylindrical rotation uses lambda0/phiOrigin and folds in gamma', () => {
+  it('cylindrical rotation uses lambda0/phiOrigin and folds gamma into phiOrigin', () => {
     // The central meridian is set by lambda0 (the "Поворот вокруг Земли" control);
-    // the tilt (gamma) moves the map content so it redraws with the tilted tube.
+    // the tilt (gamma) shifts the central latitude so the map content redraws with
+    // the tilted tube.
     const p = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', lambda0: 15 }));
     expect(p.rotate()[0]).toBeCloseTo(-15);
     const tilted = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', lambda0: 15, gamma: 30 }));
-    expect(tilted.rotate()[2]).toBeCloseTo(-30);
+    expect(tilted.rotate()[1]).toBeCloseTo(-30);
+    expect(tilted.rotate()[2]).toBeCloseTo(0);
     // And the same globe point lands at a DIFFERENT pixel once gamma changes.
     const a = p([55, 20]) as [number, number];
     const b = tilted([55, 20]) as [number, number];
