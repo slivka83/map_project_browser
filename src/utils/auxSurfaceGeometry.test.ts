@@ -307,22 +307,21 @@ describe('computeCentralMeridianRays', () => {
     }
   });
 
-  it('cylindrical rays land on the cylinder and follow the (gamma-baked) projection', () => {
-    // The cylindrical family has no central-latitude slider (phiOrigin is always 0),
-    // so the ray fan is built with phiOrigin = 0. Every ray must land on the cylinder
-    // surface (its distance from the cylinder axis equals the radius) for any tilt
-    // (gamma) — the tilt folds into the projection the same way the 2D map does, so
-    // the rays land exactly where the 2D map draws each globe point.
-    for (const gamma of [0, 30, -45, 90]) {
-      const segs = computeCentralMeridianRays({ ...base, family: 'cylindrical', phiOrigin: 0, gamma });
-      const surface = computeAuxSurfaceParams('cylindrical', 0, 0, 1, RADIUS, null, gamma, 'conformal', 'math');
-      if (surface.kind !== 'cylinder') throw new Error('expected cylinder');
-      const axis: [number, number, number] = [surface.orient[1], surface.orient[4], surface.orient[7]];
-      for (const { end } of segs) {
-        const dot = end[0] * axis[0] + end[1] * axis[1] + end[2] * axis[2];
-        const perp: [number, number, number] = [end[0] - dot * axis[0], end[1] - dot * axis[1], end[2] - dot * axis[2]];
-        const perpLen = Math.hypot(...perp);
-        if (perpLen > 1e-3) closeTo(perpLen, surface.radius, 1e-6);
+  it('cylindrical rays stay on the cylinder and do not drift with phiOrigin', () => {
+    const ref = computeCentralMeridianRays({ ...base, family: 'cylindrical', phiOrigin: 0 });
+    for (const phi of [0, 30, -45]) {
+      const segs = computeCentralMeridianRays({ ...base, family: 'cylindrical', phiOrigin: phi });
+      const sf = 1;
+      expect(segs.length).toBe(ref.length);
+       for (let i = 0; i < segs.length; i++) {
+        // rays land on the (non-translating) cylinder of radius RADIUS·scaleFactor
+        // (the pole rays land on the top/bottom rim, radius = RADIUS·scaleFactor)
+        const radial = Math.hypot(segs[i].end[0], segs[i].end[2]);
+        expect(radial < 1e-9 || Math.abs(radial - RADIUS * sf) < 1e-6).toBe(true);
+        // and the whole ray fan is invariant under the central-latitude slider
+        closeTo(segs[i].end[0], ref[i].end[0], 1e-6);
+        closeTo(segs[i].end[1], ref[i].end[1], 1e-6);
+        closeTo(segs[i].end[2], ref[i].end[2], 1e-6);
       }
     }
   });
@@ -366,7 +365,7 @@ describe('computeCentralMeridianRays', () => {
         // auxPointToWorld and confirm it matches the fan (single source of truth).
         // The on-axis-pole override must be mirrored here so the rebuild agrees
         // with the fan.
-        const proj = getD3Projection({ family: 'cylindrical', distortion, lambda0: 0, phiOrigin: 0, scaleFactor: 1, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2: null, azLight: 'math' });
+        const proj = getD3Projection({ family: 'cylindrical', distortion, lambda0: 0, phiOrigin: 0, scaleFactor: 1, falseEasting: 0, falseNorthing: 0, gamma: 0, stdParallel2: null, azLight: 'math' });
         segs.forEach((seg, i) => {
           const lat = -90 + (i * 180) / (segs.length - 1);
           const local = cylinderLocalEndWithPole(proj, 0, lat, surface);

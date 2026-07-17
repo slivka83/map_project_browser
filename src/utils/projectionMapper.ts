@@ -75,12 +75,12 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
   }
 
   // Apply rotation / scale / translate from the store state (spec §4). The tilt
-  // `gamma` is folded into EVERY family's projection so the 2D map is the exact
-  // unrolling of the (possibly tilted) developable surface the 3D scene draws: a
-  // tilted cylinder becomes an oblique / transverse cylindrical map, a tilted cone
-  // / plane likewise. This keeps the 2D map and the 3D rays on ONE shared logic —
-  // the surface is one object, and what is drawn on the map is where the rays land
-  // on the surface.
+  // `gamma` is folded into EVERY family's projection — including the cylindrical
+  // one. The 3D scene shows the cylinder as a tube that tilts in space, and the
+  // rays land on it at the tilted positions; the unrolled 2D map must be the very
+  // same projection (an oblique / transverse cylindrical map under gamma) so the
+  // map always matches where the rays hit the tube. This keeps the 2D map and the
+  // 3D scene on ONE consistent logic: the surface is one object.
   proj
     .rotate([-(lambda0), -phiOrigin, -gamma])
     .scale(MAP_SCALE * scaleFactor)

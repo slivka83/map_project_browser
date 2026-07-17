@@ -441,9 +441,9 @@ export function computeAuxSurfaceParams(
     // standard parallel, so it must NOT change the 3D cylinder at all. Height is
     // measured from the fitted ±CLIP_LAT band at phiOrigin = 0 (depends on the
     // distortion + diameter, not on the slider), and positionY stays 0. The tilt
-    // (gamma) folds into the projection the same way the 2D map does, so the tube
-    // height tracks the (tilted) map's latitude extent and the rays fill it.
-    const proj = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2, azLight });
+    // (gamma) must NOT change the cylinder's size either — it only rotates the
+    // surface (see `orient` below), so the height is computed with gamma = 0.
+    const proj = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma: 0, stdParallel2, azLight });
     const yTop = proj([lambda0, CLIP_LAT])?.[1] ?? 0;
     const yBot = proj([lambda0, -CLIP_LAT])?.[1] ?? 0;
     const band = Math.abs(yTop - yBot) * worldPerPixel(radius);
@@ -714,12 +714,14 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
   const wpp = worldPerPixel(radius);
   const PARALLEL_LEN = AUX_LENGTH * radius;
 
-  // The 2D map is the exact unrolling of the developable surface, with the tilt
-  // (gamma) baked into the projection. To keep the 3D rays on the SAME logic, the
-  // cylinder ray's angular position and height are taken from the SAME tilted
-  // projection (`proj`), so each ray lands exactly where the 2D map draws that
-  // globe point. The whole ray is still built in the cylinder's local frame and
-  // rotated by `orient`, so it remains a rigid beam attached to the (tilted) tube.
+  // For the cylinder the tilt (gamma) must ONLY rotate the rigid tube, never
+  // bend the central-meridian fan. So the ray's angular position and height are
+  // taken from the UNTILTED projection (gamma = 0); the tilt is applied purely by
+  // the surface `orient` below. Using the tilted projection here made every
+  // latitude land at a different angle (a spiral around the tube) — the "crooked"
+  // look. With the flat projection the central meridian stays one straight
+  // generator that rotates cleanly with the cylinder.
+  const projFlat = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma: 0, stdParallel2, azLight });
   const proj = getD3Projection({
     family,
     distortion,
@@ -763,7 +765,7 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
       // before) pinned the middle to the stationary globe and only the endpoint
       // moved — the "broken / not rotating" look the user reported.
       const r = radius * scaleFactor;
-      localEnd = cylinderLocalEnd(proj, lambda0, lat, r, cy, wpp);
+      localEnd = cylinderLocalEnd(projFlat, lambda0, lat, r, cy, wpp);
       const latRad = (lat * Math.PI) / 180;
       const globeLocal: Vec3 = [radius * Math.cos(latRad), radius * Math.sin(latRad), 0];
       globe = auxPointToWorld(surface, globeLocal);
@@ -839,6 +841,7 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
   const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight);
   const proj = getD3Projection({ family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight });
   const projNoShift = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2, azLight });
+  const projFlat = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma: 0, stdParallel2, azLight });
   const cy = VIEW_CENTER_Y;
   const wpp = worldPerPixel(radius);
   const PARALLEL_LEN = AUX_LENGTH * radius;
@@ -855,7 +858,7 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
     const p = projNoShift([lon, lat]);
     if (!p || !isFinite(p[0]) || !isFinite(p[1])) return null;
     const r = radius * scaleFactor;
-    localEnd = cylinderLocalEnd(projNoShift, lon, lat, r, cy, wpp);
+    localEnd = cylinderLocalEnd(projFlat, lon, lat, r, cy, wpp);
     start = [0, 0, 0];
   } else if (family === 'azimuthal') {
     const c = proj([lambda0, phiOrigin]);

@@ -124,11 +124,12 @@ describe('getD3Projection — light source & visual params (spec концепт)
     expect(p([0, 0])).toEqual(ref([0, 0]));
   });
 
-  it('cylindrical bakes gamma into the 2D projection (tilt matches the 3D surface)', () => {
-    // The 2D map is the exact unrolling of the developable surface the 3D scene
-    // draws, so the tilt (gamma) is folded into the d3 rotation for EVERY family,
-    // including cylindrical — a tilted cylinder becomes an oblique / transverse
-    // cylindrical map. This keeps the 2D map and the 3D rays on one shared logic.
+  it('cylindrical bakes gamma into the 2D projection (oblique / transverse)', () => {
+    // The unrolled 2D map must be the SAME projection the 3D scene shows: a tilted
+    // cylinder unrolls to an oblique / transverse cylindrical map, so gamma IS
+    // folded into the d3 rotation for the cylindrical family too (matching the
+    // conic / azimuthal families). The 3D scene keeps its tilted-tube look; the
+    // map simply reflects the very same tilt.
     const p = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', lambda0: 15, phiOrigin: 5, gamma: 40 }));
     const rot = p.rotate();
     expect(rot[0]).toBeCloseTo(-15);
@@ -136,10 +137,10 @@ describe('getD3Projection — light source & visual params (spec концепт)
     expect(rot[2]).toBeCloseTo(-40);
   });
 
-  it('cylindrical rotation uses lambda0/phiOrigin/gamma (tilt changes the 2D map)', () => {
-    // The cylindrical family's central meridian is set by lambda0, but the tilt
-    // (gamma) is part of the unrolled projection, so the 2D map genuinely changes
-    // when the tube is tilted — matching where the 3D rays land on the surface.
+  it('cylindrical rotation uses lambda0/phiOrigin and folds in gamma', () => {
+    // The central meridian is set by lambda0 (the "Поворот вокруг Земли" control),
+    // and the tilt (gamma) is part of the unrolled map so the 2D view matches the
+    // 3D tube's landing positions.
     const p = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', lambda0: 15 }));
     expect(p.rotate()[0]).toBeCloseTo(-15);
     const tilted = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', lambda0: 15, gamma: 30 }));

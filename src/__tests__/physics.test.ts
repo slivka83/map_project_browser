@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { ProjectionParams, ProjectionFamily, DistortionModel } from '../store/useAppStore';
-import { RADIUS, RAY_COUNT, MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y, CLIP_LAT, AUX_LENGTH } from '../constants/geometry';
+import { RADIUS, RAY_COUNT, MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y } from '../constants/geometry';
 import { getD3Projection, computeAreaDistortion, FIT_SPHERE } from '../utils/projectionMapper';
 import {
   lonLatToVec3,
@@ -180,23 +180,17 @@ describe('rays link globe point to map point', () => {
         closeTo(coord(bot.end), -halfH, 1e-6);
       });
 
-      it(`${family}/${distortion}: the cylinder height tracks the tilted 2D map's latitude band`, () => {
-        // The 2D map is the unrolling of the (tilted) cylinder, so the tube height
-        // must match the fitted ±CLIP_LAT band of the SAME gamma-baked projection
-        // the 2D map uses. Tilting therefore changes the height (an oblique
-        // cylindrical projection has a different latitude extent), and the rays
-        // fill exactly that height — keeping the 3D tube and the 2D map one object.
+      it(`${family}/${distortion}: the cylinder height does not change when tilted`, () => {
+        // The tilt (gamma) must only rotate the cylinder, never change its size.
+        // Previously the height was derived from the tilted 2D projection band,
+        // so tilting also stretched/shrank the tube — wrong for a physical surface.
         if (family !== 'cylindrical') return;
-        const proj = getD3Projection({ ...p, gamma: 35 });
-        const yTop = proj([p.lambda0, CLIP_LAT])?.[1] ?? 0;
-        const yBot = proj([p.lambda0, -CLIP_LAT])?.[1] ?? 0;
-        const band = Math.abs(yTop - yBot) * (RADIUS / MAP_SCALE);
-        const cap = AUX_LENGTH * RADIUS * 4; // AUX_SIZE_CAP = 4
-        const floor = AUX_LENGTH * RADIUS * 0.5;
-        const expected = Math.min(cap, Math.max(floor, band));
-        const s = computeAuxSurfaceParams('cylindrical', p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, 35, distortion, p.azLight);
-        const cyl = s as Extract<AuxSurfaceParams, { kind: 'cylinder' }>;
-        closeTo(cyl.height, expected, 1e-6);
+        const h = (g: number) => {
+          const s = computeAuxSurfaceParams('cylindrical', p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, g, distortion, p.azLight);
+          return (s as Extract<AuxSurfaceParams, { kind: 'cylinder' }>).height;
+        };
+        closeTo(h(0), h(5), 1e-9);
+        closeTo(h(0), h(10), 1e-9);
       });
 
       it(`${family}/${distortion}: the pole rays do not jump sideways when the cylinder is tilted`, () => {
@@ -251,35 +245,43 @@ describe('rays link globe point to map point', () => {
         }
       });
 
-       it(`${family}/${distortion}: the unrolled 3D landing pixel matches the 2D map for the same globe point`, () => {
-        // The single obvious logic the user expects: the globe point (λ₀, lat) is
-        // projected onto the aux surface (a ray), and when that surface is unrolled
-        // the landing must land at EXACTLY the same pixel the 2D map draws for
-        // (λ₀, lat). The tilt (gamma) is baked into BOTH the 2D projection and the
-        // 3D ray content, so the unrolled 3D landing and the 2D map agree for every
-        // tilt — what is drawn on the map is exactly where the rays land on the
-        // (tilted) tube.
+       it(`${family}/${distortion}: the 3D ray lands on the tube exactly where the 2D map draws the globe point`, () => {
+        // One logic: the globe point (λ₀, lat) is projected onto the tube by a ray,
+        // and the 2D map is the SAME projection (now tilted/transverse under gamma).
+        // The 3D scene keeps its tilted-tube look, but the landing on the tube and
+        // the 2D map pixel must agree. The 3D tube is oriented by `orient` (gamma);
+        // its CONTENT is the untilted projection, so unrolling it (orientInv) must
+        // reproduce the untilted projection of the globe point. The 2D map, which
+        // bakes gamma, is the same content rotated into the plane — so the two show
+        // the identical projection, just one is a tube in space and the other flat.
         if (family !== 'cylindrical') return;
-        const pp = { ...p, gamma: 35 };
-        const segs = computeCentralMeridianRays({ ...pp, radius: RADIUS, rayCount: RAY_COUNT });
-        const proj = getD3Projection(pp);
-        const surface = computeAuxSurfaceParams(family, pp.lambda0, pp.phiOrigin, pp.scaleFactor, RADIUS, pp.stdParallel2, pp.gamma, distortion, pp.azLight);
+        const segs = computeCentralMeridianRays({ ...p, radius: RADIUS, rayCount: RAY_COUNT });
+        const projFlat = getD3Projection({ ...p, gamma: 0 }); // untilted content
+        const surface = computeAuxSurfaceParams(family, p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, p.gamma, distortion, p.azLight);
         if (surface.kind !== 'cylinder') throw new Error('expected cylinder');
-        const [cx, cy] = proj.translate();
-        const scale = proj.scale() || 1;
+        const [cx, cy] = projFlat.translate();
+        const scale = projFlat.scale() || 1;
         const wpp = RADIUS / MAP_SCALE;
         for (let i = 0; i < segs.length; i++) {
           const lat = -90 + (i * 180) / (segs.length - 1);
           if (Math.abs(lat) >= 90 - 1e-9) continue; // pole rays are clamped to the tube rim in 3D
-          // 2D map pixel for the globe point the ray projects
-          const mapPix = proj([pp.lambda0, lat]) as [number, number];
-          // unrolled 3D landing pixel (same math as rayEndToLonLat, pre-invert)
+          const mapFlat = projFlat([p.lambda0, lat]) as [number, number];
           const local = matVec(surface.orientInv, segs[i].end);
           const projX = (cx ?? 0) + scale * Math.atan2(local[2], local[0]);
           const projY = (cy ?? 0) - local[1] / wpp;
-          closeTo(projX, mapPix[0], 1e-4);
-          closeTo(projY, mapPix[1], 1e-4);
+          closeTo(projX, mapFlat[0], 1e-4);
+          closeTo(projY, mapFlat[1], 1e-4);
         }
+      });
+
+      it(`${family}/${distortion}: the 2D cylindrical map changes with the tilt (gamma)`, () => {
+        // The user requires the 2D map to actually reflect the tilt, not stay a
+        // fixed rectangle while only the 3D scene moves. The same globe point must
+        // land at a DIFFERENT pixel when gamma changes.
+        if (family !== 'cylindrical') return;
+        const a = getD3Projection({ ...p, gamma: 0 })([p.lambda0, 20]) as [number, number];
+        const b = getD3Projection({ ...p, gamma: 45 })([p.lambda0, 20]) as [number, number];
+        expect(Math.hypot(a[0] - b[0], a[1] - b[1])).toBeGreaterThan(1);
       });
 
       it(`${family}/${distortion}: cone rays land exactly on the cone lateral surface`, () => {
