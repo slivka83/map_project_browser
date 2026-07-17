@@ -32,7 +32,7 @@ describe('useAppStore', () => {
     expect(s.falseNorthing).toBe(0);
     expect(s.gamma).toBe(0);
     expect(s.stdParallel2).toBeNull();
-    expect(s.azLight).toBe('math');
+      expect(s.azLight).toBe('center');
     expect(s.showTissot).toBe(false);
     expect(s.showBorders).toBe(false);
     expect(s.showIntersection).toBe(false);
@@ -139,12 +139,12 @@ describe('useAppStore', () => {
   });
 
   it('sets the family default distortion via setFamily', () => {
-    const cases: [ProjectionFamily, DistortionModel][] = [
-      ['cylindrical', 'conformal'],
-      ['conic', 'equidistant'],
-      ['azimuthal', 'equalArea'],
+    const cases: [ProjectionFamily, DistortionModel, string][] = [
+      ['cylindrical', 'conformal', 'center'],
+      ['conic', 'conformal', 'math'],
+      ['azimuthal', 'conformal', 'center'],
     ];
-    for (const [family, distortion] of cases) {
+    for (const [family, distortion, azLight] of cases) {
       useAppStore.setState({ family: 'cylindrical', distortion: 'equalArea', lambda0: 90, phiOrigin: 45, scaleFactor: 1.1, falseEasting: 100, falseNorthing: -50 });
       useAppStore.getState().setFamily(family);
       const s = useAppStore.getState();
@@ -158,7 +158,7 @@ describe('useAppStore', () => {
       expect(s.falseNorthing).toBe(0);
       expect(s.gamma).toBe(0);
       expect(s.stdParallel2).toBeNull();
-      expect(s.azLight).toBe('math');
+      expect(s.azLight).toBe(azLight);
     }
   });
 
@@ -166,7 +166,7 @@ describe('useAppStore', () => {
     useAppStore.setState({ family: 'conic', distortion: 'conformal', lambda0: 90, phiOrigin: 45, scaleFactor: 1.1 });
     useAppStore.getState().resetParams();
     const s = useAppStore.getState();
-    expect(s.distortion).toBe('equidistant');
+    expect(s.distortion).toBe('conformal');
     expect(s.lambda0).toBe(0);
     expect(s.phiOrigin).toBe(0);
     expect(s.scaleFactor).toBe(1);
@@ -249,7 +249,7 @@ describe('useAppStore', () => {
     useAppStore.getState().setFamily('conic');
     const s = useAppStore.getState();
     expect(s.family).toBe('conic');
-    expect(s.distortion).toBe('equidistant');
+    expect(s.distortion).toBe('conformal');
     expect(s.lambda0).toBe(0);
     expect(s.falseEasting).toBe(0);
     expect(s.showTissot).toBe(true);

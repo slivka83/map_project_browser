@@ -2,6 +2,7 @@ import { getD3Projection } from './projectionMapper';
 import { geoRotation } from 'd3-geo';
 import type { GeoProjection } from 'd3-geo';
 import type { ProjectionParams } from '../store/useAppStore';
+import { variantDef, defaultVariant } from './projectionVariants';
 import {
   RADIUS,
   RAY_COUNT,
@@ -381,7 +382,9 @@ export function computeAuxSurfaceParams(
   gamma = 0,
   distortion: ProjectionParams['distortion'] = 'equalArea',
   azLight: ProjectionParams['azLight'] = 'math',
+  variant?: ProjectionParams['variant'],
 ): AuxSurfaceParams {
+  const v = variant ?? defaultVariant(family);
   if (family === 'cylindrical') {
     // The cylinder is always equatorial (axis through the poles) and touches the
     // globe — it does NOT slide along the axis in 3D (variant A). The
@@ -391,7 +394,7 @@ export function computeAuxSurfaceParams(
     // distortion + diameter, not on the slider), and positionY stays 0. The tilt
     // (gamma) must NOT change the cylinder's size either — it only rotates the
     // surface (see `orient` below), so the height is computed with gamma = 0.
-    const proj = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma: 0, stdParallel2, azLight });
+    const proj = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma: 0, stdParallel2, azLight, variant: v });
     const yTop = proj([lambda0, CLIP_LAT])?.[1] ?? 0;
     const yBot = proj([lambda0, -CLIP_LAT])?.[1] ?? 0;
     const band = Math.abs(yTop - yBot) * worldPerPixel(radius);
@@ -416,7 +419,7 @@ export function computeAuxSurfaceParams(
     // Size the tangent-plane disk to contain the fitted ±CLIP_LAT band of the
     // projection, so every ray lands on the visible disk (capped for gnomonic,
     // where the projection runs to infinity).
-    const proj = getD3Projection({ family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2, azLight });
+    const proj = getD3Projection({ family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2, azLight, variant: v });
     const c = proj([lambda0, phiOrigin]);
     let maxR = 0;
     for (let lat = -CLIP_LAT; lat <= CLIP_LAT; lat += 10) {
@@ -616,8 +619,9 @@ export function computeAuxSphereIntersectionsLonLat(
   gamma = 0,
   distortion: ProjectionParams['distortion'] = 'equidistant',
   azLight: ProjectionParams['azLight'] = 'math',
+  variant?: ProjectionParams['variant'],
 ): [number, number][][] {
-  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight);
+  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, variant);
   const rings = computeAuxSphereIntersections(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2);
   // Для azimuthal кольцо уже построено в мировых координатах (на сфере, в
   // точке касания) — повторно прогонять его через auxPointToWorld нельзя (это
@@ -665,7 +669,7 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
     rayCount = RAY_COUNT,
   } = params;
 
-  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight);
+  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, params.variant);
   const cy = VIEW_CENTER_Y;
   const wpp = worldPerPixel(radius);
   const PARALLEL_LEN = parallelBeamLength(radius);
@@ -675,7 +679,7 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
   // fan with the cylinder (via auxPointToWorld) — it does not re-land the rays or
   // bend the fan. This keeps the rays attached to the tube (synchronous rotation).
   // Conic / azimuthal keep the same untilted projection for the fan too.
-  const projFlat = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma: 0, stdParallel2, azLight });
+  const projFlat = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma: 0, stdParallel2, azLight, variant: params.variant });
   const proj = getD3Projection({
     family,
     distortion,
@@ -687,6 +691,7 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
     gamma,
     stdParallel2,
     azLight,
+    variant: params.variant,
   });
 
   const { center, normal } = computeTangentBasis(lambda0, phiOrigin, radius);
@@ -705,25 +710,18 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
     let localEnd: Vec3;
 
     if (family === 'cylindrical') {
-      // The cylinder is oriented by the exact d3 rotation (`orient`). To keep the
-      // WHOLE ray attached to the cylinder (so it rotates WITH the tube as one
-      // piece), every point of the ray lives in the cylinder's LOCAL frame and is
-      // rotated by `orient`: start (axis), the globe point it passes through, and
-      // the landing. The globe marker sits at the TRUE globe latitude `lat` on the
-      // front generator — local [radius, radius·sin(lat), 0] — so it stays ON the
-      // globe sphere (radius preserved) but "travels" along the globe as the tube
-      // tilts, instead of being pinned to a fixed world point. The landing uses the
-      // projection's y (which differs from the globe's latitude height), so
-      // start→globe→landing is a genuine two-segment (bent) ray, yet the entire ray
-      // turns rigidly with the cylinder. Leaving `globe` in world coordinates (as
-      // before) pinned the middle to the stationary globe and only the endpoint
-      // moved — the "broken / not rotating" look the user reported.
+      const vdef = variantDef(params.variant ?? defaultVariant(family));
       const r = radius * scaleFactor;
       localEnd = cylinderLocalEnd(projFlat, lambda0, lat, r, cy, wpp);
       const latRad = (lat * Math.PI) / 180;
       const globeLocal: Vec3 = [radius * Math.cos(latRad), radius * Math.sin(latRad), 0];
       globe = auxPointToWorld(surface, globeLocal);
-      start = [0, 0, 0];
+      if (vdef.lightIsParallel) {
+        const localStart: Vec3 = [-PARALLEL_LEN, globeLocal[1], 0];
+        start = auxPointToWorld(surface, localStart);
+      } else {
+        start = [0, 0, 0];
+      }
     } else if (family === 'azimuthal') {
       const c = proj([lambda0, phiOrigin]);
       const p = proj([lambda0, lat]);
@@ -797,14 +795,14 @@ export function computeConicRayEnd(
 export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: number, radius = RADIUS): RaySegment | null {
   const { family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight } = params;
 
-  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight);
-  const proj = getD3Projection({ family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight });
+  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, params.variant);
+  const proj = getD3Projection({ family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight, variant: params.variant });
   // The UNTILTED, phiOrigin=0 projection. For the cylindrical family the central
   // latitude and the tilt do not enter the projection rotation at all (rotZ = 0,
   // and rotate only sees lambda0/phiOrigin), so `projNoShift` would be identical
   // to `projFlat` here — `projFlat` is the single untilted projection used by the
   // landing math for every family.
-  const projFlat = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma: 0, stdParallel2, azLight });
+  const projFlat = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma: 0, stdParallel2, azLight, variant: params.variant });
   const cy = VIEW_CENTER_Y;
   const wpp = worldPerPixel(radius);
   const PARALLEL_LEN = parallelBeamLength(radius);
@@ -822,7 +820,14 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
     if (!p || !isFinite(p[0]) || !isFinite(p[1])) return null;
     const r = radius * scaleFactor;
     localEnd = cylinderLocalEnd(projFlat, lon, lat, r, cy, wpp);
-    start = [0, 0, 0];
+    const vdef = variantDef(params.variant ?? defaultVariant(family));
+    if (vdef.lightIsParallel) {
+      const latRad = (lat * Math.PI) / 180;
+      const globeLocal: Vec3 = [radius * Math.cos(latRad) * Math.cos(((lon - lambda0) * Math.PI) / 180), radius * Math.sin(latRad), radius * Math.cos(latRad) * Math.sin(((lon - lambda0) * Math.PI) / 180)];
+      start = auxPointToWorld(surface, [-PARALLEL_LEN, globeLocal[1], globeLocal[2]]);
+    } else {
+      start = [0, 0, 0];
+    }
   } else if (family === 'azimuthal') {
     const c = proj([lambda0, phiOrigin]);
     const p = proj([lon, lat]);

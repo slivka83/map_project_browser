@@ -71,26 +71,39 @@ function makeCylindricalProjection(
   return proj;
 }
 
+// Miller cylindrical projection: a mathematical modification of Mercator that
+// avoids the pole singularity without a physical light-source model.
+// Formula: x = λ, y = (5/4)·ln[tan(π/4 + 2φ/5)].
+function makeMillerProjection(scaleFactor: number): GeoProjection {
+  const s = clampScale(scaleFactor);
+  const cosS = Math.cos(Math.acos(s));
+  const clipRad = (CLIP_LAT * Math.PI) / 180;
+  const clampPhi = (φ: number): number => Math.max(-clipRad, Math.min(clipRad, φ));
+  type RawProjection = ((λ: number, φ: number) => [number, number]) & {
+    invert?: (x: number, y: number) => [number, number];
+  };
+  const raw: RawProjection = ((λ: number, φ: number): [number, number] => [
+    λ * cosS,
+    (5 / 4) * cosS * Math.log(Math.tan(Math.PI / 4 + (2 * clampPhi(φ)) / 5)),
+  ]) as RawProjection;
+  raw.invert = (x: number, y: number): [number, number] => {
+    const φ = (5 / 2) * Math.atan(Math.exp((4 * y) / (5 * cosS))) - (5 * Math.PI) / 8;
+    return [x / cosS, φ];
+  };
+  const proj = d3Geo.geoProjection(raw);
+  proj.precision(0);
+  return proj;
+}
+
 export const getD3Projection = (state: ProjectionParams): GeoProjection => {
   const { family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, azLight } = state;
 
   let proj: GeoProjection;
 
   if (family === 'cylindrical') {
-    // The cylinder radius is `scaleFactor`·R, so it meets the globe at the contact
-    // parallels ±φ_s where cos φ_s = scaleFactor (φ_s = arccos(scaleFactor)). Those
-    // are the (true-scale) standard parallels of the developed surface — for the
-    // conformal family a uniformly-scaled Mercator: rendering uses d3's plain
-    // `geoMercator()` (a tangent Mercator, whose SHAPE is independent of the
-    // uniform scale, so a secant conformal cylinder looks identical). The
-    // cylinder's CONTACT (±φ_s) is what moves with the tilt: the d3 rotation below
-    // re-orients the cylinder axis, so tilting the cylinder (gamma) carries the
-    // low-distortion band to the new cylinder equator (Antarctica on it keeps the
-    // least scale error). `computeAreaDistortion` references the contact ±φ_s, so
-    // the reported distortion still drops as the diameter shrinks. Equal-area /
-    // equidistant set their standard parallel directly to the contact (measured
-    // from the cylinder axis, not from phiOrigin).
-    if (distortion === 'conformal') {
+    if (state.variant === 'miller') {
+      proj = makeMillerProjection(scaleFactor);
+    } else if (distortion === 'conformal') {
       proj = makeCylindricalProjection('conformal', scaleFactor);
     } else if (distortion === 'equalArea') {
       proj = makeCylindricalProjection('equalArea', scaleFactor);

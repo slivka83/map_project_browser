@@ -1,4 +1,14 @@
 import type { ProjectionFamily, DistortionModel, AzimuthalLight } from '../../store/useAppStore';
+import {
+  CYLINDRICAL_VARIANT_OPTIONS,
+  CONIC_VARIANT_OPTIONS,
+  AZIMUTHAL_VARIANT_OPTIONS,
+  variantDef,
+  type ProjectionVariant,
+} from '../../utils/projectionVariants';
+
+export { CYLINDRICAL_VARIANT_OPTIONS, CONIC_VARIANT_OPTIONS, AZIMUTHAL_VARIANT_OPTIONS };
+export { variantDef, type ProjectionVariant };
 
 // Single source for the Russian family / distortion labels, shared by the
 // ControlPanel option lists and the EpsgCatalog table headers.

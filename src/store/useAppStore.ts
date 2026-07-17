@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import type { FeatureCollection } from 'geojson';
 import { feature } from 'topojson-client';
 import type { Topology, GeometryCollection } from 'topojson-specification';
+import type { ProjectionVariant } from '../utils/projectionVariants';
+import { variantDef, defaultVariant } from '../utils/projectionVariants';
 
 export type ProjectionFamily = 'cylindrical' | 'conic' | 'azimuthal';
 export type DistortionModel = 'conformal' | 'equalArea' | 'equidistant';
@@ -23,6 +25,7 @@ export const DEFAULT_DISTORTION: Record<ProjectionFamily, DistortionModel> = {
 };
 
 export interface ProjectionParams {
+  variant?: ProjectionVariant;
   family: ProjectionFamily;
   distortion: DistortionModel;
   lambda0: number; // -180...180  (central meridian)
@@ -36,17 +39,20 @@ export interface ProjectionParams {
 }
 
 export function defaultParamsForFamily(family: ProjectionFamily): ProjectionParams {
+  const v = defaultVariant(family);
+  const def = variantDef(v);
   return {
-    family,
-    distortion: DEFAULT_DISTORTION[family],
+    variant: v,
+    family: def.family,
+    distortion: def.distortion,
     lambda0: 0,
     phiOrigin: 0,
-    scaleFactor: 1,
+    scaleFactor: def.lockedScaleFactor ?? 1,
     falseEasting: 0,
     falseNorthing: 0,
-    gamma: 0,
-    stdParallel2: null,
-    azLight: 'math',
+    gamma: def.lockedGamma ?? 0,
+    stdParallel2: def.lockedStdParallel2 ?? null,
+    azLight: def.azLight,
   };
 }
 
@@ -82,6 +88,7 @@ interface AppState extends ProjectionParams {
   setShowHoverRay: (value: boolean) => void;
 
   setParam: <K extends keyof ProjectionParams>(key: K, value: ProjectionParams[K]) => void;
+  setVariant: (v: ProjectionVariant) => void;
   setShowTissot: (value: boolean) => void;
   setShowBorders: (value: boolean) => void;
   setShowIntersection: (value: boolean) => void;
@@ -111,10 +118,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setParam: (key, value) => {
     if (key === 'distortion' && value === 'conformal') {
-      // Конформная азимутальная проекция существует только как стереографическая,
-      // и оба допустимых режима («math» и «antipode») дают одну и ту же карту,
-      // поэтому переключатель скрывается, а источник фиксируется в «antipode»
-      // (канонический источник стереографической проекции).
       const s = get();
       if (s.family === 'azimuthal' && s.azLight !== 'antipode') {
         set({ distortion: value, azLight: 'antipode' });
@@ -123,12 +126,42 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     set({ [key]: value } as Pick<AppState, typeof key>);
   },
+  setVariant: (v) => {
+    const def = variantDef(v);
+    set({
+      variant: v,
+      family: def.family,
+      distortion: def.distortion,
+      azLight: def.azLight,
+      gamma: def.lockedGamma ?? 0,
+      scaleFactor: def.lockedScaleFactor ?? 1,
+      phiOrigin: 0,
+      lambda0: 0,
+      stdParallel2: def.lockedStdParallel2 ?? null,
+    });
+  },
   setShowTissot: (value) => set({ showTissot: value }),
   setShowBorders: (value) => set({ showBorders: value }),
   setShowIntersection: (value) => set({ showIntersection: value }),
   setDetailedMap: (value) => set({ detailedMap: value }),
   setFamily: (family) => set({ ...defaultParamsForFamily(family) }),
-  resetParams: () => set((s) => ({ ...defaultParamsForFamily(s.family) })),
+  resetParams: () => set((s) => {
+    const v = defaultVariant(s.family);
+    const def = variantDef(v);
+    return {
+      variant: v,
+      family: def.family,
+      distortion: def.distortion,
+      azLight: def.azLight,
+      lambda0: 0,
+      phiOrigin: 0,
+      scaleFactor: def.lockedScaleFactor ?? 1,
+      falseEasting: 0,
+      falseNorthing: 0,
+      gamma: def.lockedGamma ?? 0,
+      stdParallel2: def.lockedStdParallel2 ?? null,
+    };
+  }),
   applyPreset: (preset: Partial<ProjectionParams>) => set({ ...preset }),
   loadGeoData: async () => {
     // A monotonically increasing token lets a later call supersede an earlier one

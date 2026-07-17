@@ -8,7 +8,7 @@ export interface EpsgEntry {
   params: ProjectionParams;
 }
 
-const base: Omit<ProjectionParams, 'family' | 'distortion' | 'phiOrigin'> = {
+const base: Omit<ProjectionParams, 'variant' | 'family' | 'distortion' | 'phiOrigin'> = {
   lambda0: 0,
   scaleFactor: 1,
   falseEasting: 0,

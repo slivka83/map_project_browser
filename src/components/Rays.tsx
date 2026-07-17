@@ -3,22 +3,21 @@ import { Line } from '@react-three/drei';
 import { NEON_YELLOW } from '../constants/designTokens';
 import { RADIUS, RAY_COUNT } from '../constants/geometry';
 import { computeCentralMeridianRays, projectToAuxWorld, type RaySegment } from '../utils/auxSurfaceGeometry';
+import { variantDef, defaultVariant } from '../utils/projectionVariants';
 import type { ProjectionParams } from '../store/useAppStore';
 import { useAppStore } from '../store/useAppStore';
 
 const MARKER_R = 0.13;
 
-// Projection light beams. The central-meridian fan runs from the light source,
-// marks the point it passes through on the globe, and lands on the auxiliary
-// (developable) surface — the unrolled surface IS the 2D map, so the landing
-// points are where those globe points end up on the map. A brighter ray is
-// drawn for the point currently hovered (in either the 3D globe or the 2D map),
-// making the "globe point → map point" link explicit. All beams are drawn as
-// solid lines regardless of the family / light-source mode.
 export default function Rays({ params }: { params: ProjectionParams }) {
   const hoverLonLat = useAppStore((s) => s.hoverLonLat);
   const hoverSource = useAppStore((s) => s.hoverSource);
   const showHoverRay = useAppStore((s) => s.showHoverRay);
+
+  const def = useMemo(
+    () => variantDef(params.variant ?? defaultVariant(params.family)),
+    [params.variant, params.family],
+  );
 
   const segments = useMemo<RaySegment[]>(
     () =>
@@ -30,14 +29,13 @@ export default function Rays({ params }: { params: ProjectionParams }) {
     [params],
   );
 
-  // The hover ray is shown only when the cursor is over the 2D map (not the 3D
-  // globe) and the feature is enabled — the globe still mirrors the highlight
-  // marker, it just does not draw the projection ray.
   const showHover = hoverSource === 'map' && showHoverRay;
   const hoverRay = useMemo<RaySegment | null>(
     () => (showHover && hoverLonLat ? projectToAuxWorld(params, hoverLonLat[0], hoverLonLat[1], RADIUS) : null),
     [params, hoverLonLat, showHover],
   );
+
+  if (!def.hasRays) return null;
 
   return (
     <group renderOrder={10}>

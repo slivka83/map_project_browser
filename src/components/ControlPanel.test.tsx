@@ -25,7 +25,7 @@ describe('ControlPanel', () => {
     render(<ControlPanel />);
     expect(screen.getByRole('button', { name: 'Цилиндрическая' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Азимутальная' })).toBeTruthy();
-    expect(screen.getByText('Тип искажения')).toBeTruthy();
+    expect(screen.getByText('Вариант проекции')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Библиотека EPSG' })).toBeTruthy();
   });
 
@@ -41,7 +41,7 @@ describe('ControlPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Азимутальная' }));
     const s = useAppStore.getState();
     expect(s.family).toBe('azimuthal');
-    expect(s.distortion).toBe('equalArea');
+    expect(s.distortion).toBe('conformal');
     expect(s.lambda0).toBe(0);
     expect(s.phiOrigin).toBe(0);
     expect(s.scaleFactor).toBe(1);
@@ -50,27 +50,27 @@ describe('ControlPanel', () => {
   it('resets params to the current family defaults via the reset button', () => {
     render(<ControlPanel />);
     fireEvent.click(screen.getByRole('button', { name: 'Коническая' }));
-    fireEvent.change(screen.getByRole('slider', { name: 'Вращение конуса' }), { target: { value: '60' } });
+    fireEvent.change(screen.getByRole('slider', { name: 'Центральный меридиан' }), { target: { value: '60' } });
     expect(useAppStore.getState().lambda0).toBe(60);
     fireEvent.click(screen.getByRole('button', { name: 'Сбросить параметры' }));
     const s = useAppStore.getState();
     expect(s.family).toBe('conic');
-    expect(s.distortion).toBe('equidistant');
+    expect(s.distortion).toBe('conformal');
     expect(s.lambda0).toBe(0);
   });
 
-  it('updates store.distortion when a distortion option is selected', () => {
+  it('updates store variant when a variant option is selected', () => {
     render(<ControlPanel />);
-    // custom dark dropdown (DistortionSelect), not a native <select>
-    fireEvent.click(screen.getByRole('button', { name: 'Равноугольная' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Равновеликая' }));
-    expect(useAppStore.getState().distortion).toBe('equalArea');
+    fireEvent.click(screen.getByRole('button', { name: 'Меркатор (для моряков)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Равнопромежуточная (Плоская развёртка)' }));
+    expect(useAppStore.getState().distortion).toBe('equidistant');
+    expect(useAppStore.getState().azLight).toBe('infinity');
   });
 
   it('updates store.phiOrigin when the central-latitude slider changes (conic family)', () => {
     useAppStore.setState({ family: 'conic', distortion: 'equidistant' });
     render(<ControlPanel />);
-    fireEvent.change(screen.getByRole('slider', { name: 'Угол при вершине' }), { target: { value: '25' } });
+    fireEvent.change(screen.getByRole('slider', { name: 'Стандартная параллель 1' }), { target: { value: '25' } });
     expect(useAppStore.getState().phiOrigin).toBe(25);
   });
 
@@ -90,45 +90,34 @@ describe('ControlPanel', () => {
     expect(s.phiOrigin).toBe(45);
   });
 
-  it('updates store.gamma when the tilt slider changes', () => {
+  it('updates store.gamma when the tilt slider changes (oblique Mercator)', () => {
+    useAppStore.getState().setVariant('obliqueMercator');
     render(<ControlPanel />);
     const slider = screen.getByRole('slider', { name: 'Угол наклона цилиндра' }) as HTMLInputElement;
     fireEvent.change(slider, { target: { value: '-30' } });
     expect(useAppStore.getState().gamma).toBe(-30);
   });
 
-  it('shows the azimuthal light dropdown only for the azimuthal family', () => {
+  it('shows the azimuthal locked light label for the azimuthal family', () => {
     const { unmount } = render(<ControlPanel />);
-    expect(screen.queryByText('Источник света')).toBeNull();
+    expect(screen.queryByText('🔒 Источник света')).toBeNull();
     unmount();
-    useAppStore.setState({ family: 'azimuthal', distortion: 'equalArea', azLight: 'math' });
-    render(<ControlPanel />);
-    expect(screen.getByText('Источник света')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Математическая' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Из бесконечности (ортографическая)' }));
-    expect(useAppStore.getState().azLight).toBe('infinity');
-  });
-
-  it('conformal azimuthal keeps the light-source select visible but disabled (both modes identical)', () => {
     useAppStore.setState({ family: 'azimuthal', distortion: 'conformal', azLight: 'antipode' });
     render(<ControlPanel />);
-    // Переключатель остаётся видимым, но неактивным: оба допустимых режима
-    // дают одну стереографическую проекцию, поэтому выбор бесполезен.
-    expect(screen.getByText('Источник света')).toBeTruthy();
-    const trigger = screen.getByRole('button', { name: 'Из антипода (стереографическая)' });
-    expect((trigger as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText('🔒 Источник света')).toBeTruthy();
+    expect(screen.getByText('Противоположный полюс')).toBeTruthy();
   });
 
-  it('non-conformal azimuthal shows all four light sources and is enabled', () => {
+  it('azimuthal stereographic shows light locked to antipode', () => {
+    useAppStore.setState({ family: 'azimuthal', distortion: 'conformal', azLight: 'antipode' });
+    render(<ControlPanel />);
+    expect(screen.getByText('Противоположный полюс')).toBeTruthy();
+  });
+
+  it('non-conformal azimuthal shows locked math light label', () => {
     useAppStore.setState({ family: 'azimuthal', distortion: 'equalArea', azLight: 'math' });
     render(<ControlPanel />);
-    expect(screen.getByText('Источник света')).toBeTruthy();
-    const trigger = screen.getByRole('button', { name: 'Математическая' });
-    expect((trigger as HTMLButtonElement).disabled).toBe(false);
-    fireEvent.click(trigger);
-    expect(screen.getByRole('button', { name: 'Из центра (гномоническая)' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Из бесконечности (ортографическая)' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Из антипода (стереографическая)' })).toBeTruthy();
+    expect(screen.getByText('🔒 Источник света')).toBeTruthy();
   });
 
   it('toggles a secant conic (stdParallel2) and adjusts the second parallel', () => {

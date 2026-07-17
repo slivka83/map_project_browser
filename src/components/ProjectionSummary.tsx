@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { ProjectionParams, AzimuthalLight } from '../store/useAppStore';
 import { FAMILY_LABEL, DISTORTION_LABEL } from './ui/labels';
+import { variantDef, defaultVariant } from '../utils/projectionVariants';
 import { signedStandardParallelDeg } from '../constants/geometry';
 import { modalOverlay, modalShell } from './ui/styles';
 
@@ -81,6 +82,7 @@ export default function ProjectionSummary({ params, onClose }: { params: Project
           <Row k="Смещение восток (falseEasting)" v={`${params.falseEasting}`} />
           <Row k="Смещение север (falseNorthing)" v={`${params.falseNorthing}`} />
           <Row k="Класс проекции" v={describeProjection(params)} />
+          <Row k="Вариант" v={variantDef(params.variant ?? defaultVariant(params.family)).label} />
         </div>
       </div>
     </div>,

@@ -3,14 +3,9 @@ import * as THREE from 'three';
 import { NEON_YELLOW } from '../constants/designTokens';
 import { RADIUS } from '../constants/geometry';
 import { computeAzimuthalLightLamp, coneApexWorld, type Vec3, type AuxSurfaceParams } from '../utils/auxSurfaceGeometry';
+import { variantDef, defaultVariant } from '../utils/projectionVariants';
 import type { ProjectionParams } from '../store/useAppStore';
 
-// The projection "light source" rendered in 3D:
-//  - azimuthal → a point lamp at the globe centre (`center`) or the antipode
-//    (`antipode`); `infinity`/`math` have no single lamp (parallel beams / none).
-//  - conic → the developable-cone apex (the gnomonic light), always present.
-//  - cylindrical → the globus is simply unrolled onto a cylinder; there is no
-//    point or rod light source to draw.
 export default function LightSource({
   surface,
   params,
@@ -20,15 +15,19 @@ export default function LightSource({
 }) {
   const { family, lambda0, phiOrigin, azLight } = params;
 
+  const def = useMemo(() => variantDef(params.variant ?? defaultVariant(family)), [params.variant, family]);
+
   const lamp = useMemo(
-    () => (family === 'azimuthal' ? computeAzimuthalLightLamp(azLight, lambda0, phiOrigin, RADIUS) : null),
-    [family, azLight, lambda0, phiOrigin],
+    () => (family === 'azimuthal' && def.hasLamp ? computeAzimuthalLightLamp(azLight, lambda0, phiOrigin, RADIUS) : null),
+    [family, azLight, lambda0, phiOrigin, def.hasLamp],
   );
 
   const apex = useMemo(() => {
     if (family !== 'conic') return null;
     return surface.kind === 'cone' ? coneApexWorld(surface, params.gamma) : null;
   }, [family, surface, params.gamma]);
+
+  if (!def.hasLamp && family !== 'conic') return null;
 
   return (
     <group renderOrder={11}>
@@ -38,7 +37,6 @@ export default function LightSource({
   );
 }
 
-// A small glowing lamp: a bright core plus a softer additive-blended halo.
 function LampMarker({ position }: { position: Vec3 }) {
   return (
     <group position={position}>

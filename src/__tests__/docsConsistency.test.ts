@@ -136,7 +136,7 @@ describe('docs ↔ code: store shape matches ProjectionParams', () => {
   }
   it('ProjectionParams interface carries the documented projection fields', () => {
     const keys = Object.keys(projectionParamsShape);
-    for (const k of ['family', 'distortion', 'lambda0', 'phiOrigin', 'scaleFactor', 'gamma', 'stdParallel2', 'azLight']) {
+    for (const k of ['variant', 'family', 'distortion', 'lambda0', 'phiOrigin', 'scaleFactor', 'gamma', 'stdParallel2', 'azLight']) {
       expect(keys).toContain(k);
     }
     expect(keys).not.toContain('isEllipsoid');
