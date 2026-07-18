@@ -20,19 +20,18 @@ export default function Rays({ params }: { params: ProjectionParams }) {
   );
 
   const segments = useMemo<RaySegment[]>(
-    () =>
-      computeCentralMeridianRays({
-        ...params,
-        radius: RADIUS,
-        rayCount: RAY_COUNT,
-      }),
-    [params],
+    () => (def.hasRays ? computeCentralMeridianRays({
+      ...params,
+      radius: RADIUS,
+      rayCount: RAY_COUNT,
+    }) : []),
+    [params, def.hasRays],
   );
 
   const showHover = hoverSource === 'map' && showHoverRay;
   const hoverRay = useMemo<RaySegment | null>(
-    () => (showHover && hoverLonLat ? projectToAuxWorld(params, hoverLonLat[0], hoverLonLat[1], RADIUS) : null),
-    [params, hoverLonLat, showHover],
+    () => (showHover && hoverLonLat && def.hasRays ? projectToAuxWorld(params, hoverLonLat[0], hoverLonLat[1], RADIUS) : null),
+    [params, hoverLonLat, showHover, def.hasRays],
   );
 
   if (!def.hasRays) return null;

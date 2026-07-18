@@ -688,18 +688,19 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
       } else {
         start = [0, 0, 0];
       }
-    } else {
+    } else if (family === 'conic') {
       const latRad = (lat * Math.PI) / 180;
       const yCone = coneAxialHeight(latRad, cone, radius);
       const radCone = scaleFactor * Math.abs(cone.sign * cone.apex - yCone) * cone.tanA;
-      // `yCone` is the WORLD axial height; the cone local frame measures height
-      // from its base, so convert to local: localY = flip·(worldY − positionY).
       const localY = cone.flip * (yCone - cone.positionY);
       localEnd = [radCone, localY, 0];
-      // The conic branch is only reached when `surface` is a cone (computeAuxSurfaceParams
-      // returns a cone for the conic family), so it is safe to use it directly.
       start = coneApexWorld(surface as Extract<AuxSurfaceParams, { kind: 'cone' }>, gamma);
+    } else {
+      // pseudocylindrical / mathematical — no rays
+      continue;
     }
+
+    if (!surface) continue;
 
     const end = auxPointToWorld(surface, clampLocalToSurface(surface, localEnd));
 
@@ -800,7 +801,7 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
     localEnd = [dx * wpp, -dy * wpp, 0];
     if (azLight === 'antipode') start = [-center[0], -center[1], -center[2]];
     else start = [0, 0, 0];
-  } else {
+  } else if (family === 'conic') {
     const p = proj([lon, lat]);
     const c = proj([lambda0, phiOrigin]);
     if (!p || !c || !isFinite(p[0]) || !isFinite(p[1])) return null;
@@ -809,11 +810,12 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
     const yCone = coneAxialHeight(latRad, cone, radius);
     const radCone = scaleFactor * Math.abs(cone.sign * cone.apex - yCone) * cone.tanA;
     const theta = radCone > 1e-9 ? (dx * wpp) / radCone : 0;
-    // `yCone` is the WORLD axial height; convert to the cone local frame
-    // (height measured from the cone base): localY = flip·(worldY − positionY).
     const localY = cone.flip * (yCone - cone.positionY);
     localEnd = [radCone * Math.cos(theta), localY, radCone * Math.sin(theta)];
     start = coneApexWorld(surface as Extract<AuxSurfaceParams, { kind: 'cone' }>, gamma);
+  } else {
+    // pseudocylindrical / mathematical — no developable surface, no rays
+    return null;
   }
 
   if (!localEnd) return null;
