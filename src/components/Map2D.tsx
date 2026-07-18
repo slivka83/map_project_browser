@@ -8,7 +8,7 @@ import { getD3Projection, fitProjectionToView, computeAreaDistortion, isPointerO
 import { computeTissotCircles } from '../utils/tissot';
 import { computeAuxSphereIntersectionsLonLat } from '../utils/auxSurfaceGeometry';
 import { variantDef } from '../utils/projectionVariants';
-import { utmZoneToCentralMeridian, UTM_ZONE_WIDTH } from '../constants/geometry';
+import { utmZoneToCentralMeridian, UTM_ZONE_WIDTH, EARTH_RADIUS_KM } from '../constants/geometry';
 import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT, NEON_YELLOW, NEON_WHITE, GRATICULE_STROKE, NEON_RED } from '../constants/designTokens';
 import { iconBtnPlain, iconGlow, glassPanel } from './ui/styles';
 import { TissotIcon, BorderIcon, DetailIcon, IntersectionIcon, HoverRayIcon } from './ui/icons';
@@ -192,9 +192,15 @@ export default function Map2D() {
     if (!inv) return;
     const store = useAppStore.getState();
     if (rulerActive) {
-      if (!store.rulerPoint1) store.setRulerPoint1([inv[0], inv[1]]);
-      else if (!store.rulerPoint2) store.setRulerPoint2([inv[0], inv[1]]);
-      else { store.setRulerPoint1([inv[0], inv[1]]); store.setRulerPoint2(null); }
+      const mode = store.rulerMode;
+      if (mode === 'off' || mode === 'done' || mode === 'second') {
+        store.setRulerMode('first');
+        store.setRulerPoint1([inv[0], inv[1]]);
+        store.setRulerPoint2(null);
+      } else {
+        store.setRulerMode('second');
+        store.setRulerPoint2([inv[0], inv[1]]);
+      }
       return;
     }
     const def = params.variant ? variantDef(params.variant) : undefined;
@@ -276,6 +282,21 @@ export default function Map2D() {
           {p1 && p2 && (
             <line x1={p1[0]} y1={p1[1]} x2={p2[0]} y2={p2[1]} stroke={NEON_YELLOW} strokeWidth={1} strokeDasharray="4 2" data-testid="ruler-line" />
           )}
+          {p1 && p2 && rulerP1 && rulerP2 && (
+            <text
+              x={(p1[0] + p2[0]) / 2}
+              y={(p1[1] + p2[1]) / 2 - 6}
+              textAnchor="middle"
+              fontSize={11}
+              fill={NEON_YELLOW}
+              stroke={BG}
+              strokeWidth={3}
+              paintOrder="stroke"
+              data-testid="ruler-distance"
+            >
+              {formatDistance(greatCircleKm(rulerP1, rulerP2))}
+            </text>
+          )}
           {hoverPoint && (
             <circle data-testid="hover-marker" cx={hoverPoint[0]} cy={hoverPoint[1]} r={5} fill="none" stroke={NEON_YELLOW} strokeWidth={1.5} />
           )}
@@ -324,4 +345,18 @@ export default function Map2D() {
 function formatDistortion(value: number): string {
   const v = Number.isFinite(value) ? value : 0;
   return Math.round(v).toString();
+}
+
+// Great-circle (orthodromic) distance between two lon/lat points in km.
+function greatCircleKm(a: [number, number], b: [number, number]): number {
+  const [lon1, lat1] = [a[0] * Math.PI / 180, a[1] * Math.PI / 180];
+  const [lon2, lat2] = [b[0] * Math.PI / 180, b[1] * Math.PI / 180];
+  const dLon = lon2 - lon1;
+  const cos = Math.sin(lat1) * Math.sin(lat2) + Math.cos(lat1) * Math.cos(lat2) * Math.cos(dLon);
+  return EARTH_RADIUS_KM * Math.acos(Math.max(-1, Math.min(1, cos)));
+}
+
+function formatDistance(km: number): string {
+  if (km >= 1000) return `${(km / 1000).toLocaleString('ru-RU', { maximumFractionDigits: 2 })} тыс. км`;
+  return `${Math.round(km).toLocaleString('ru-RU')} км`;
 }

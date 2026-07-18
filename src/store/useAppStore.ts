@@ -248,6 +248,7 @@ export const useAppStore = create<AppState>((set) => ({
       family: def.family,
       distortion: def.distortion,
       azLight: def.azLight,
+      vizMethod: def.recommendedVizMethod,
       gamma: def.lockedGamma ?? 0,
       scaleFactor: def.lockedScaleFactor ?? 1,
       phiOrigin: 0,

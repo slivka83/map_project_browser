@@ -198,11 +198,12 @@ describe('Map2D', () => {
     });
   });
 
-  it('ruler: first click sets rulerPoint1, second sets rulerPoint2 + line', async () => {
+  it('ruler: first click sets rulerPoint1, second sets rulerPoint2 + line + distance label', async () => {
     act(() => {
       useAppStore.getState().setRulerActive(true);
       useAppStore.getState().setRulerPoint1(null);
       useAppStore.getState().setRulerPoint2(null);
+      useAppStore.getState().setRulerMode('off');
     });
     const { getByTestId, container } = render(<Map2D />);
     await waitFor(() => {
@@ -217,6 +218,36 @@ describe('Map2D', () => {
     await waitFor(() => {
       expect(getByTestId('ruler-point-2')).toBeTruthy();
       expect(getByTestId('ruler-line')).toBeTruthy();
+      // A distance label (km) is shown between the two points.
+      const dist = getByTestId('ruler-distance').textContent ?? '';
+      expect(dist).toMatch(/км/);
+      expect(getByTestId('ruler-distance').textContent).not.toBe('0 км');
+    });
+  });
+
+  it('ruler: third click resets to a single point (state machine)', async () => {
+    act(() => {
+      useAppStore.getState().setRulerActive(true);
+      useAppStore.getState().setRulerPoint1(null);
+      useAppStore.getState().setRulerPoint2(null);
+      useAppStore.getState().setRulerMode('off');
+    });
+    const { queryByTestId, container } = render(<Map2D />);
+    await waitFor(() => {
+      expect(container.querySelector('svg[data-map="true"]')).not.toBeNull();
+    });
+    const svg = container.querySelector('svg[data-map="true"]') as SVGSVGElement;
+    fireEvent.click(svg, { clientX: 100, clientY: 100 });
+    fireEvent.click(svg, { clientX: 200, clientY: 150 });
+    await waitFor(() => {
+      expect(queryByTestId('ruler-point-2')).toBeTruthy();
+    });
+    // Third click clears point 2 and starts a new measurement.
+    fireEvent.click(svg, { clientX: 300, clientY: 80 });
+    await waitFor(() => {
+      expect(queryByTestId('ruler-point-2')).toBeNull();
+      expect(queryByTestId('ruler-line')).toBeNull();
+      expect(queryByTestId('ruler-distance')).toBeNull();
     });
   });
 
