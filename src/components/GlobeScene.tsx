@@ -53,7 +53,7 @@ export default function GlobeScene() {
     [params.family, params.lambda0, params.phiOrigin, params.scaleFactor, params.distortion, params.azLight, params.stdParallel2, params.gamma, params.variant, params.azHeight],
   );
 
-  // Shared hover linkage (docs/specification.md §2): hovering the globe reads the
+  // Shared hover linkage (AGENTS.md): hovering the globe reads the
   // (lon, lat) under the cursor and mirrors it into the 2D map (and vice-versa).
   const handleGlobeMove = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { ProjectionParams } from '../store/useAppStore';
+import { defaultParamsForFamily } from '../store/useAppStore';
 import { RADIUS, RAY_COUNT, VIEW_CENTER_Y, MAP_SCALE } from '../constants/geometry';
 import { getD3Projection } from '../utils/projectionMapper';
 import {
@@ -978,7 +979,7 @@ describe('rays always land on the rendered aux surface (no empty space)', () => 
 describe('computePerpendicularNormals', () => {
   it('возвращает непустой массив нормалей для цилиндрической поверхности', () => {
     const surface = computeAuxSurfaceParams('cylindrical', 0, 0, 1)!;
-    const normals = computePerpendicularNormals(surface, 30);
+    const normals = computePerpendicularNormals(surface, defaultParamsForFamily('cylindrical'), 30);
     expect(normals.length).toBeGreaterThan(0);
     for (const n of normals) {
       expect(n.globePoint).toHaveLength(3);
@@ -987,18 +988,18 @@ describe('computePerpendicularNormals', () => {
   });
   it('работает для конической поверхности', () => {
     const surface = computeAuxSurfaceParams('conic', 0, 45, 1)!;
-    expect(computePerpendicularNormals(surface, 30).length).toBeGreaterThan(0);
+    expect(computePerpendicularNormals(surface, defaultParamsForFamily('cylindrical'), 30).length).toBeGreaterThan(0);
   });
   it('работает для плоскости', () => {
     const surface = computeAuxSurfaceParams('azimuthalPerspective', 0, 30, 1)!;
-    expect(computePerpendicularNormals(surface, 30).length).toBeGreaterThan(0);
+    expect(computePerpendicularNormals(surface, defaultParamsForFamily('cylindrical'), 30).length).toBeGreaterThan(0);
   });
 });
 
 describe('computeParticleTrajectories', () => {
   it('содержит globePoint, surfacePoint и controlPoints для каждого трека', () => {
     const surface = computeAuxSurfaceParams('cylindrical', 0, 0, 1)!;
-    const trajs = computeParticleTrajectories(surface, 'cylindrical', 30);
+    const trajs = computeParticleTrajectories(surface, defaultParamsForFamily('cylindrical'), 30);
     expect(trajs.length).toBeGreaterThan(0);
     for (const tr of trajs) {
       expect(tr.globePoint).toHaveLength(3);
@@ -1019,7 +1020,7 @@ describe('computeMagneticFieldLines', () => {
 describe('computeLaserScanRing', () => {
   it('возвращает кольцо + проекцию для заданной широты', () => {
     const surface = computeAuxSurfaceParams('cylindrical', 0, 0, 1)!;
-    const frame = computeLaserScanRing(surface, 0, 'cylindrical', 32);
+    const frame = computeLaserScanRing(surface, 0, defaultParamsForFamily('cylindrical'), 32);
     expect(frame.ringPoints.length).toBeGreaterThan(0);
     expect(frame.projectedPoints.length).toBeGreaterThan(0);
     expect(frame.latitude).toBe(0);
@@ -1060,8 +1061,8 @@ describe('computeSatellitePosition', () => {
 
 describe('computeOrbitalPath', () => {
   it('орбита периодична: t=0 и t=1 дают одну точку', () => {
-    const a = computeOrbitalPath(0, 98, 100, 0);
-    const b = computeOrbitalPath(1, 98, 100, 0);
+    const a = computeOrbitalPath(0, 98, 0);
+    const b = computeOrbitalPath(1, 98, 0);
     expect(a[0]).toBeCloseTo(b[0], 6);
     expect(a[1]).toBeCloseTo(b[1], 6);
     expect(a[2]).toBeCloseTo(b[2], 6);

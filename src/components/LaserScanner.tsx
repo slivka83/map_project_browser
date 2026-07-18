@@ -19,7 +19,7 @@ export default function LaserScanner({
     latRef.current += dt * 20;
     if (latRef.current > 85) latRef.current = -85;
   });
-  const frame = computeLaserScanRing(surface, latRef.current, params.family, 64);
+  const frame = computeLaserScanRing(surface, latRef.current, params, 64);
   return (
     <group renderOrder={8}>
       <Line points={frame.ringPoints} color={LASER_COLOR} lineWidth={1.2} transparent opacity={0.85} />

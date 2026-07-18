@@ -4,7 +4,7 @@ import * as d3Geo from 'd3-geo';
 import type { FeatureCollection } from 'geojson';
 import { useAppStore } from '../store/useAppStore';
 import { useProjectionParams, useVisualizationParams } from '../store/selectors';
-import { getD3Projection, fitProjectionToView, computeAreaDistortion, isPointerOverGlobe } from '../utils/projectionMapper';
+import { getD3Projection, fitProjectionToView, computeAreaDistortion, referenceAreaScale, cellAreaDistortion, isPointerOverGlobe } from '../utils/projectionMapper';
 import { computeTissotCircles } from '../utils/tissot';
 import { computeAuxSphereIntersectionsLonLat } from '../utils/auxSurfaceGeometry';
 import { variantDef } from '../utils/projectionVariants';
@@ -33,17 +33,20 @@ function useElementSize() {
 
 // Distortion heatmap cell: sample the local area-scale at a lon/lat grid and
 // colour green→red. Cheap enough to recompute on param change (memoised).
-function HeatmapOverlay({ proj }: { proj: d3Geo.GeoProjection }) {
+function HeatmapOverlay({ proj, reference }: { proj: d3Geo.GeoProjection; reference: number }) {
   const cells = useMemo(() => {
     const out: { d: string; color: string }[] = [];
     const step = 2;
-    for (let lat = -89; lat < 89; lat += step) {
+    for (let lat = -88; lat < 88; lat += step) {
       for (let lon = -180; lon < 180; lon += step) {
         const a = proj([lon, lat]);
         const b = proj([lon + step, lat + step]);
         if (!a || !b || !isFinite(a[0]) || !isFinite(b[0])) continue;
-        const ref = Math.cos((lat * Math.PI) / 180);
-        const t = Math.max(0, Math.min(1, 1 - ref / 1.2));
+        // Colour each cell by its LOCAL area distortion relative to the
+        // projection's own true-scale reference (green = true scale, red = stretched).
+        const dist = cellAreaDistortion(proj, reference, lon + step / 2, lat + step / 2);
+        if (dist == null) continue;
+        const t = Math.max(0, Math.min(1, dist / 400));
         const r = Math.round(40 + t * 215);
         const g = Math.round(220 - t * 200);
         const path = `M ${a[0]} ${a[1]} L ${b[0]} ${a[1]} L ${b[0]} ${b[1]} L ${a[0]} ${b[1]} Z`;
@@ -51,7 +54,7 @@ function HeatmapOverlay({ proj }: { proj: d3Geo.GeoProjection }) {
       }
     }
     return out;
-  }, [proj]);
+  }, [proj, reference]);
   return (
     <g data-testid="heatmap-layer">
       {cells.map((c, i) => (
@@ -93,9 +96,9 @@ function TestFiguresOverlay({ proj, type }: { proj: d3Geo.GeoProjection; type: '
 
 // UTM zone mask: dim everything outside the active 6° zone (Transverse Mercator).
 function UTMZoneMask({ proj, zone }: { proj: d3Geo.GeoProjection; zone: number }) {
-  const meridan = utmZoneToCentralMeridian(zone);
-  const lonMin = meridan - UTM_ZONE_WIDTH / 2;
-  const lonMax = meridan + UTM_ZONE_WIDTH / 2;
+  const meridian = utmZoneToCentralMeridian(zone);
+  const lonMin = meridian - UTM_ZONE_WIDTH / 2;
+  const lonMax = meridian + UTM_ZONE_WIDTH / 2;
   const inside: [number, number][] = [
     [lonMin, -85], [lonMax, -85], [lonMax, 85], [lonMin, 85], [lonMin, -85],
   ].map(([lo, la]) => (proj([lo, la]) ?? [0, 0]) as [number, number]);
@@ -155,6 +158,7 @@ export default function Map2D() {
   );
 
   const areaDistortion = useMemo(() => computeAreaDistortion(params), [params]);
+  const areaReference = useMemo(() => referenceAreaScale(params), [params]);
 
   const tissotCircles = useMemo(
     () => (showTissot ? computeTissotCircles(graticuleStep) : []),
@@ -193,17 +197,17 @@ export default function Map2D() {
     const store = useAppStore.getState();
     if (rulerActive) {
       const mode = store.rulerMode;
-      if (mode === 'off' || mode === 'done' || mode === 'second') {
-        store.setRulerMode('first');
+      if (mode === 'first' || mode === 'done') {
+        store.setRulerMode('second');
         store.setRulerPoint1([inv[0], inv[1]]);
         store.setRulerPoint2(null);
       } else {
-        store.setRulerMode('second');
+        store.setRulerMode('done');
         store.setRulerPoint2([inv[0], inv[1]]);
       }
       return;
     }
-    const def = params.variant ? variantDef(params.variant) : undefined;
+    const def = variantDef(params.variant);
     if (def?.showTouchPointPresets && (family === 'azimuthalPerspective' || family === 'azimuthalMath')) {
       store.setParam('phiOrigin', inv[1]);
       store.setParam('lambda0', inv[0]);
@@ -252,7 +256,7 @@ export default function Map2D() {
           onPointerLeave={() => setHoverLonLat(null)}
           onClick={handleMapClick}
         >
-          {showHeatmap && projRef && <HeatmapOverlay proj={projRef} />}
+          {showHeatmap && projRef && <HeatmapOverlay proj={projRef} reference={areaReference} />}
           <path d={graticulePath} fill="none" stroke={GRATICULE_STROKE} strokeWidth={0.5} />
           {(baseLand as FeatureCollection).features.map((feature, i) => (
             <path key={i} d={pathGenerator(feature) ?? ''} fill={BG} stroke={NEON_BLUE} strokeWidth={1} />

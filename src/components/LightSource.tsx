@@ -39,7 +39,7 @@ export default function LightSource({
   const satellite = useMemo(() => {
     if (family !== 'azimuthalPerspective') return null;
     if (params.variant === 'verticalPerspective' || params.variant === 'tiltedPerspective') {
-      return computeSatellitePosition(phiOrigin, lambda0, azHeight, RADIUS, RADIUS);
+      return computeSatellitePosition(phiOrigin, lambda0, azHeight);
     }
     return null;
   }, [family, params.variant, phiOrigin, lambda0, azHeight]);

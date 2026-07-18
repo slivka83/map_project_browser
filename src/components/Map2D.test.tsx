@@ -203,7 +203,6 @@ describe('Map2D', () => {
       useAppStore.getState().setRulerActive(true);
       useAppStore.getState().setRulerPoint1(null);
       useAppStore.getState().setRulerPoint2(null);
-      useAppStore.getState().setRulerMode('off');
     });
     const { getByTestId, container } = render(<Map2D />);
     await waitFor(() => {
@@ -230,7 +229,6 @@ describe('Map2D', () => {
       useAppStore.getState().setRulerActive(true);
       useAppStore.getState().setRulerPoint1(null);
       useAppStore.getState().setRulerPoint2(null);
-      useAppStore.getState().setRulerMode('off');
     });
     const { queryByTestId, container } = render(<Map2D />);
     await waitFor(() => {

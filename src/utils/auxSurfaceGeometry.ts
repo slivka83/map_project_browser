@@ -83,11 +83,6 @@ export function vec3Normalize(v: Vec3): Vec3 {
   return [v[0] / len, v[1] / len, v[2] / len];
 }
 
-function normalize(v: Vec3): Vec3 {
-  const len = Math.hypot(v[0], v[1], v[2]) || 1;
-  return [v[0] / len, v[1] / len, v[2] / len];
-}
-
 function cross(a: Vec3, b: Vec3): Vec3 {
   return [
     a[1] * b[2] - a[2] * b[1],
@@ -137,9 +132,9 @@ export function projectionRotationMatrix(lambda0: number, phiOrigin: number, gam
 // azimuthal aux plane and the rays are both built from this, so they stay aligned.
 export function computeTangentBasis(lambda0: number, phiOrigin: number, radius = RADIUS) {
   const center = lonLatToVec3(lambda0, phiOrigin, radius);
-  const normal = normalize(center);
-  const east: Vec3 = Math.abs(normal[1]) > 0.9999 ? [1, 0, 0] : normalize(cross([0, 1, 0], normal));
-  const north = normalize(cross(normal, east));
+  const normal = vec3Normalize(center);
+  const east: Vec3 = Math.abs(normal[1]) > 0.9999 ? [1, 0, 0] : vec3Normalize(cross([0, 1, 0], normal));
+  const north = vec3Normalize(cross(normal, east));
   return { center, normal, east, north };
 }
 
@@ -147,8 +142,8 @@ export function computeTangentBasis(lambda0: number, phiOrigin: number, radius =
 // normal is `normal` (same convention as computeTangentBasis, but derived
 // directly from the normal so it can drive the aux-surface world transform).
 function basisFromNormal(normal: Vec3): { east: Vec3; north: Vec3 } {
-  const east: Vec3 = Math.abs(normal[1]) > 0.9999 ? [1, 0, 0] : normalize(cross([0, 1, 0], normal));
-  const north = normalize(cross(normal, east));
+  const east: Vec3 = Math.abs(normal[1]) > 0.9999 ? [1, 0, 0] : vec3Normalize(cross([0, 1, 0], normal));
+  const north = vec3Normalize(cross(normal, east));
   return { east, north };
 }
 
@@ -493,7 +488,7 @@ export function computeAuxSurfaceParams(
 }
 
 // ---- Light-source geometry (single source of truth for the 3D light marker) ----
-// Mirrors the physical model in docs/specification.md §3.
+// Mirrors the physical model described in AGENTS.md.
 
 // Azimuthal point-light position (world space). `center` → globe centre,
 // `antipode` → the point opposite the tangent point. `infinity` and `math`
@@ -651,11 +646,14 @@ export interface LaserScanFrame {
   latitude: number;
 }
 
-// Build short perpendicular normals from a grid of globe points to the aux
-// surface (method 1). Each normal goes from the globe point straight out to the
-// nearest rendered surface point along the radial direction.
+// Build perpendicular normals from a grid of globe points to the aux surface
+// (method 1). Each normal runs from the globe point to the point where that
+// globe point is actually projected onto the aux surface (via `projectToAuxWorld`),
+// so for a cylinder the normals land on the tube, for a cone on the cone, and for
+// a plane on the tangent disc — exactly matching the real projection geometry.
 export function computePerpendicularNormals(
   _surface: AuxSurfaceParams,
+  params: ProjectionParams,
   gridStep = 30,
   radius = RADIUS,
 ): NormalLine[] {
@@ -663,23 +661,23 @@ export function computePerpendicularNormals(
   for (let lat = -60; lat <= 60; lat += gridStep) {
     for (let lon = -180; lon < 180; lon += gridStep) {
       const g = lonLatToVec3(lon, lat, radius);
-      // The surface point is the same point pushed through auxPointToWorld at the
-      // globe radius (so the line sits on the visible surface or, for a plane, at
-      // the tangent disc). We approximate by nudging radially by a small fixed
-      // length so the segment is visibly short and points outward.
-      const n = vec3Normalize(g);
-      const s = [g[0] + n[0] * 0.4, g[1] + n[1] * 0.4, g[2] + n[2] * 0.4] as Vec3;
-      out.push({ globePoint: g, surfacePoint: s, length: 0.4 });
+      const ray = projectToAuxWorld(params, lon, lat, radius);
+      const s = ray ? ray.end : g;
+      const v: Vec3 = [s[0] - g[0], s[1] - g[1], s[2] - g[2]];
+      const len = Math.hypot(v[0], v[1], v[2]) || 1;
+      out.push({ globePoint: g, surfacePoint: s, length: len });
     }
   }
   return out;
 }
 
 // Particle trajectories from globe points to their projections on the aux
-// surface (method 2). The control points bend the path outward for animation.
+// surface (method 2). Each particle lands at the REAL projection of its globe
+// point (via `projectToAuxWorld`), so the trajectories follow the actual map
+// rather than an arbitrary scaled copy of the globe.
 export function computeParticleTrajectories(
-  surface: AuxSurfaceParams,
-  _family: ProjectionParams['family'],
+  _surface: AuxSurfaceParams,
+  params: ProjectionParams,
   gridStep = 30,
   radius = RADIUS,
 ): ParticleTrajectory[] {
@@ -687,15 +685,8 @@ export function computeParticleTrajectories(
   for (let lat = -60; lat <= 60; lat += gridStep) {
     for (let lon = -180; lon < 180; lon += gridStep) {
       const g = lonLatToVec3(lon, lat, radius);
-      let end: Vec3;
-      if (surface.kind === 'plane') {
-        end = auxPointToWorld(surface, [lonLatToVec3(lon, lat, radius)[0] * 0.1, lonLatToVec3(lon, lat, radius)[1] * 0.1, 0]);
-      } else {
-        const local: Vec3 = surface.kind === 'cylinder'
-          ? [radius * Math.cos((lat * Math.PI) / 180), radius * Math.sin((lat * Math.PI) / 180), 0]
-          : [radius * Math.cos((lon * Math.PI) / 180), radius * Math.sin((lat * Math.PI) / 180), 0];
-        end = auxPointToWorld(surface, local);
-      }
+      const ray = projectToAuxWorld(params, lon, lat, radius);
+      const end: Vec3 = ray ? ray.end : g;
       const mid: Vec3 = [(g[0] + end[0]) / 2, (g[1] + end[1]) / 2 + 0.5, (g[2] + end[2]) / 2];
       out.push({ globePoint: g, surfacePoint: end, controlPoints: [g, mid, end] });
     }
@@ -727,11 +718,14 @@ export function computeMagneticFieldLines(
 }
 
 // Laser-scan frame at a given globe latitude: the ring on the globe plus the
-// projected ring on the aux surface (method 6).
+// projected ring on the aux surface (method 6). Each globe point is projected
+// onto the aux surface with the REAL projection math (via `projectToAuxWorld`),
+// so the projected ring is exactly where that latitude actually lands — not a
+// scaled-down copy of the globe ring.
 export function computeLaserScanRing(
-  surface: AuxSurfaceParams,
+  _surface: AuxSurfaceParams,
   latitude: number,
-  _family: ProjectionParams['family'],
+  params: ProjectionParams,
   numPoints = 64,
   radius = RADIUS,
 ): LaserScanFrame {
@@ -741,11 +735,8 @@ export function computeLaserScanRing(
     const lon = -180 + (360 * i) / numPoints;
     const g = lonLatToVec3(lon, latitude, radius);
     ringPoints.push(g);
-    if (surface.kind === 'plane') {
-      projectedPoints.push(auxPointToWorld(surface, [g[0] * 0.1, g[1] * 0.1, 0]));
-    } else {
-      projectedPoints.push(g);
-    }
+    const ray = projectToAuxWorld(params, lon, latitude, radius);
+    projectedPoints.push(ray ? ray.end : g);
   }
   return { ringPoints, projectedPoints, latitude };
 }
@@ -795,13 +786,16 @@ export function computeSatellitePosition(
   return [touch[0] + n[0] * h, touch[1] + n[1] * h, touch[2] + n[2] * h];
 }
 
-// Point on a sun-synchronous orbit at time `t` (0…1). The orbit is a circle of
-// radius `orbitRadius` inclined by `inclination` deg, with ascending node at
-// `nodeLongitude`. `modelRadius` maps km → model units.
+// Point on a sun-synchronous orbit at time `t` (0…1, one full revolution). The
+// orbit is a circle of radius `orbitRadius` inclined by `inclination` deg, with
+// ascending node at `nodeLongitude`. `modelRadius` maps km → model units. The
+// orbital period is a property of the real SOM and is configured in the store;
+// this pure geometry helper only needs the instantaneous position, so the period
+// is intentionally NOT a parameter here (the old unused `period` argument has
+// been removed — see errors.md §2.2).
 export function computeOrbitalPath(
   t: number,
   inclination: number,
-  _period: number,
   nodeLongitude: number,
   modelRadius = RADIUS,
   orbitRadius?: number,
@@ -809,7 +803,7 @@ export function computeOrbitalPath(
   const r = orbitRadius ?? modelRadius * 1.6;
   const inc = (inclination * Math.PI) / 180;
   const node = (nodeLongitude * Math.PI) / 180;
-  const ang = t * Math.PI * 2;
+  const ang = t * 2 * Math.PI;
   // Inclined circular orbit in its own plane, then rotated by the node longitude.
   const x0 = r * Math.cos(ang);
   const y0 = r * Math.sin(ang) * Math.cos(inc);

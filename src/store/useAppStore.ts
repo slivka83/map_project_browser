@@ -50,7 +50,7 @@ export const DEFAULT_DISTORTION: Record<ProjectionFamily, DistortionModel> = {
 };
 
 export interface ProjectionParams {
-  variant?: ProjectionVariant;
+  variant: ProjectionVariant;
   family: ProjectionFamily;
   distortion: DistortionModel;
   lambda0: number; // -180...180  (central meridian)
@@ -118,6 +118,8 @@ export function defaultParamsForFamily(family: ProjectionFamily): ProjectionPara
 }
 
 interface AppState extends ProjectionParams {
+  // Monotonic token for loadGeoData: a newer fetch supersedes an older one.
+  _geoToken: number;
   showTissot: boolean;
   showBorders: boolean;
   // White lines marking where the auxiliary (developable) surface intersects
@@ -137,7 +139,7 @@ interface AppState extends ProjectionParams {
   detailedMap: boolean;
 
   // The point currently hovered in either the 2D map or the 3D globe, shared so
-  // the other view can mirror the highlight (docs/specification.md §2 cross-linking).
+  // the other view can mirror the highlight (see AGENTS.md for the cross-linking model).
   // `hoverSource` records which view set it, so the projection ray is drawn only
   // when the 2D map is hovered (the 3D globe mirrors the marker, not the ray).
   hoverLonLat: [number, number] | null;
@@ -214,6 +216,7 @@ const NEW_DEFAULTS = {
 
 export const useAppStore = create<AppState>((set) => ({
   ...defaultParamsForFamily('cylindrical'),
+  _geoToken: 0,
   showTissot: false,
   showBorders: false,
   showIntersection: false,
@@ -265,7 +268,18 @@ export const useAppStore = create<AppState>((set) => ({
   setShowBorders: (value) => set({ showBorders: value }),
   setShowIntersection: (value) => set({ showIntersection: value }),
   setDetailedMap: (value) => set({ detailedMap: value }),
-  setFamily: (family) => set({ ...defaultParamsForFamily(family) }),
+  setFamily: (family) =>
+    set((s) => ({
+      // Keep the user's generic placement params (central meridian, central
+      // latitude, tilt) and only reset the family-specific defaults so a family
+      // switch doesn't wipe the whole configuration.
+      ...defaultParamsForFamily(family),
+      lambda0: s.lambda0,
+      phiOrigin: 0,
+      gamma: 0,
+      falseEasting: s.falseEasting,
+      falseNorthing: s.falseNorthing,
+    })),
   resetParams: () => set((s) => {
     const v = defaultVariant(s.family);
     const def = variantDef(v);
@@ -292,9 +306,9 @@ export const useAppStore = create<AppState>((set) => ({
   loadGeoData: async () => {
     // A monotonically increasing token lets a later call supersede an earlier one
     // (e.g. on a fast remount): only the most recent fetch may commit its result.
-    const token = (useAppStore.getState() as AppState & { _geoToken?: number })._geoToken ?? 0;
+    const token = useAppStore.getState()._geoToken ?? 0;
     const next = token + 1;
-    (useAppStore.getState() as AppState & { _geoToken?: number })._geoToken = next;
+    useAppStore.setState({ _geoToken: next });
     set({ geoLoading: true });
 
     const load = async (url: string, object: string): Promise<FeatureCollection | null> => {
@@ -317,7 +331,7 @@ export const useAppStore = create<AppState>((set) => ({
     ]);
     // Ignore stale results: if a newer load started while we were fetching, the
     // newer call owns the committed state and this one must not overwrite it.
-    if ((useAppStore.getState() as AppState & { _geoToken?: number })._geoToken !== next) return;
+    if (useAppStore.getState()._geoToken !== next) return;
     set({
       geoJsonData: land110,
       land50GeoJson: land50,

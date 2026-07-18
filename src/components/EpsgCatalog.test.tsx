@@ -62,7 +62,7 @@ describe('EpsgCatalog', () => {
 
   it('applies the preset and closes when a row is selected', () => {
     const { onClose, applyPreset } = setup();
-    fireEvent.click(screen.getByText('EPSG:53010'));
+    fireEvent.click(screen.getByText('CYL-EA-GALL-PETERS'));
     expect(applyPreset).toHaveBeenCalledTimes(1);
     const arg = applyPreset.mock.calls[0][0] as Partial<ProjectionParams>;
     expect(arg.family).toBe('cylindrical');
@@ -80,7 +80,7 @@ describe('EpsgCatalog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Равноугольная' }));
     // a conformal cylindrical code stays, an equal-area one is removed
     expect(screen.getByText('EPSG:3395')).toBeTruthy();
-    expect(screen.queryByText('EPSG:53010')).toBeNull();
+    expect(screen.queryByText('CYL-EA-GALL-PETERS')).toBeNull();
   });
 
   it('locks column widths via a fixed table layout (colgroup)', () => {

@@ -13,8 +13,8 @@ export default function ParticleTransfer({
   params: ProjectionParams;
 }) {
   const trajectories = useMemo(
-    () => computeParticleTrajectories(surface, params.family, 30),
-    [surface, params.family],
+    () => computeParticleTrajectories(surface, params, 30),
+    [surface, params],
   );
   return (
     <group renderOrder={8}>

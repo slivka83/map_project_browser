@@ -143,12 +143,13 @@ describe('useAppStore', () => {
       expect(s.distortion).toBe(distortion);
       expect(s.azLight).toBe(azLight);
       expect(s.stdParallel2).toBe(sp2);
-      // other params reset to defaults
-      expect(s.lambda0).toBe(0);
+      // Generic placement params are preserved across a family switch.
+      expect(s.lambda0).toBe(90);
+      expect(s.falseEasting).toBe(100);
+      expect(s.falseNorthing).toBe(-50);
+      // Family-specific params reset to the new family defaults.
       expect(s.phiOrigin).toBe(0);
       expect(s.scaleFactor).toBe(1);
-      expect(s.falseEasting).toBe(0);
-      expect(s.falseNorthing).toBe(0);
       expect(s.gamma).toBe(0);
     }
   });

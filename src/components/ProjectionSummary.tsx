@@ -11,7 +11,7 @@ const latLabel = (deg: number): string => {
   return `${Math.abs(deg)}° ${deg > 0 ? 'с.ш.' : 'ю.ш.'}`;
 };
 
-// Human-readable projection class (docs/specification.md §4): the developable surface
+// Human-readable projection class (see AGENTS.md): the developable surface
 // and the distortion model, with the azimuthal family resolved via its light source.
 function describeProjection(p: ProjectionParams): string {
   const fam = FAMILY_LABEL[p.family];
@@ -25,7 +25,7 @@ function describeProjection(p: ProjectionParams): string {
     };
     return `${az[p.azLight]} (азимутальная)`;
   }
-  const secant = p.family === 'conic' ? p.stdParallel2 != null : p.scaleFactor !== 1;
+  const secant = p.family === 'conic' ? p.stdParallel2 != null : p.family === 'cylindrical' && p.scaleFactor !== 1;
   return `${secant ? 'Секущая' : 'Касательная'} ${fam} ${dist}`;
 }
 
@@ -51,6 +51,12 @@ export default function ProjectionSummary({ params, onClose }: { params: Project
   }, [onClose]);
 
   const utm = params.utmZone != null ? `Зона ${params.utmZone}` : '—';
+  const isCylindrical = params.family === 'cylindrical';
+  const isConic = params.family === 'conic';
+  const isAzimuthalPerspective = params.family === 'azimuthalPerspective';
+  const isAzimuthalMath = params.family === 'azimuthalMath';
+  const isSatellite = isAzimuthalPerspective && (params.variant === 'verticalPerspective' || params.variant === 'tiltedPerspective');
+  const isObliqueMercator = params.variant === 'obliqueMercator';
 
   return createPortal(
     <div
@@ -75,21 +81,31 @@ export default function ProjectionSummary({ params, onClose }: { params: Project
           <Row k="Центральный меридиан (λ₀)" v={`${params.lambda0}°`} />
           <Row k="Широта начала отсчёта (φ₀)" v={latLabel(params.phiOrigin)} />
           <Row k="Стандартная параллель 1 (φ₁)" v={latLabel(signedStandardParallelDeg(params.phiOrigin))} />
-          <Row
-            k="Стандартная параллель 2 (φ₂)"
-            v={params.family === 'conic' && params.stdParallel2 != null ? latLabel(params.stdParallel2) : '—'}
-          />
+          {isConic && (
+            <Row
+              k="Стандартная параллель 2 (φ₂)"
+              v={params.stdParallel2 != null ? latLabel(params.stdParallel2) : '—'}
+            />
+          )}
           <Row k="Масштабный коэффициент" v={params.scaleFactor.toFixed(2)} />
           <Row k="Наклон (γ)" v={`${params.gamma}°`} />
-          <Row k="Зона UTM" v={utm} />
-          <Row k="Высота источника (км)" v={params.azHeight != null ? `${params.azHeight}` : '—'} />
-          <Row k="Наклон камеры" v={params.azTiltDeg != null ? `${params.azTiltDeg}°` : '—'} />
-          <Row k="Азимут камеры" v={params.azAzimuthDeg != null ? `${params.azAzimuthDeg}°` : '—'} />
-          <Row k="Полушарие конуса" v={params.coneHemisphere === 'south' ? 'Юг' : 'Север'} />
-          <Row k="Радиус круга (км)" v={params.circleRadiusKm != null ? `${params.circleRadiusKm}` : '—'} />
-          <Row k="Наклонение SOM" v={params.somInclination != null ? `${params.somInclination}°` : '—'} />
-          <Row k="Период SOM (мин)" v={params.somPeriod != null ? `${params.somPeriod}` : '—'} />
-          <Row k="Долгота узла SOM" v={params.somNodeLongitude != null ? `${params.somNodeLongitude}°` : '—'} />
+          {isCylindrical && params.variant === 'transverseMercator' && <Row k="Зона UTM" v={utm} />}
+          {isSatellite && <Row k="Высота источника (км)" v={`${params.azHeight}`} />}
+          {params.variant === 'tiltedPerspective' && (
+            <>
+              <Row k="Наклон камеры" v={`${params.azTiltDeg}°`} />
+              <Row k="Азимут камеры" v={`${params.azAzimuthDeg}°`} />
+            </>
+          )}
+          {isConic && <Row k="Полушарие конуса" v={params.coneHemisphere === 'south' ? 'Юг' : 'Север'} />}
+          {isAzimuthalMath && <Row k="Радиус круга (км)" v={`${params.circleRadiusKm}`} />}
+          {isObliqueMercator && (
+            <>
+              <Row k="Наклонение SOM" v={`${params.somInclination}°`} />
+              <Row k="Период SOM (мин)" v={`${params.somPeriod}`} />
+              <Row k="Долгота узла SOM" v={`${params.somNodeLongitude}°`} />
+            </>
+          )}
           <Row k="Смещение восток (falseEasting)" v={`${params.falseEasting}`} />
           <Row k="Смещение север (falseNorthing)" v={`${params.falseNorthing}`} />
           <Row k="Класс проекции" v={describeProjection(params)} />

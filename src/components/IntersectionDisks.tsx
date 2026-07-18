@@ -5,7 +5,7 @@ import { computeAuxSphereIntersections, auxPointToWorld, type AuxSurfaceParams }
 import { RADIUS } from '../constants/geometry';
 import type { ProjectionParams } from '../store/useAppStore';
 
-// Hollow white neon rings marking where the auxiliary surface meets the globe.
+// Hollow neon-green rings marking where the auxiliary surface meets the globe.
 // The rings are the actual intersection circles (computed analytically), so the
 // surface can touch the globe in one place, two places, or not at all — in the
 // last case nothing is drawn. Every ring is pushed through `auxPointToWorld`,

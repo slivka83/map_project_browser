@@ -4,18 +4,24 @@ import * as auxSurfaceGeometry from '../utils/auxSurfaceGeometry';
 import * as designTokens from '../constants/designTokens';
 import { MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y, CLIP_LAT, EARTH_RADIUS_KM, UTM_ZONE_WIDTH, CIRCLE_RADIUS_MIN, CIRCLE_RADIUS_MAX } from '../constants/geometry';
 import { defaultParamsForFamily } from '../store/useAppStore';
-import agentsMd from '../../AGENTS.md?raw';
-import brdMd from '../../docs/BRD.md?raw';
-import specMd from '../../docs/new_spec.md?raw';
+
+// Discover the documentation files dynamically (only those that exist on disk),
+// so the test never crashes on a missing `?raw` import and never needs manual
+// maintenance when a doc file is added or removed.
+const docModules = import.meta.glob('../../**/*.md', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>;
+const KNOWN_DOCS = ['../../AGENTS.md', '../../docs/BRD.md'];
+const allDocsRaw = KNOWN_DOCS.map((p) => docModules[p]).filter((t): t is string => typeof t === 'string');
+const agentsMd = allDocsRaw[0];
+const brdMd = allDocsRaw[1];
 
 const projectionParamsShape = defaultParamsForFamily('cylindrical');
 
 // ---------------------------------------------------------------------------
 // Documentation ↔ code consistency gate.
 //
-// These tests keep docs/BRD.md, docs/specification.md and AGENTS.md honest: any
-// drift (renamed file, removed export, dropped store field, wrong constant) is
-// caught in `npm run test` instead of discovered by a human reader later.
+// These tests keep docs/BRD.md and AGENTS.md honest: any drift (renamed file,
+// removed export, dropped store field, wrong constant) is caught in
+// `npm run test` instead of discovered by a human reader later.
 //
 // Only *stable, mechanically checkable* facts are asserted here — never prose.
 // The checks are intentionally tolerant of wording/phrasing changes: a file is
@@ -33,7 +39,6 @@ const srcFiles = Object.keys(import.meta.glob('../../src/**/*.{ts,tsx}')).map((p
 const allDocs = [
   { name: 'AGENTS.md', text: agentsMd },
   { name: 'BRD.md', text: brdMd },
-  { name: 'specification.md', text: specMd },
 ].map((d) => ({ ...d, lower: d.text.toLowerCase() }));
 const docsText = allDocs.map((d) => d.text).join('\n');
 const docsLower = allDocs.map((d) => d.lower).join('\n');

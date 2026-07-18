@@ -24,7 +24,7 @@ export default function VizMethodRenderer({
 }) {
   switch (method) {
     case 'normals':
-      return surface ? <PerpendicularNormals surface={surface} /> : null;
+      return surface ? <PerpendicularNormals surface={surface} params={params} /> : null;
     case 'particles':
       return surface ? <ParticleTransfer surface={surface} params={params} /> : null;
     case 'magnetic':

@@ -2,9 +2,13 @@
 // Single source of truth so magic numbers never drift between the 2D map
 // (projectionMapper) and the 3D scene (auxSurfaceGeometry, Rays, Globe).
 
-// Pixel <-> world-unit coupling. The 2D projection is built with a fixed
-// `scale(100)`; the 3D helpers convert pixels to world units via radius/100 so
-// the unrolled map width wraps exactly around the auxiliary surface.
+// Canonical projection scale used ONLY by the 3D ray/aux-surface math. The 2D
+// map built by `getD3Projection` also starts from `scale(100)` / `translate(400,
+// 300)`, but `fitProjectionToView` immediately overrides both so the map fills
+// its container — so `MAP_SCALE` / `VIEW_CENTER_*` affect the 2D pixels only
+// through this fixed starting point, never the final on-screen size. The 3D
+// helpers convert pixels to world units via radius/100 so the unrolled map
+// width wraps exactly around the auxiliary surface.
 export const MAP_SCALE = 100;
 
 // Pixels → world units for a given sphere radius. Single source so every 3D
