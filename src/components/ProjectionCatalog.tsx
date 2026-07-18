@@ -4,8 +4,6 @@ import {
   CYLINDRICAL_VARIANT_OPTIONS,
   CONIC_VARIANT_OPTIONS,
   AZIMUTHAL_VARIANT_OPTIONS,
-  PSEUDOCYLINDRICAL_VARIANT_OPTIONS,
-  MATHEMATICAL_VARIANT_OPTIONS,
   type ProjectionVariant,
 } from '../utils/projectionVariants';
 import type { ProjectionFamily } from '../store/useAppStore';
@@ -22,8 +20,6 @@ const ALL_GROUPS: GroupedOptions[] = [
   { family: 'cylindrical', label: 'Цилиндрическая', options: CYLINDRICAL_VARIANT_OPTIONS as { value: ProjectionVariant; label: string }[] },
   { family: 'conic', label: 'Коническая', options: CONIC_VARIANT_OPTIONS as { value: ProjectionVariant; label: string }[] },
   { family: 'azimuthal', label: 'Азимутальная', options: AZIMUTHAL_VARIANT_OPTIONS as { value: ProjectionVariant; label: string }[] },
-  { family: 'pseudocylindrical', label: 'Псевдоцилиндрическая', options: PSEUDOCYLINDRICAL_VARIANT_OPTIONS as { value: ProjectionVariant; label: string }[] },
-  { family: 'mathematical', label: 'Математическая', options: MATHEMATICAL_VARIANT_OPTIONS as { value: ProjectionVariant; label: string }[] },
 ];
 
 interface Props {

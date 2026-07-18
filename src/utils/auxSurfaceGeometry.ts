@@ -306,8 +306,6 @@ export type AuxSurfaceParams =
   | { kind: 'plane'; center: Vec3; normal: Vec3; size: number; tilt: number }
   | { kind: 'cone'; radius: number; height: number; positionY: number; flip: 1 | -1; tilt: number };
 
-export type AuxSurfaceParamsOrNull = AuxSurfaceParams | null;
-
 // Pure geometry of the (developable) cone (shared by the aux surface, the
 // intersection rings and the central-meridian rays so they can never drift
 // apart). A cone tangent at a single standard parallel `phi1` (the fallback of
@@ -377,7 +375,7 @@ export function computeAuxSurfaceParams(
   distortion: ProjectionParams['distortion'] = 'equalArea',
   azLight: ProjectionParams['azLight'] = 'math',
   variant?: ProjectionParams['variant'],
-): AuxSurfaceParamsOrNull {
+): AuxSurfaceParams {
   const v = variant ?? defaultVariant(family);
   if (family === 'cylindrical') {
     // The cylinder is always equatorial (axis through the poles) and touches the
@@ -426,8 +424,7 @@ export function computeAuxSurfaceParams(
     return { kind: 'plane', center, normal, size, tilt: gamma };
   }
 
-  if (family === 'conic') {
-  // cone tangent (or secant) to the sphere at the standard parallel(s).
+  // conic: cone tangent (or secant) to the sphere at the standard parallel(s).
   // `phiOrigin` keeps its sign so the cone sits in the correct hemisphere; the
   // parallel magnitude uses the equatorial fallback on |phiOrigin| internally.
   const phi2 = stdParallel2 != null ? stdParallel2 : phiOrigin;
@@ -440,10 +437,6 @@ export function computeAuxSurfaceParams(
     flip: cone.flip,
     tilt: gamma,
   };
-  }
-
-  // Pseudocylindrical and mathematical projections have no developable surface.
-  return null;
 }
 
 // ---- Light-source geometry (single source of truth for the 3D light marker) ----

@@ -3,13 +3,6 @@ import type { GeoProjection, GeoConicProjection } from 'd3-geo';
 import type { Polygon } from 'geojson';
 import type { ProjectionParams } from '../store/useAppStore';
 import { MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y, CLIP_LAT, FIT_MARGIN, signedStandardParallelDeg } from '../constants/geometry';
-import {
-  geoMollweide, geoSinusoidal, geoEckert4, geoEckert6, geoRobinson, geoNaturalEarth2,
-  geoKavrayskiy7, geoWagner6, geoCraster, geoFoucaut, geoCollignon, geoBonne, geoBromley,
-  geoNellHammer, geoTimes, geoAitoff, geoHammer, geoWinkel3, geoVanDerGrinten,
-  geoLoximuthal, geoWiechel, geoEisenlohr, geoAugust, geoPatterson, geoGinzburg8,
-  geoArmadillo, geoBerghaus, geoGinzburg4, geoWagner7,
-} from 'd3-geo-projection';
 
 const clampScale = (s: number): number => Math.max(0, Math.min(1, s));
 
@@ -102,53 +95,6 @@ function makeMillerProjection(scaleFactor: number): GeoProjection {
   return proj;
 }
 
-function getPseudocylindricalProjection(state: ProjectionParams): GeoProjection {
-  const v = state.variant as string;
-  let proj: GeoProjection;
-  switch (v) {
-    case 'mollweide': proj = geoMollweide(); break;
-    case 'sinusoidal': proj = geoSinusoidal(); break;
-    case 'eckertIV': proj = geoEckert4(); break;
-    case 'eckertVI': proj = geoEckert6(); break;
-    case 'robinson': proj = geoRobinson(); break;
-    case 'naturalEarth': proj = geoNaturalEarth2(); break;
-    case 'kavrayskiyVII': proj = geoKavrayskiy7(); break;
-    case 'wagnerVI': proj = geoWagner6(); break;
-    case 'craster': proj = geoCraster(); break;
-    case 'foucaut': proj = geoFoucaut(); break;
-    case 'collignon': proj = geoCollignon(); break;
-    case 'bonne': proj = geoBonne(); break;
-    case 'bromley': proj = geoBromley(); break;
-    case 'nellHammer': proj = geoNellHammer(); break;
-    case 'times': proj = geoTimes(); break;
-    default: proj = geoMollweide();
-  }
-  return proj;
-}
-
-function getMathematicalProjection(state: ProjectionParams): GeoProjection {
-  const v = state.variant as string;
-  let proj: GeoProjection;
-  switch (v) {
-    case 'aitoff': proj = geoAitoff(); break;
-    case 'hammer': proj = geoHammer(); break;
-    case 'winkelTripel': proj = geoWinkel3(); break;
-    case 'vanDerGrinten': proj = geoVanDerGrinten(); break;
-    case 'loximuthal': proj = geoLoximuthal(); break;
-    case 'wiechel': proj = geoWiechel(); break;
-    case 'eisenlohr': proj = geoEisenlohr(); break;
-    case 'august': proj = geoAugust(); break;
-    case 'patterson': proj = geoPatterson(); break;
-    case 'ginzburg8': proj = geoGinzburg8(); break;
-    case 'armadillo': proj = geoArmadillo(); break;
-    case 'berghaus': proj = geoBerghaus(); break;
-    case 'ginzburg4': proj = geoGinzburg4(); break;
-    case 'wagnerVII': proj = geoWagner7(); break;
-    default: proj = geoWinkel3();
-  }
-  return proj;
-}
-
 export const getD3Projection = (state: ProjectionParams): GeoProjection => {
   const { family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, azLight } = state;
 
@@ -202,20 +148,18 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
     return proj;
   }
 
-  if (family === 'pseudocylindrical') {
-    proj = getPseudocylindricalProjection(state);
-  } else if (family === 'mathematical') {
-    proj = getMathematicalProjection(state);
-  } else {
-    proj = d3Geo.geoEquirectangular();
-  }
-
-  // Pseudocylindrical and mathematical: simple central-meridian rotation only
+  // azimuthal
+  if (azLight === 'center') proj = d3Geo.geoGnomonic();
+  else if (azLight === 'antipode') proj = d3Geo.geoStereographic();
+  else if (azLight === 'infinity') proj = d3Geo.geoOrthographic();
+  else if (distortion === 'conformal') proj = d3Geo.geoStereographic();
+  else if (distortion === 'equalArea') proj = d3Geo.geoAzimuthalEqualArea();
+  else proj = d3Geo.geoAzimuthalEquidistant();
+  const rotZ2 = -gamma;
   proj
-    .rotate([-(lambda0), 0, 0])
+    .rotate([-(lambda0), -phiOrigin, rotZ2])
     .scale(MAP_SCALE * scaleFactor)
     .translate([VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing]);
-
   return proj;
 };
 

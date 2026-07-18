@@ -62,11 +62,10 @@ describe('ControlPanel', () => {
   it('selects a projection from the catalog modal', () => {
     render(<ControlPanel />);
     fireEvent.click(screen.getByRole('button', { name: 'Выбрать проекцию' }));
-    fireEvent.click(screen.getByText('Моллвайде (равновеликая)'));
+    fireEvent.click(screen.getByText('Гномоническая'));
     const s = useAppStore.getState();
-    expect(s.family).toBe('pseudocylindrical');
-    expect(s.distortion).toBe('equalArea');
-    expect(s.variant).toBe('mollweide');
+    expect(s.family).toBe('azimuthal');
+    expect(s.variant).toBe('gnomonic');
   });
 
   it('updates store.phiOrigin when the central-latitude slider changes (conic family)', () => {

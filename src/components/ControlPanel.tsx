@@ -16,8 +16,6 @@ const FAMILY_LABEL_MAP: Record<ProjectionFamily, string> = {
   cylindrical: 'Цилиндрическая',
   conic: 'Коническая',
   azimuthal: 'Азимутальная',
-  pseudocylindrical: 'Псевдоцилиндрическая',
-  mathematical: 'Математическая',
 };
 
 const PARAM_LABELS: Record<ProjectionFamily, { lambda0: string; phiOrigin: string; gamma: string; scaleFactor: string }> = {
@@ -38,18 +36,6 @@ const PARAM_LABELS: Record<ProjectionFamily, { lambda0: string; phiOrigin: strin
     phiOrigin: 'Широта точки касания',
     gamma: 'Вращение плоскости',
     scaleFactor: 'Расстояние до плоскости',
-  },
-  pseudocylindrical: {
-    lambda0: 'Центральный меридиан',
-    phiOrigin: 'Широта',
-    gamma: 'Наклон',
-    scaleFactor: 'Масштаб',
-  },
-  mathematical: {
-    lambda0: 'Центральный меридиан',
-    phiOrigin: 'Широта',
-    gamma: 'Наклон',
-    scaleFactor: 'Масштаб',
   },
 };
 
@@ -187,7 +173,6 @@ export default function ControlPanel() {
   const isCyl = family === 'cylindrical';
   const isCon = family === 'conic';
   const isAz = family === 'azimuthal';
-  const hasDevelopableSurface = isCyl || isCon || isAz;
 
   const lightLabel = useMemo(() => {
     if (!isAz) return null;
@@ -280,7 +265,7 @@ export default function ControlPanel() {
         />
       )}
 
-      {(isCyl || !hasDevelopableSurface) && (
+      {isCyl && (
         <StdParallel2Control
           value={stdParallel2}
           phiOrigin={phiOrigin}
@@ -289,33 +274,29 @@ export default function ControlPanel() {
         />
       )}
 
-      {hasDevelopableSurface && (
-        <ParamSlider
-          label={PARAM_LABELS[family].gamma}
-          value={gammaLocked ? (def.lockedGamma ?? 0) : gamma}
-          min={-180}
-          max={180}
-          step={1}
-          suffix="°"
-          disabled={gammaLocked}
-          tooltip={gammaTooltip}
-          onChange={(v) => setParam('gamma', v)}
-        />
-      )}
+      <ParamSlider
+        label={PARAM_LABELS[family].gamma}
+        value={gammaLocked ? (def.lockedGamma ?? 0) : gamma}
+        min={-180}
+        max={180}
+        step={1}
+        suffix="°"
+        disabled={gammaLocked}
+        tooltip={gammaTooltip}
+        onChange={(v) => setParam('gamma', v)}
+      />
 
-      {hasDevelopableSurface && (
-        <ParamSlider
-          label={PARAM_LABELS[family].scaleFactor}
-          value={scaleFactor}
-          min={isCyl ? 0.5 : 0.9}
-          max={isCyl ? 1.0 : 1.1}
-          step={0.01}
-          suffix=""
-          disabled={scaleLocked}
-          tooltip={scaleTooltip}
-          onChange={(v) => setParam('scaleFactor', v)}
-        />
-      )}
+      <ParamSlider
+        label={PARAM_LABELS[family].scaleFactor}
+        value={scaleFactor}
+        min={isCyl ? 0.5 : 0.9}
+        max={isCyl ? 1.0 : 1.1}
+        step={0.01}
+        suffix=""
+        disabled={scaleLocked}
+        tooltip={scaleTooltip}
+        onChange={(v) => setParam('scaleFactor', v)}
+      />
 
       {isAz && (
         <div className={fieldRow}>
@@ -335,12 +316,6 @@ export default function ControlPanel() {
       {!def.hasRays && (
         <div className="text-[11px] text-neon-blue/40 italic">
           Математическая формула, без лучей
-        </div>
-      )}
-
-      {!hasDevelopableSurface && (
-        <div className="text-[11px] text-neon-blue/30 italic">
-          Проекция без развёртываемой поверхности (3D-сцена показывает только глобус)
         </div>
       )}
 

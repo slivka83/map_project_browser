@@ -23,45 +23,7 @@ export type AzimuthalVariant =
   | 'lambertAzimuthalEqualArea'
   | 'azimuthalEquidistant';
 
-export type PseudocylindricalVariant =
-  | 'mollweide'
-  | 'sinusoidal'
-  | 'eckertIV'
-  | 'eckertVI'
-  | 'robinson'
-  | 'naturalEarth'
-  | 'kavrayskiyVII'
-  | 'wagnerVI'
-  | 'craster'
-  | 'foucaut'
-  | 'collignon'
-  | 'bonne'
-  | 'bromley'
-  | 'nellHammer'
-  | 'times';
-
-export type MathematicalVariant =
-  | 'aitoff'
-  | 'hammer'
-  | 'winkelTripel'
-  | 'vanDerGrinten'
-  | 'loximuthal'
-  | 'wiechel'
-  | 'eisenlohr'
-  | 'august'
-  | 'patterson'
-  | 'ginzburg8'
-  | 'armadillo'
-  | 'berghaus'
-  | 'ginzburg4'
-  | 'wagnerVII';
-
-export type ProjectionVariant =
-  | CylindricalVariant
-  | ConicVariant
-  | AzimuthalVariant
-  | PseudocylindricalVariant
-  | MathematicalVariant;
+export type ProjectionVariant = CylindricalVariant | ConicVariant | AzimuthalVariant;
 
 export type CylinderOrientation = 'straight' | 'transverse' | 'oblique';
 
@@ -415,101 +377,16 @@ export const AZIMUTHAL_VARIANTS: Record<AzimuthalVariant, VariantDef> = {
   },
 };
 
-// Pseudocylindrical projections (no developable surface, 3D scene shows globe only)
-function psc(def: Partial<VariantDef>): VariantDef {
-  return {
-    family: 'pseudocylindrical',
-    distortion: 'equalArea',
-    azLight: 'math',
-    hasRays: false,
-    hasLamp: false,
-    lightIsParallel: false,
-    cylinderOrientation: null,
-    lockedGamma: null,
-    lockedScaleFactor: null,
-    lockedStdParallel: null,
-    lockedStdParallel2: null,
-    lockedLight: true,
-    label: '',
-    orientationLabel: '',
-    formulaDescription: null,
-    tooltips: {},
-    ...def,
-  };
-}
-
-export const PSEUDOCYLINDRICAL_VARIANTS: Record<PseudocylindricalVariant, VariantDef> = {
-  mollweide: psc({ label: 'Моллвайде (равновеликая)', distortion: 'equalArea' }),
-  sinusoidal: psc({ label: 'Синусоидальная', distortion: 'equalArea' }),
-  eckertIV: psc({ label: 'Эккерта IV', distortion: 'equalArea' }),
-  eckertVI: psc({ label: 'Эккерта VI', distortion: 'equalArea' }),
-  robinson: psc({ label: 'Робинсона (компромисс)', distortion: 'equidistant' }),
-  naturalEarth: psc({ label: 'Natural Earth (современный компромисс)', distortion: 'equidistant' }),
-  kavrayskiyVII: psc({ label: 'Каврайского VII', distortion: 'equidistant' }),
-  wagnerVI: psc({ label: 'Вагнера VI', distortion: 'equidistant' }),
-  craster: psc({ label: 'Крастера (параболическая)', distortion: 'equidistant' }),
-  foucaut: psc({ label: 'Фуко', distortion: 'equidistant' }),
-  collignon: psc({ label: 'Коллиньона', distortion: 'equalArea' }),
-  bonne: psc({ label: 'Бонна (псевдоконическая)', distortion: 'equalArea' }),
-  bromley: psc({ label: 'Бромли', distortion: 'equalArea' }),
-  nellHammer: psc({ label: 'Нелл-Хаммера', distortion: 'equalArea' }),
-  times: psc({ label: 'Times (газетная)', distortion: 'equidistant' }),
-};
-
-// Mathematical / compromise projections (no developable surface)
-function mathDef(def: Partial<VariantDef>): VariantDef {
-  return {
-    family: 'mathematical',
-    distortion: 'equalArea',
-    azLight: 'math',
-    hasRays: false,
-    hasLamp: false,
-    lightIsParallel: false,
-    cylinderOrientation: null,
-    lockedGamma: null,
-    lockedScaleFactor: null,
-    lockedStdParallel: null,
-    lockedStdParallel2: null,
-    lockedLight: true,
-    label: '',
-    orientationLabel: '',
-    formulaDescription: null,
-    tooltips: {},
-    ...def,
-  };
-}
-
-export const MATHEMATICAL_VARIANTS: Record<MathematicalVariant, VariantDef> = {
-  aitoff: mathDef({ label: 'Айтова (звёздные карты)', distortion: 'equidistant' }),
-  hammer: mathDef({ label: 'Хаммера (равновеликая)', distortion: 'equalArea' }),
-  winkelTripel: mathDef({ label: 'Винкеля Трипель (стандарт NatGeo)', distortion: 'equidistant' }),
-  vanDerGrinten: mathDef({ label: 'Ван дер Гринтена (классика)', distortion: 'equidistant' }),
-  loximuthal: mathDef({ label: 'Локсимутальная (навигация)', distortion: 'equidistant' }),
-  wiechel: mathDef({ label: 'Вихеля', distortion: 'equalArea' }),
-  eisenlohr: mathDef({ label: 'Айзенлора (конформная)', distortion: 'conformal' }),
-  august: mathDef({ label: 'Августа', distortion: 'conformal' }),
-  patterson: mathDef({ label: 'Паттерсона', distortion: 'equidistant' }),
-  ginzburg8: mathDef({ label: 'Гинзбурга VIII', distortion: 'equidistant' }),
-  armadillo: mathDef({ label: 'Броненосец (Armadillo)', distortion: 'equidistant' }),
-  berghaus: mathDef({ label: 'Бергхауса', distortion: 'equalArea' }),
-  ginzburg4: mathDef({ label: 'Гинзбурга IV', distortion: 'equidistant' }),
-  wagnerVII: mathDef({ label: 'Вагнера VII', distortion: 'equalArea' }),
-};
-
 export function variantDef(v: ProjectionVariant): VariantDef {
   if (v in CYLINDRICAL_VARIANTS) return CYLINDRICAL_VARIANTS[v as CylindricalVariant];
   if (v in CONIC_VARIANTS) return CONIC_VARIANTS[v as ConicVariant];
-  if (v in AZIMUTHAL_VARIANTS) return AZIMUTHAL_VARIANTS[v as AzimuthalVariant];
-  if (v in PSEUDOCYLINDRICAL_VARIANTS) return PSEUDOCYLINDRICAL_VARIANTS[v as PseudocylindricalVariant];
-  return MATHEMATICAL_VARIANTS[v as MathematicalVariant];
+  return AZIMUTHAL_VARIANTS[v as AzimuthalVariant];
 }
 
 export function defaultVariant(family: ProjectionFamily): ProjectionVariant {
   if (family === 'cylindrical') return 'mercator';
   if (family === 'conic') return 'lambertConformal';
-  if (family === 'azimuthal') return 'gnomonic';
-  if (family === 'pseudocylindrical') return 'mollweide';
-  return 'winkelTripel';
+  return 'gnomonic';
 }
 
 function toOptions<K extends string>(obj: Record<K, VariantDef>): { value: K; label: string }[] {
@@ -519,5 +396,3 @@ function toOptions<K extends string>(obj: Record<K, VariantDef>): { value: K; la
 export const CYLINDRICAL_VARIANT_OPTIONS = toOptions(CYLINDRICAL_VARIANTS);
 export const CONIC_VARIANT_OPTIONS = toOptions(CONIC_VARIANTS);
 export const AZIMUTHAL_VARIANT_OPTIONS = toOptions(AZIMUTHAL_VARIANTS);
-export const PSEUDOCYLINDRICAL_VARIANT_OPTIONS = toOptions(PSEUDOCYLINDRICAL_VARIANTS);
-export const MATHEMATICAL_VARIANT_OPTIONS = toOptions(MATHEMATICAL_VARIANTS);
