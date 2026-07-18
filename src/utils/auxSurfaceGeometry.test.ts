@@ -35,6 +35,7 @@ function cylinderLocalEndWithPole(
   lat: number,
   surface: ReturnType<typeof computeAuxSurfaceParams>,
 ): [number, number, number] {
+  if (!surface) throw new Error('surface is null');
   return cylinderLocalEnd(proj, lon, lat, surface.kind === 'cylinder' ? surface.radius : 1, VIEW_CENTER_Y, RADIUS / MAP_SCALE);
 }
 
@@ -97,7 +98,7 @@ describe('computeCone', () => {
   });
   it('matches the cone fields exposed by computeAuxSurfaceParams', () => {
     const cone = computeCone(30, 30, RADIUS, 1.05);
-    const surface = computeAuxSurfaceParams('conic', 0, 30, 1.05);
+    const surface = computeAuxSurfaceParams('conic', 0, 30, 1.05)!;
     if (surface.kind !== 'cone') throw new Error('expected cone');
     closeTo(surface.radius, cone.baseRadius, 1e-9);
     closeTo(surface.height, cone.height, 1e-9);
@@ -116,20 +117,20 @@ describe('coneAxialHeight', () => {
 
 describe('computeAuxSurfaceParams', () => {
   it('cylinder radius scales with scaleFactor', () => {
-    const p = computeAuxSurfaceParams('cylindrical', 0, 0, 1.05);
+    const p = computeAuxSurfaceParams('cylindrical', 0, 0, 1.05)!;
     expect(p.kind).toBe('cylinder');
     if (p.kind === 'cylinder') closeTo(p.radius, RADIUS * 1.05, 1e-9);
   });
   it('cylinder does NOT translate in 3D (always equatorial, touches globe)', () => {
     for (const phi of [0, 30, -45, 60]) {
-      const p = computeAuxSurfaceParams('cylindrical', 0, phi, 1);
+      const p = computeAuxSurfaceParams('cylindrical', 0, phi, 1)!;
       expect(p.kind).toBe('cylinder');
       if (p.kind === 'cylinder') closeTo(p.positionY, 0, 1e-9);
     }
   });
   it('cylinder height depends on the distortion (Тип искажения)', () => {
-    const conformal = computeAuxSurfaceParams('cylindrical', 0, 0, 1, RADIUS, null, 0, 'conformal', 'math');
-    const equalArea = computeAuxSurfaceParams('cylindrical', 0, 0, 1, RADIUS, null, 0, 'equalArea', 'math');
+    const conformal = computeAuxSurfaceParams('cylindrical', 0, 0, 1, RADIUS, null, 0, 'conformal', 'math')!;
+    const equalArea = computeAuxSurfaceParams('cylindrical', 0, 0, 1, RADIUS, null, 0, 'equalArea', 'math')!;
     expect(conformal.kind).toBe('cylinder');
     expect(equalArea.kind).toBe('cylinder');
     if (conformal.kind === 'cylinder' && equalArea.kind === 'cylinder') {
@@ -137,9 +138,9 @@ describe('computeAuxSurfaceParams', () => {
     }
   });
   it('cylinder height is NOT changed by the central-latitude slider (phiOrigin)', () => {
-    const at0 = computeAuxSurfaceParams('cylindrical', 0, 0, 1);
-    const at30 = computeAuxSurfaceParams('cylindrical', 0, 30, 1);
-    const atNeg = computeAuxSurfaceParams('cylindrical', 0, -45, 1);
+    const at0 = computeAuxSurfaceParams('cylindrical', 0, 0, 1)!;
+    const at30 = computeAuxSurfaceParams('cylindrical', 0, 30, 1)!;
+    const atNeg = computeAuxSurfaceParams('cylindrical', 0, -45, 1)!;
     expect(at0.kind).toBe('cylinder');
     expect(at30.kind).toBe('cylinder');
     expect(atNeg.kind).toBe('cylinder');
@@ -149,27 +150,27 @@ describe('computeAuxSurfaceParams', () => {
     }
   });
   it('plane for azimuthal', () => {
-    expect(computeAuxSurfaceParams('azimuthal', 10, 20, 1).kind).toBe('plane');
+    expect(computeAuxSurfaceParams('azimuthal', 10, 20, 1)!.kind).toBe('plane');
   });
   it('cone positionY is negative for southern phiOrigin', () => {
-    const p = computeAuxSurfaceParams('conic', 0, -30, 1);
+    const p = computeAuxSurfaceParams('conic', 0, -30, 1)!;
     expect(p.kind).toBe('cone');
     if (p.kind === 'cone') expect(p.positionY).toBeLessThan(0);
   });
   it('cone positionY is positive for northern phiOrigin', () => {
-    const p = computeAuxSurfaceParams('conic', 0, 30, 1);
+    const p = computeAuxSurfaceParams('conic', 0, 30, 1)!;
     expect(p.kind).toBe('cone');
     if (p.kind === 'cone') expect(p.positionY).toBeGreaterThan(0);
   });
   it('uses a fallback standard parallel when phiOrigin is near the equator', () => {
-    const p = computeAuxSurfaceParams('conic', 0, 0, 1);
+    const p = computeAuxSurfaceParams('conic', 0, 0, 1)!;
     expect(p.kind).toBe('cone');
   });
 });
 
 describe('computeAuxGraticule', () => {
   it('cylinder graticule lies on the aux cylinder', () => {
-    const p = computeAuxSurfaceParams('cylindrical', 0, 0, 1.05);
+    const p = computeAuxSurfaceParams('cylindrical', 0, 0, 1.05)!;
     if (p.kind !== 'cylinder') throw new Error('expected cylinder');
     const { meridians, parallels } = computeAuxGraticule(p);
     expect(meridians.length).toBeGreaterThan(0);
@@ -190,7 +191,7 @@ describe('computeAuxGraticule', () => {
     // The cylinder is drawn as an open wireframe tube — the top/bottom end caps
     // are intentionally NOT rendered, so the pole-ray landing sits at the open
     // end of the tube. Assert there are no cap spokes (centre → rim at ±h/2).
-    const p = computeAuxSurfaceParams('cylindrical', 0, 0, 1, RADIUS, null, 0, 'conformal', 'math');
+    const p = computeAuxSurfaceParams('cylindrical', 0, 0, 1, RADIUS, null, 0, 'conformal', 'math')!;
     if (p.kind !== 'cylinder') throw new Error('expected cylinder');
     const { meridians, parallels } = computeAuxGraticule(p);
     const halfH = p.height / 2;
@@ -211,7 +212,7 @@ describe('computeAuxGraticule', () => {
   });
 
   it('cone graticule apex lines meet at the cone tip', () => {
-    const p = computeAuxSurfaceParams('conic', 0, 30, 1);
+    const p = computeAuxSurfaceParams('conic', 0, 30, 1)!;
     if (p.kind !== 'cone') throw new Error('expected cone');
     const { meridians } = computeAuxGraticule(p);
     for (const line of meridians) {
@@ -222,7 +223,7 @@ describe('computeAuxGraticule', () => {
   });
 
   it('plane graticule is a polar disk grid within the plane radius', () => {
-    const p = computeAuxSurfaceParams('azimuthal', 10, 20, 1);
+    const p = computeAuxSurfaceParams('azimuthal', 10, 20, 1)!;
     if (p.kind !== 'plane') throw new Error('expected plane');
     const { meridians, parallels } = computeAuxGraticule(p);
     const radius = p.size / 2;
@@ -272,7 +273,7 @@ describe('computeCentralMeridianRays', () => {
     // top).
     for (const distortion of ['conformal', 'equalArea', 'equidistant'] as const) {
       const segs = computeCentralMeridianRays({ ...base, family: 'cylindrical', distortion, gamma: 0 });
-      const surface = computeAuxSurfaceParams('cylindrical', 0, 0, 1, RADIUS, null, 0, distortion, 'math');
+      const surface = computeAuxSurfaceParams('cylindrical', 0, 0, 1, RADIUS, null, 0, distortion, 'math')!;
       if (surface.kind !== 'cylinder') throw new Error('expected cylinder');
       const top = segs[segs.length - 1];
       const bot = segs[0];
@@ -310,7 +311,7 @@ describe('computeCentralMeridianRays', () => {
     // land at the top/bottom cap, matching the (clamped) high-latitude rays.
     for (const lambda0 of [0, 45, 90, -45]) {
       const segs = computeCentralMeridianRays({ ...base, family: 'cylindrical', lambda0, gamma: 0 });
-      const surface = computeAuxSurfaceParams('cylindrical', lambda0, 0, 1, RADIUS, null, 0, 'conformal', 'math');
+      const surface = computeAuxSurfaceParams('cylindrical', lambda0, 0, 1, RADIUS, null, 0, 'conformal', 'math')!;
       if (surface.kind !== 'cylinder') throw new Error('expected cylinder');
       const cap = surface.height / 2;
       const north = segs[segs.length - 1]; // lat = +90
@@ -327,7 +328,7 @@ describe('computeCentralMeridianRays', () => {
     for (const distortion of ['conformal', 'equalArea', 'equidistant'] as const) {
       for (const gamma of [0, 30, -45, 90]) {
         const segs = computeCentralMeridianRays({ ...base, family: 'cylindrical', distortion, gamma });
-        const surface = computeAuxSurfaceParams('cylindrical', 0, 0, 1, RADIUS, null, gamma, distortion, 'math');
+        const surface = computeAuxSurfaceParams('cylindrical', 0, 0, 1, RADIUS, null, gamma, distortion, 'math')!;
         if (surface.kind !== 'cylinder') throw new Error('expected cylinder');
         // Axis of the rendered cylinder in world space = orient · Y.
         const axis: [number, number, number] = [surface.orient[1], surface.orient[4], surface.orient[7]];
@@ -376,7 +377,7 @@ describe('computeCentralMeridianRays', () => {
       const sf = 1.05;
       const cone = computeCone(phiOrigin, phiOrigin, RADIUS, sf);
       const segs = computeCentralMeridianRays({ ...base, family: 'conic', phiOrigin, scaleFactor: sf, gamma: g });
-      const surface = computeAuxSurfaceParams('conic', 0, phiOrigin, sf, RADIUS);
+      const surface = computeAuxSurfaceParams('conic', 0, phiOrigin, sf, RADIUS)!;
       if (surface.kind !== 'cone') throw new Error('expected cone');
       for (let i = 0; i < segs.length; i++) {
         const lat = -90 + (i * 180) / (segs.length - 1);
@@ -426,14 +427,14 @@ describe('secant cone (stdParallel2)', () => {
 
   it('cone surface params expose the secant half-angle (tanA)', () => {
     const cone = computeCone(20, 40, RADIUS, 1);
-    const surface = computeAuxSurfaceParams('conic', 0, 20, 1, RADIUS, 40);
+    const surface = computeAuxSurfaceParams('conic', 0, 20, 1, RADIUS, 40)!;
     if (surface.kind !== 'cone') throw new Error('expected cone');
     closeTo(surface.radius, cone.baseRadius, 1e-9);
     closeTo(surface.height, cone.height, 1e-9);
   });
 
   it('secant cone intersecting the sphere yields two circles', () => {
-    const surface = computeAuxSurfaceParams('conic', 0, 20, 1, RADIUS, 40);
+    const surface = computeAuxSurfaceParams('conic', 0, 20, 1, RADIUS, 40)!;
     const rings = computeAuxSphereIntersections('conic', 0, 20, 1, RADIUS, 40);
     expect(rings.length).toBe(2);
     // Raw rings are in the cone LOCAL frame; transform to world before checking
@@ -450,7 +451,7 @@ describe('secant cone (stdParallel2)', () => {
     const sf = 1;
     const segs = computeCentralMeridianRays({ ...base, family: 'conic', phiOrigin, stdParallel2, scaleFactor: sf });
     const cone = computeCone(phiOrigin, stdParallel2, RADIUS, sf);
-    const surface = computeAuxSurfaceParams('conic', 0, phiOrigin, sf, RADIUS, stdParallel2);
+    const surface = computeAuxSurfaceParams('conic', 0, phiOrigin, sf, RADIUS, stdParallel2)!;
     if (surface.kind !== 'cone') throw new Error('expected cone');
     for (let i = 0; i < segs.length; i++) {
       const lat = -90 + (i * 180) / (segs.length - 1);
@@ -469,7 +470,7 @@ describe('gamma tilt (oblique / transverse)', () => {
     // Axis of the rendered (tilted) cylinder in world space = orient · Y. Tilting
     // the cylinder is a shift of its central latitude, so orient = geoRotation of
     // (lambda0, gamma, 0); the axis is read from that same matrix.
-    const surface = computeAuxSurfaceParams('cylindrical', 0, 0, sf, RADIUS, null, g, 'conformal', 'math');
+    const surface = computeAuxSurfaceParams('cylindrical', 0, 0, sf, RADIUS, null, g, 'conformal', 'math')!;
     if (surface.kind !== 'cylinder') throw new Error('expected cylinder');
     const axisDir: [number, number, number] = [surface.orient[1], surface.orient[4], surface.orient[7]];
     for (const { end } of segs) {
@@ -527,7 +528,7 @@ describe('projectToAuxWorld (hover demo ray)', () => {
     const ray = projectToAuxWorld(params, 80, 50, RADIUS);
     expect(ray).not.toBeNull();
     if (!ray) return;
-    const surface = computeAuxSurfaceParams('conic', 10, phiOrigin, sf, RADIUS);
+    const surface = computeAuxSurfaceParams('conic', 10, phiOrigin, sf, RADIUS)!;
     if (surface.kind !== 'cone') throw new Error('expected cone');
     const cone = computeCone(phiOrigin, phiOrigin, RADIUS, sf);
     const localEnd = computeConicRayEnd(10, 50, phiOrigin, sf, RADIUS, null, 0, true);
@@ -581,7 +582,7 @@ describe('light-source geometry (new_spec §3)', () => {
   });
 
   it('conic apex marker sits at the cone tip (along the axis, outside the globe)', () => {
-    const surface = computeAuxSurfaceParams('conic', 0, 30, 1, RADIUS) as Extract<ReturnType<typeof computeAuxSurfaceParams>, { kind: 'cone' }>;
+    const surface = computeAuxSurfaceParams('conic', 0, 30, 1, RADIUS)! as Extract<ReturnType<typeof computeAuxSurfaceParams>, { kind: 'cone' }>;
     const apex = coneApexWorld(surface, 0);
     // northern cone, no tilt → apex straight up at radius / sin(30°) = 20
     closeTo(apex[0], 0, 1e-9);
@@ -591,7 +592,7 @@ describe('light-source geometry (new_spec §3)', () => {
   });
 
   it('conic apex tilts with gamma about the X axis', () => {
-    const surface = computeAuxSurfaceParams('conic', 0, 30, 1, RADIUS) as Extract<ReturnType<typeof computeAuxSurfaceParams>, { kind: 'cone' }>;
+    const surface = computeAuxSurfaceParams('conic', 0, 30, 1, RADIUS)! as Extract<ReturnType<typeof computeAuxSurfaceParams>, { kind: 'cone' }>;
     const apex = coneApexWorld(surface, 90);
     // apex local [0, h/2, 0] rotated 90° about X → lies in the Y-Z plane (x=0, z≠0)
     closeTo(apex[0], 0, 1e-9);
@@ -601,7 +602,7 @@ describe('light-source geometry (new_spec §3)', () => {
   it('conic rays emanate from the cone apex (gnomonic light source)', () => {
     const phiOrigin = 40;
     const segs = computeCentralMeridianRays({ ...base, family: 'conic', phiOrigin });
-    const surface = computeAuxSurfaceParams('conic', 0, phiOrigin, 1, RADIUS) as Extract<ReturnType<typeof computeAuxSurfaceParams>, { kind: 'cone' }>;
+    const surface = computeAuxSurfaceParams('conic', 0, phiOrigin, 1, RADIUS)! as Extract<ReturnType<typeof computeAuxSurfaceParams>, { kind: 'cone' }>;
     const apex = coneApexWorld(surface, 0);
     for (const { start } of segs) expect(start).toEqual(apex);
   });
@@ -610,7 +611,7 @@ describe('light-source geometry (new_spec §3)', () => {
     const phiOrigin = -40;
     const sf = 1;
     const segs = computeCentralMeridianRays({ ...base, family: 'conic', phiOrigin, scaleFactor: sf });
-    const surface = computeAuxSurfaceParams('conic', 0, phiOrigin, sf, RADIUS) as Extract<ReturnType<typeof computeAuxSurfaceParams>, { kind: 'cone' }>;
+    const surface = computeAuxSurfaceParams('conic', 0, phiOrigin, sf, RADIUS)! as Extract<ReturnType<typeof computeAuxSurfaceParams>, { kind: 'cone' }>;
     const apex = coneApexWorld(surface, 0);
     // apex is below the globe centre for a southern cone
     expect(apex[1]).toBeLessThan(0);
@@ -776,7 +777,7 @@ describe('computeTangentBasis orthonormality', () => {
 
 describe('computeAuxSurfaceParams surface-kind invariants', () => {
   it('cylindrical: radius is R·scaleFactor and orientation matches the d3 rotation', () => {
-    const p = computeAuxSurfaceParams('cylindrical', 30, 0, 1.05);
+    const p = computeAuxSurfaceParams('cylindrical', 30, 0, 1.05)!;
     if (p.kind !== 'cylinder') throw new Error('expected cylinder');
     expect(p.radius).toBeCloseTo(RADIUS * 1.05, 9);
     // The orientation matrix must rotate the local +Y axis (cylinder axis) to the
@@ -791,7 +792,7 @@ describe('computeAuxSurfaceParams surface-kind invariants', () => {
   });
 
   it('cylindrical: gamma tilts the cylinder axis away from the pole', () => {
-    const p = computeAuxSurfaceParams('cylindrical', 0, 0, 1, undefined, null, 30);
+    const p = computeAuxSurfaceParams('cylindrical', 0, 0, 1, undefined, null, 30)!;
     if (p.kind !== 'cylinder') throw new Error('expected cylinder');
     const axisWorld = [p.orient[1], p.orient[4], p.orient[7]];
     expect(axisWorld[1]).toBeLessThan(1 - 1e-6);
@@ -799,21 +800,21 @@ describe('computeAuxSurfaceParams surface-kind invariants', () => {
   });
 
   it('conic northern: positive positionY, flip +1', () => {
-    const p = computeAuxSurfaceParams('conic', 0, 45, 1);
+    const p = computeAuxSurfaceParams('conic', 0, 45, 1)!;
     if (p.kind !== 'cone') throw new Error('expected cone');
     expect(p.positionY).toBeGreaterThan(0);
     expect(p.flip).toBe(1);
   });
 
   it('conic southern: negative positionY, flip -1', () => {
-    const p = computeAuxSurfaceParams('conic', 0, -45, 1);
+    const p = computeAuxSurfaceParams('conic', 0, -45, 1)!;
     if (p.kind !== 'cone') throw new Error('expected cone');
     expect(p.positionY).toBeLessThan(0);
     expect(p.flip).toBe(-1);
   });
 
   it('azimuthal: a tangent plane whose normal points outward', () => {
-    const p = computeAuxSurfaceParams('azimuthal', 0, 30, 1);
+    const p = computeAuxSurfaceParams('azimuthal', 0, 30, 1)!;
     if (p.kind !== 'plane') throw new Error('expected plane');
     const t = lonLatToVec3(0, 30, 1);
     const dot = p.normal[0] * t[0] + p.normal[1] * t[1] + p.normal[2] * t[2];
@@ -824,7 +825,7 @@ describe('computeAuxSurfaceParams surface-kind invariants', () => {
 
 describe('computeAuxGraticule', () => {
   it('returns meridian and parallel loops for a cylinder', () => {
-    const surface = computeAuxSurfaceParams('cylindrical', 0, 0, 1);
+    const surface = computeAuxSurfaceParams('cylindrical', 0, 0, 1)!;
     const g = computeAuxGraticule(surface);
     expect(g.meridians.length).toBeGreaterThan(0);
     expect(g.parallels.length).toBeGreaterThan(0);
@@ -836,7 +837,7 @@ describe('computeAuxGraticule', () => {
 
   it('returns loops for a cone and a plane too', () => {
     for (const family of ['conic', 'azimuthal'] as const) {
-      const surface = computeAuxSurfaceParams(family, 0, family === 'azimuthal' ? 30 : 45, 1);
+      const surface = computeAuxSurfaceParams(family, 0, family === 'azimuthal' ? 30 : 45, 1)!;
       const g = computeAuxGraticule(surface);
       expect(g.meridians.length).toBeGreaterThan(0);
       expect(g.parallels.length).toBeGreaterThan(0);
@@ -872,7 +873,7 @@ describe('computeAuxSphereIntersections edge cases', () => {
   });
 
   it('conic immersed gives two circles; enclosing gives none; all on the sphere', () => {
-    const surface = computeAuxSurfaceParams('conic', 0, 45, 0.5, RADIUS, null, 0);
+    const surface = computeAuxSurfaceParams('conic', 0, 45, 0.5, RADIUS, null, 0)!;
     const immersed = computeAuxSphereIntersections('conic', 0, 45, 0.5);
     expect(immersed.length).toBe(2);
     for (const c of immersed) {
@@ -934,7 +935,7 @@ describe('rays always land on the rendered aux surface (no empty space)', () => 
     it(`central-meridian fan stays on the surface (${c.family}/${c.distortion ?? ''})`, () => {
       const params = { ...base, ...c } as ProjectionParams;
       const segs = computeCentralMeridianRays(params);
-      const surface = computeAuxSurfaceParams(params.family, 0, params.phiOrigin, 1, RADIUS, params.stdParallel2, params.gamma, params.distortion, params.azLight);
+      const surface = computeAuxSurfaceParams(params.family, 0, params.phiOrigin, 1, RADIUS, params.stdParallel2, params.gamma, params.distortion, params.azLight)!;
 
       if (surface.kind === 'cone') {
         const cone = computeCone(c.phiOrigin ?? 0, c.stdParallel2 ?? (c.phiOrigin ?? 0), RADIUS, 1);

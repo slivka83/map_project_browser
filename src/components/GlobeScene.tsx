@@ -52,9 +52,13 @@ export default function GlobeScene() {
     <Canvas camera={{ position: [0, 5, 42], fov: 50 }} className="rounded-lg">
       <OrbitControls makeDefault enablePan={false} enableDamping dampingFactor={0.08} minDistance={18} maxDistance={90} />
       <Globe geoJson={geoJson} />
-      <AuxSurface surface={surface} />
-      <IntersectionDisks surface={surface} params={params} />
-      <LightSource surface={surface} params={params} />
+      {surface && (
+        <>
+          <AuxSurface surface={surface} />
+          <IntersectionDisks surface={surface} params={params} />
+          <LightSource surface={surface} params={params} />
+        </>
+      )}
       <Rays params={params} />
       <mesh onPointerMove={handleGlobeMove} onPointerOut={() => setHoverLonLat(null)}>
         <sphereGeometry args={[RADIUS, 48, 48]} />

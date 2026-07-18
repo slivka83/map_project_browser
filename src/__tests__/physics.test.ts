@@ -173,7 +173,7 @@ describe('rays link globe point to map point', () => {
             // the whole ray rotates rigidly with the cylinder.
             // Verify: globe on the sphere, and on the tube's front generator.
             closeTo(Math.hypot(...segs[i].globe), RADIUS, 1e-6);
-        const surface = computeAuxSurfaceParams(family, p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, p.gamma, distortion, p.azLight);
+        const surface = computeAuxSurfaceParams(family, p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, p.gamma, distortion, p.azLight)!;
             if (surface.kind !== 'cylinder') throw new Error('expected cylinder');
             const local = matVec(surface.orientInv, [segs[i].globe[0], segs[i].globe[1] - surface.positionY, segs[i].globe[2]]);
             closeTo(local[2], 0, 1e-6); // on the front generator (no sideways offset)
@@ -192,7 +192,7 @@ describe('rays link globe point to map point', () => {
         // the tilt only rotates the rigid tube; the rebuild must use the same flat
         // projection to agree with the fan.
         const proj = getD3Projection({ ...p, gamma: 0 });
-        const surface = computeAuxSurfaceParams(family, p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, p.gamma, distortion, p.azLight);
+        const surface = computeAuxSurfaceParams(family, p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, p.gamma, distortion, p.azLight)!;
         for (let i = 0; i < segs.length; i++) {
           const lat = -90 + (i * 180) / (segs.length - 1);
           // The landing local frame used by projectToAuxWorld must reproduce end.
@@ -215,7 +215,7 @@ describe('rays link globe point to map point', () => {
         // covered by their own surface checks below.)
         if (family !== 'cylindrical') return;
         const segs = computeCentralMeridianRays({ ...p, radius: RADIUS, rayCount: RAY_COUNT });
-        const surface = computeAuxSurfaceParams('cylindrical', p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, p.gamma, distortion, p.azLight) as Extract<AuxSurfaceParams, { kind: 'cylinder' }>;
+        const surface = computeAuxSurfaceParams('cylindrical', p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, p.gamma, distortion, p.azLight!)! as Extract<AuxSurfaceParams, { kind: 'cylinder' }>;
         const coord = (v: [number, number, number]) => v[1];
         for (let i = 1; i < segs.length; i++) {
           expect(coord(segs[i].end)).toBeGreaterThanOrEqual(coord(segs[i - 1].end) - 1e-6);
@@ -233,7 +233,7 @@ describe('rays link globe point to map point', () => {
         // so tilting also stretched/shrank the tube — wrong for a physical surface.
         if (family !== 'cylindrical') return;
         const h = (g: number) => {
-          const s = computeAuxSurfaceParams('cylindrical', p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, g, distortion, p.azLight);
+          const s = computeAuxSurfaceParams('cylindrical', p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, g, distortion, p.azLight)!;
           return (s as Extract<AuxSurfaceParams, { kind: 'cylinder' }>).height;
         };
         closeTo(h(0), h(5), 1e-9);
@@ -281,7 +281,7 @@ describe('rays link globe point to map point', () => {
         if (family !== 'cylindrical') return;
         const segs = computeCentralMeridianRays({ ...p, radius: RADIUS, rayCount: RAY_COUNT });
         const proj = getD3Projection(p);
-        const surface = computeAuxSurfaceParams(family, p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, p.gamma, distortion, p.azLight);
+        const surface = computeAuxSurfaceParams(family, p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, p.gamma, distortion, p.azLight)!;
         for (let i = 0; i < segs.length; i++) {
           const lat = -90 + (i * 180) / (segs.length - 1);
           if (Math.abs(lat) >= 90 - 1e-9) continue; // clamped pole edge
@@ -304,7 +304,7 @@ describe('rays link globe point to map point', () => {
         if (family !== 'cylindrical') return;
         const segs = computeCentralMeridianRays({ ...p, radius: RADIUS, rayCount: RAY_COUNT });
         const projFlat = getD3Projection({ ...p, gamma: 0 }); // untilted content
-        const surface = computeAuxSurfaceParams(family, p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, p.gamma, distortion, p.azLight);
+        const surface = computeAuxSurfaceParams(family, p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, p.gamma, distortion, p.azLight)!;
         if (surface.kind !== 'cylinder') throw new Error('expected cylinder');
         const [cx, cy] = projFlat.translate();
         const scale = projFlat.scale() || 1;
@@ -357,7 +357,7 @@ describe('rays link globe point to map point', () => {
         // plane would break the "globe point → map point on the plane" link.
         if (family !== 'azimuthal') return;
         const segs = computeCentralMeridianRays({ ...p, radius: RADIUS, rayCount: RAY_COUNT });
-        const surface = computeAuxSurfaceParams(family, p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, p.gamma, distortion, p.azLight);
+        const surface = computeAuxSurfaceParams(family, p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, p.gamma, distortion, p.azLight)!;
         if (surface.kind !== 'plane') return;
         const { center, normal, size } = surface;
         const half = size / 2;
@@ -400,7 +400,7 @@ function cylinderLocalEndOrNull(
   lon: number,
   lat: number,
 ): [number, number, number] | null {
-  if (family !== 'cylindrical') return null;
+  if (!surface || family !== 'cylindrical') return null;
   return cylinderLocalEnd(proj, lon, lat, surface.kind === 'cylinder' ? surface.radius : 1, VIEW_CENTER_Y, RADIUS / MAP_SCALE);
 }
 
@@ -420,6 +420,7 @@ function rayEndToLonLat(
   proj: ReturnType<typeof getD3Projection>,
   world: [number, number, number],
 ): [number, number] | null {
+  if (!surface) return null;
   const inv = proj.invert;
   if (!inv) return null;
   const [cx, cy] = proj.translate();
@@ -649,7 +650,7 @@ describe('aux-surface ↔ globe intersection physics', () => {
     const phiS = (Math.acos(s) * 180) / Math.PI;
     const latsAt = (g: number) => {
       const raw = computeAuxSphereIntersections('cylindrical', 0, 0, s, RADIUS);
-      const surface = computeAuxSurfaceParams('cylindrical', 0, 0, s, RADIUS, null, g, 'equidistant', 'math');
+      const surface = computeAuxSurfaceParams('cylindrical', 0, 0, s, RADIUS, null, g, 'equidistant', 'math')!;
       const drawn = raw[0].map((p) => auxPointToWorld(surface, p));
       return drawn.map((p) => {
         closeTo(Math.hypot(p[0], p[1], p[2]), RADIUS, 1e-6);
@@ -671,7 +672,7 @@ describe('aux-surface ↔ globe intersection physics', () => {
     const s = 0.8;
     for (const g of [0, 25, 60]) {
       const ring2d = computeAuxSphereIntersectionsLonLat('cylindrical', 0, 0, s, RADIUS, null, g, 'equidistant', 'math')[0];
-      const surface = computeAuxSurfaceParams('cylindrical', 0, 0, s, RADIUS, null, g, 'equidistant', 'math');
+      const surface = computeAuxSurfaceParams('cylindrical', 0, 0, s, RADIUS, null, g, 'equidistant', 'math')!;
       const raw = computeAuxSphereIntersections('cylindrical', 0, 0, s, RADIUS, null);
       const ring3d = raw[0].map((p) => vec3ToLonLat(auxPointToWorld(surface, p)));
       expect(ring2d.length).toBe(ring3d.length);
@@ -705,7 +706,7 @@ describe('aux-surface ↔ globe intersection physics', () => {
     // what keeps it correct).
     const lambda0 = 40;
     const phiOrigin = 25;
-    const surface = computeAuxSurfaceParams('azimuthal', lambda0, phiOrigin, 1, RADIUS, null, 0);
+    const surface = computeAuxSurfaceParams('azimuthal', lambda0, phiOrigin, 1, RADIUS, null, 0)!;
     const ll = computeAuxSphereIntersectionsLonLat('azimuthal', lambda0, phiOrigin, 1, RADIUS)[0];
     const c = ll.reduce((acc, p) => [acc[0] + p[0], acc[1] + p[1]], [0, 0] as [number, number]);
     const lon = c[0] / ll.length;
@@ -724,7 +725,7 @@ describe('aux-surface ↔ globe intersection physics', () => {
   it('conic secant surface passes through both standard parallels', () => {
     const phi1 = 30;
     const phi2 = 50;
-    const surface = computeAuxSurfaceParams('conic', 0, phi1, 1, RADIUS, phi2);
+    const surface = computeAuxSurfaceParams('conic', 0, phi1, 1, RADIUS, phi2)!;
     const rings = computeAuxSphereIntersections('conic', 0, phi1, 1, RADIUS, phi2);
     // secant cone → two circles
     expect(rings.length).toBe(2);

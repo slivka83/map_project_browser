@@ -3,6 +3,13 @@ import type { GeoProjection, GeoConicProjection } from 'd3-geo';
 import type { Polygon } from 'geojson';
 import type { ProjectionParams } from '../store/useAppStore';
 import { MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y, CLIP_LAT, FIT_MARGIN, signedStandardParallelDeg } from '../constants/geometry';
+import {
+  geoMollweide, geoSinusoidal, geoEckert4, geoEckert6, geoRobinson, geoNaturalEarth2,
+  geoKavrayskiy7, geoWagner6, geoCraster, geoFoucaut, geoCollignon, geoBonne, geoBromley,
+  geoNellHammer, geoTimes, geoAitoff, geoHammer, geoWinkel3, geoVanDerGrinten,
+  geoLoximuthal, geoWiechel, geoEisenlohr, geoAugust, geoPatterson, geoGinzburg8,
+  geoArmadillo, geoBerghaus, geoGinzburg4, geoWagner7,
+} from 'd3-geo-projection';
 
 const clampScale = (s: number): number => Math.max(0, Math.min(1, s));
 
@@ -95,6 +102,53 @@ function makeMillerProjection(scaleFactor: number): GeoProjection {
   return proj;
 }
 
+function getPseudocylindricalProjection(state: ProjectionParams): GeoProjection {
+  const v = state.variant as string;
+  let proj: GeoProjection;
+  switch (v) {
+    case 'mollweide': proj = geoMollweide(); break;
+    case 'sinusoidal': proj = geoSinusoidal(); break;
+    case 'eckertIV': proj = geoEckert4(); break;
+    case 'eckertVI': proj = geoEckert6(); break;
+    case 'robinson': proj = geoRobinson(); break;
+    case 'naturalEarth': proj = geoNaturalEarth2(); break;
+    case 'kavrayskiyVII': proj = geoKavrayskiy7(); break;
+    case 'wagnerVI': proj = geoWagner6(); break;
+    case 'craster': proj = geoCraster(); break;
+    case 'foucaut': proj = geoFoucaut(); break;
+    case 'collignon': proj = geoCollignon(); break;
+    case 'bonne': proj = geoBonne(); break;
+    case 'bromley': proj = geoBromley(); break;
+    case 'nellHammer': proj = geoNellHammer(); break;
+    case 'times': proj = geoTimes(); break;
+    default: proj = geoMollweide();
+  }
+  return proj;
+}
+
+function getMathematicalProjection(state: ProjectionParams): GeoProjection {
+  const v = state.variant as string;
+  let proj: GeoProjection;
+  switch (v) {
+    case 'aitoff': proj = geoAitoff(); break;
+    case 'hammer': proj = geoHammer(); break;
+    case 'winkelTripel': proj = geoWinkel3(); break;
+    case 'vanDerGrinten': proj = geoVanDerGrinten(); break;
+    case 'loximuthal': proj = geoLoximuthal(); break;
+    case 'wiechel': proj = geoWiechel(); break;
+    case 'eisenlohr': proj = geoEisenlohr(); break;
+    case 'august': proj = geoAugust(); break;
+    case 'patterson': proj = geoPatterson(); break;
+    case 'ginzburg8': proj = geoGinzburg8(); break;
+    case 'armadillo': proj = geoArmadillo(); break;
+    case 'berghaus': proj = geoBerghaus(); break;
+    case 'ginzburg4': proj = geoGinzburg4(); break;
+    case 'wagnerVII': proj = geoWagner7(); break;
+    default: proj = geoWinkel3();
+  }
+  return proj;
+}
+
 export const getD3Projection = (state: ProjectionParams): GeoProjection => {
   const { family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, azLight } = state;
 
@@ -110,49 +164,62 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
     } else {
       proj = makeCylindricalProjection('equidistant', scaleFactor);
     }
-  } else if (family === 'conic') {
+    const rotZ = 0;
+    proj
+      .rotate([-(lambda0), -phiOrigin, rotZ])
+      .scale(MAP_SCALE * scaleFactor)
+      .translate([VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing]);
+    return proj;
+  }
+
+  if (family === 'conic') {
     if (distortion === 'conformal') proj = d3Geo.geoConicConformal();
     else if (distortion === 'equalArea') proj = d3Geo.geoConicEqualArea();
     else proj = d3Geo.geoConicEquidistant();
-    // Secant cone: two standard parallels φ1 (the central-latitude tangent
-    // parallel) and φ2 (the store's stdParallel2, when set). A tangent cone has
-    // φ1 = φ2. The signed parallel keeps phiOrigin's hemisphere, so a southern
-    // phiOrigin yields a southern standard parallel matching the 3D aux cone;
-    // the equatorial fallback keeps the cone non-degenerate.
     const phi1 = signedStandardParallelDeg(phiOrigin);
     const phi2 = state.stdParallel2 != null ? state.stdParallel2 : phi1;
     proj = (proj as GeoConicProjection).parallels([phi1, phi2]);
-  } else {
-    // The azimuthal light-source position defines the projection: a point light
-    // at the globe centre → gnomonic, at the antipode → stereographic, at
-    // infinity (parallel beams) → orthographic. `math` mode falls back to the
-    // distortion-selected analytic projection (equal-area / equidistant, while
-    // conformal azimuthal is itself stereographic).
+    const rotZ = -gamma;
+    proj
+      .rotate([-(lambda0), -phiOrigin, rotZ])
+      .scale(MAP_SCALE * scaleFactor)
+      .translate([VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing]);
+    return proj;
+  }
+
+  if (family === 'azimuthal') {
     if (azLight === 'center') proj = d3Geo.geoGnomonic();
     else if (azLight === 'antipode') proj = d3Geo.geoStereographic();
     else if (azLight === 'infinity') proj = d3Geo.geoOrthographic();
     else if (distortion === 'conformal') proj = d3Geo.geoStereographic();
     else if (distortion === 'equalArea') proj = d3Geo.geoAzimuthalEqualArea();
     else proj = d3Geo.geoAzimuthalEquidistant();
+    const rotZ = -gamma;
+    proj
+      .rotate([-(lambda0), -phiOrigin, rotZ])
+      .scale(MAP_SCALE * scaleFactor)
+      .translate([VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing]);
+    return proj;
   }
 
-  // Apply rotation / scale / translate from the store state (spec §4). The 2D map
-  // is the projection ONTO the (developable) surface in the surface's OWN frame.
-  // For the cylindrical family the map is the unrolled tube and must NOT know
-  // about the tube's tilt in space — `gamma` is left out of the rotation, so the
-  // map is invariant under the cylinder tilt (the 3D tube simply rotates in space;
-  // its flat development does not change). The rays are bound to the tube and
-  // rotate with it (via auxPointToWorld), so the map still shows exactly what the
-  // rays project onto the tube — just in the tube's own frame. Conic / azimuthal
-  // keep the true `gamma` roll (their orientation genuinely changes in space).
-  const rotZ = family === 'cylindrical' ? 0 : -gamma;
+  if (family === 'pseudocylindrical') {
+    proj = getPseudocylindricalProjection(state);
+  } else if (family === 'mathematical') {
+    proj = getMathematicalProjection(state);
+  } else {
+    proj = d3Geo.geoEquirectangular();
+  }
+
+  // Pseudocylindrical and mathematical: simple central-meridian rotation only
   proj
-    .rotate([-(lambda0), -phiOrigin, rotZ])
+    .rotate([-(lambda0), 0, 0])
     .scale(MAP_SCALE * scaleFactor)
     .translate([VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing]);
 
   return proj;
 };
+
+
 
 // Local area scale factor (projected px² per steradian) of `proj` at (lon,lat),
 // measured from a small quad of half-size `d` degrees. Returns null when any

@@ -306,6 +306,8 @@ export type AuxSurfaceParams =
   | { kind: 'plane'; center: Vec3; normal: Vec3; size: number; tilt: number }
   | { kind: 'cone'; radius: number; height: number; positionY: number; flip: 1 | -1; tilt: number };
 
+export type AuxSurfaceParamsOrNull = AuxSurfaceParams | null;
+
 // Pure geometry of the (developable) cone (shared by the aux surface, the
 // intersection rings and the central-meridian rays so they can never drift
 // apart). A cone tangent at a single standard parallel `phi1` (the fallback of
@@ -375,7 +377,7 @@ export function computeAuxSurfaceParams(
   distortion: ProjectionParams['distortion'] = 'equalArea',
   azLight: ProjectionParams['azLight'] = 'math',
   variant?: ProjectionParams['variant'],
-): AuxSurfaceParams {
+): AuxSurfaceParamsOrNull {
   const v = variant ?? defaultVariant(family);
   if (family === 'cylindrical') {
     // The cylinder is always equatorial (axis through the poles) and touches the
@@ -424,7 +426,8 @@ export function computeAuxSurfaceParams(
     return { kind: 'plane', center, normal, size, tilt: gamma };
   }
 
-  // conic: cone tangent (or secant) to the sphere at the standard parallel(s).
+  if (family === 'conic') {
+  // cone tangent (or secant) to the sphere at the standard parallel(s).
   // `phiOrigin` keeps its sign so the cone sits in the correct hemisphere; the
   // parallel magnitude uses the equatorial fallback on |phiOrigin| internally.
   const phi2 = stdParallel2 != null ? stdParallel2 : phiOrigin;
@@ -437,6 +440,10 @@ export function computeAuxSurfaceParams(
     flip: cone.flip,
     tilt: gamma,
   };
+  }
+
+  // Pseudocylindrical and mathematical projections have no developable surface.
+  return null;
 }
 
 // ---- Light-source geometry (single source of truth for the 3D light marker) ----
@@ -522,31 +529,30 @@ export function computeAuxSphereIntersections(
     return [circlePoints(r, y, RING_SEGMENTS), circlePoints(r, -y, RING_SEGMENTS)];
   }
 
-  // conic: cone–sphere intersection — quadratic in the axial height y.
-  // `phiOrigin` keeps its sign so the cone sits in the correct hemisphere.
-  const phi2 = stdParallel2 != null ? stdParallel2 : phiOrigin;
-  const cone = computeCone(phiOrigin, phi2, radius, scaleFactor);
-  const t = cone.tanA;
-  const a = cone.sign * cone.apex; // apex height (signed)
-  const A = scaleFactor * scaleFactor * t * t + 1;
-  const B = -2 * scaleFactor * scaleFactor * t * t * a;
-  const C = scaleFactor * scaleFactor * t * t * a * a - radius * radius;
-  const D = B * B - 4 * A * C;
-  if (D < -1e-9) return [];
-  const sq = Math.sqrt(Math.max(0, D));
-  // A double root (D≈0) means tangency ⇒ a single circle, not two coincident ones.
-  const roots = sq < 1e-9 ? [-B / (2 * A)] : [(-B + sq) / (2 * A), (-B - sq) / (2 * A)];
-  const circles: Vec3[][] = [];
-  for (const y of roots) {
-    const rad = scaleFactor * Math.abs(a - y) * t;
-    if (rad <= 1e-6) continue;
-    // `y` here is the WORLD axial height of the intersection; the cone's local
-    // frame (shared with the wireframe and auxPointToWorld) measures height from
-    // the cone's base, so convert: localY = flip·(worldY − positionY).
-    const localY = cone.flip * (y - cone.positionY);
-    circles.push(circlePoints(rad, localY, RING_SEGMENTS));
+  if (family === 'conic') {
+    const phi2 = stdParallel2 != null ? stdParallel2 : phiOrigin;
+    const cone = computeCone(phiOrigin, phi2, radius, scaleFactor);
+    const t = cone.tanA;
+    const a = cone.sign * cone.apex;
+    const A = scaleFactor * scaleFactor * t * t + 1;
+    const B = -2 * scaleFactor * scaleFactor * t * t * a;
+    const C = scaleFactor * scaleFactor * t * t * a * a - radius * radius;
+    const D = B * B - 4 * A * C;
+    if (D < -1e-9) return [];
+    const sq = Math.sqrt(Math.max(0, D));
+    const roots = sq < 1e-9 ? [-B / (2 * A)] : [(-B + sq) / (2 * A), (-B - sq) / (2 * A)];
+    const circles: Vec3[][] = [];
+    for (const y of roots) {
+      const rad = scaleFactor * Math.abs(a - y) * t;
+      if (rad <= 1e-6) continue;
+      const localY = cone.flip * (y - cone.positionY);
+      circles.push(circlePoints(rad, localY, RING_SEGMENTS));
+    }
+    return circles;
   }
-  return circles;
+
+  // Pseudocylindrical and mathematical families have no developable surface.
+  return [];
 }
 
 // Convenience wrapper for the 2D map: returns the aux-surface↔globe intersection
@@ -570,11 +576,9 @@ export function computeAuxSphereIntersectionsLonLat(
   azLight: ProjectionParams['azLight'] = 'math',
   variant?: ProjectionParams['variant'],
 ): [number, number][][] {
-  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, variant);
+  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, variant)!;
+  if (!surface) return [];
   const rings = computeAuxSphereIntersections(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2);
-  // Для azimuthal кольцо уже построено в мировых координатах (на сфере, в
-  // точке касания) — повторно прогонять его через auxPointToWorld нельзя (это
-  // сдвинуло бы кольцо). У cylinder/cone точки локальные, поэтому их переводим.
   return rings.map((ring) =>
     ring.map((p) => (surface.kind === 'plane' ? vec3ToLonLat(p) : vec3ToLonLat(auxPointToWorld(surface, p)))),
   );
@@ -618,7 +622,7 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
     rayCount = RAY_COUNT,
   } = params;
 
-  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, params.variant);
+  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, params.variant)!;
   const cy = VIEW_CENTER_Y;
   const wpp = worldPerPixel(radius);
   const PARALLEL_LEN = parallelBeamLength(radius);
@@ -732,7 +736,7 @@ export function computeConicRayEnd(
   const localY = cone.flip * (yCone - cone.positionY);
   const local: Vec3 = [radCone, localY, 0];
   if (!clamp) return local;
-  const surface = computeAuxSurfaceParams('conic', lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma);
+  const surface = computeAuxSurfaceParams('conic', lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma)!;
   return clampLocalToSurface(surface, local);
 }
 
@@ -744,7 +748,7 @@ export function computeConicRayEnd(
 export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: number, radius = RADIUS): RaySegment | null {
   const { family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight } = params;
 
-  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, params.variant);
+  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, params.variant)!;
   const proj = getD3Projection({ family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight, variant: params.variant });
   // The UNTILTED, phiOrigin=0 projection. For the cylindrical family the central
   // latitude and the tilt do not enter the projection rotation at all (rotZ = 0,

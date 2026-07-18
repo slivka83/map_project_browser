@@ -6,7 +6,7 @@ import { MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y, CLIP_LAT } from '../constants/
 import { defaultParamsForFamily } from '../store/useAppStore';
 import agentsMd from '../../AGENTS.md?raw';
 import brdMd from '../../docs/BRD.md?raw';
-import specMd from '../../docs/specification.md?raw';
+import specMd from '../../docs/new_spec.md?raw';
 
 const projectionParamsShape = defaultParamsForFamily('cylindrical');
 

@@ -1,16 +1,30 @@
 import { useMemo, useState } from 'react';
 import { useAppStore, type ProjectionFamily } from '../store/useAppStore';
 import { useProjectionParams } from '../store/selectors';
-import { variantDef, defaultVariant, CYLINDRICAL_VARIANT_OPTIONS, CONIC_VARIANT_OPTIONS, AZIMUTHAL_VARIANT_OPTIONS, type ProjectionVariant } from '../utils/projectionVariants';
+import {
+  variantDef,
+  defaultVariant,
+  CYLINDRICAL_VARIANT_OPTIONS,
+  CONIC_VARIANT_OPTIONS,
+  AZIMUTHAL_VARIANT_OPTIONS,
+  PSEUDOCYLINDRICAL_VARIANT_OPTIONS,
+  MATHEMATICAL_VARIANT_OPTIONS,
+  type ProjectionVariant,
+} from '../utils/projectionVariants';
 import EpsgCatalog from './EpsgCatalog';
 import ProjectionSummary from './ProjectionSummary';
 import Dropdown from './Dropdown';
-import { FamilyIcon, EpsgIcon, ResetIcon, InfoIcon } from './ui/icons';
+import { EpsgIcon, ResetIcon, InfoIcon } from './ui/icons';
 import { labelClass, activeTab, inactiveTab, iconBtn, sliderClass, fieldRow } from './ui/styles';
 import { signedStandardParallelDeg } from '../constants/geometry';
 
-const famBtn =
-  'relative flex h-9 w-[54px] items-center justify-center transition';
+const FAMILY_OPTIONS: { value: ProjectionFamily; label: string }[] = [
+  { value: 'cylindrical', label: 'Цилиндрическая' },
+  { value: 'conic', label: 'Коническая' },
+  { value: 'azimuthal', label: 'Азимутальная' },
+  { value: 'pseudocylindrical', label: 'Псевдоцилиндрическая' },
+  { value: 'mathematical', label: 'Математическая' },
+];
 
 const PARAM_LABELS: Record<ProjectionFamily, { lambda0: string; phiOrigin: string; gamma: string; scaleFactor: string }> = {
   cylindrical: {
@@ -30,6 +44,18 @@ const PARAM_LABELS: Record<ProjectionFamily, { lambda0: string; phiOrigin: strin
     phiOrigin: 'Широта точки касания',
     gamma: 'Вращение плоскости',
     scaleFactor: 'Расстояние до плоскости',
+  },
+  pseudocylindrical: {
+    lambda0: 'Центральный меридиан',
+    phiOrigin: 'Широта',
+    gamma: 'Наклон',
+    scaleFactor: 'Масштаб',
+  },
+  mathematical: {
+    lambda0: 'Центральный меридиан',
+    phiOrigin: 'Широта',
+    gamma: 'Наклон',
+    scaleFactor: 'Масштаб',
   },
 };
 
@@ -162,7 +188,9 @@ export default function ControlPanel() {
   const variantOptions = useMemo(() => {
     if (family === 'cylindrical') return CYLINDRICAL_VARIANT_OPTIONS;
     if (family === 'conic') return CONIC_VARIANT_OPTIONS;
-    return AZIMUTHAL_VARIANT_OPTIONS;
+    if (family === 'azimuthal') return AZIMUTHAL_VARIANT_OPTIONS;
+    if (family === 'pseudocylindrical') return PSEUDOCYLINDRICAL_VARIANT_OPTIONS;
+    return MATHEMATICAL_VARIANT_OPTIONS;
   }, [family]);
 
   const gammaLocked = def.lockedGamma !== null;
@@ -173,7 +201,9 @@ export default function ControlPanel() {
   const gammaTooltip = def.tooltips.gamma ?? null;
 
   const isCyl = family === 'cylindrical';
+  const isCon = family === 'conic';
   const isAz = family === 'azimuthal';
+  const hasDevelopableSurface = isCyl || isCon || isAz;
 
   const lightLabel = useMemo(() => {
     if (!isAz) return null;
@@ -189,23 +219,15 @@ export default function ControlPanel() {
   return (
     <div className="flex flex-col gap-3.5 px-3 py-3">
       <div className="flex items-center gap-1">
-        <div role="group" aria-label="Семейство проекции" className="flex overflow-hidden rounded-md border border-neon-blue/50 bg-panel-bg drop-shadow-[0_0_3px_var(--color-neon-blue-soft)]">
-          {(['cylindrical', 'conic', 'azimuthal'] as ProjectionFamily[]).map((f, i) => (
-            <button
-              key={f}
-              title={f === 'cylindrical' ? 'Цилиндрическая' : f === 'conic' ? 'Коническая' : 'Азимутальная'}
-              aria-label={f === 'cylindrical' ? 'Цилиндрическая' : f === 'conic' ? 'Коническая' : 'Азимутальная'}
-              aria-pressed={family === f}
-              onClick={() => setFamily(f)}
-              className={`${famBtn} rounded-none border-r border-neon-blue/30 last:border-r-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70 ${
-                i > 0 ? '-ml-px' : ''
-              } ${family === f ? activeTab : inactiveTab}`}
-            >
-              <FamilyIcon family={f} />
-            </button>
-          ))}
+        <div className="flex-1">
+          <Dropdown<ProjectionFamily>
+            value={family}
+            options={FAMILY_OPTIONS}
+            onChange={(f) => setFamily(f as ProjectionFamily)}
+            aria-label="Группа проекций"
+          />
         </div>
-        <div className="ml-auto flex items-center gap-1">
+        <div className="flex items-center gap-1">
           <button
             title="Библиотека EPSG"
             aria-label="Библиотека EPSG"
@@ -252,7 +274,7 @@ export default function ControlPanel() {
         onChange={(v) => setParam('lambda0', v)}
       />
 
-      {!isCyl && (
+      {isAz && (
         <ParamSlider
           label={PARAM_LABELS[family].phiOrigin}
           value={phiOrigin}
@@ -264,7 +286,19 @@ export default function ControlPanel() {
         />
       )}
 
-      {!isAz && (
+      {isCon && (
+        <ParamSlider
+          label={PARAM_LABELS[family].phiOrigin}
+          value={phiOrigin}
+          min={-90}
+          max={90}
+          step={1}
+          suffix="°"
+          onChange={(v) => setParam('phiOrigin', v)}
+        />
+      )}
+
+      {isCon && (
         <StdParallel2Control
           value={stdParallel2}
           phiOrigin={phiOrigin}
@@ -274,29 +308,42 @@ export default function ControlPanel() {
         />
       )}
 
-      <ParamSlider
-        label={PARAM_LABELS[family].gamma}
-        value={gammaLocked ? (def.lockedGamma ?? 0) : gamma}
-        min={-180}
-        max={180}
-        step={1}
-        suffix="°"
-        disabled={gammaLocked}
-        tooltip={gammaTooltip}
-        onChange={(v) => setParam('gamma', v)}
-      />
+      {(isCyl || !hasDevelopableSurface) && (
+        <StdParallel2Control
+          value={stdParallel2}
+          phiOrigin={phiOrigin}
+          onChange={(v) => setParam('stdParallel2', v)}
+          disabled={true}
+        />
+      )}
 
-      <ParamSlider
-        label={PARAM_LABELS[family].scaleFactor}
-        value={scaleFactor}
-        min={isCyl ? 0.5 : isAz ? 0.9 : 0.9}
-        max={isCyl ? 1.0 : isAz ? 1.1 : 1.1}
-        step={0.01}
-        suffix=""
-        disabled={scaleLocked}
-        tooltip={scaleTooltip}
-        onChange={(v) => setParam('scaleFactor', v)}
-      />
+      {hasDevelopableSurface && (
+        <ParamSlider
+          label={PARAM_LABELS[family].gamma}
+          value={gammaLocked ? (def.lockedGamma ?? 0) : gamma}
+          min={-180}
+          max={180}
+          step={1}
+          suffix="°"
+          disabled={gammaLocked}
+          tooltip={gammaTooltip}
+          onChange={(v) => setParam('gamma', v)}
+        />
+      )}
+
+      {hasDevelopableSurface && (
+        <ParamSlider
+          label={PARAM_LABELS[family].scaleFactor}
+          value={scaleFactor}
+          min={isCyl ? 0.5 : 0.9}
+          max={isCyl ? 1.0 : 1.1}
+          step={0.01}
+          suffix=""
+          disabled={scaleLocked}
+          tooltip={scaleTooltip}
+          onChange={(v) => setParam('scaleFactor', v)}
+        />
+      )}
 
       {isAz && (
         <div className={fieldRow}>
@@ -316,6 +363,12 @@ export default function ControlPanel() {
       {!def.hasRays && (
         <div className="text-[11px] text-neon-blue/40 italic">
           Математическая формула, без лучей
+        </div>
+      )}
+
+      {!hasDevelopableSurface && (
+        <div className="text-[11px] text-neon-blue/30 italic">
+          Проекция без развёртываемой поверхности (3D-сцена не показывает вспомогательную фигуру)
         </div>
       )}
 

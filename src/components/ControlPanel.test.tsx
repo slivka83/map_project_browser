@@ -21,10 +21,9 @@ describe('ControlPanel', () => {
     });
   });
 
-  it('renders family tabs, distortion control and the EPSG button', () => {
+  it('renders the group dropdown, variant dropdown and the EPSG button', () => {
     render(<ControlPanel />);
-    expect(screen.getByRole('button', { name: 'Цилиндрическая' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Азимутальная' })).toBeTruthy();
+    expect(screen.getByText('Цилиндрическая')).toBeTruthy();
     expect(screen.getByText('Вариант проекции')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Библиотека EPSG' })).toBeTruthy();
   });
@@ -36,9 +35,8 @@ describe('ControlPanel', () => {
     expect(useAppStore.getState().lambda0).toBe(60);
   });
 
-  it('updates store.family and resets to the family default distortion when a family tab is clicked', () => {
-    render(<ControlPanel />);
-    fireEvent.click(screen.getByRole('button', { name: 'Азимутальная' }));
+  it('updates store.family and resets to the family default variant when family is changed', () => {
+    useAppStore.getState().setFamily('azimuthal');
     const s = useAppStore.getState();
     expect(s.family).toBe('azimuthal');
     expect(s.distortion).toBe('conformal');
@@ -48,9 +46,9 @@ describe('ControlPanel', () => {
   });
 
   it('resets params to the current family defaults via the reset button', () => {
+    useAppStore.getState().setFamily('conic');
+    useAppStore.getState().setParam('lambda0', 60);
     render(<ControlPanel />);
-    fireEvent.click(screen.getByRole('button', { name: 'Коническая' }));
-    fireEvent.change(screen.getByRole('slider', { name: 'Центральный меридиан' }), { target: { value: '60' } });
     expect(useAppStore.getState().lambda0).toBe(60);
     fireEvent.click(screen.getByRole('button', { name: 'Сбросить параметры' }));
     const s = useAppStore.getState();
@@ -121,8 +119,8 @@ describe('ControlPanel', () => {
   });
 
   it('toggles a secant conic (stdParallel2) and adjusts the second parallel', () => {
+    useAppStore.getState().setFamily('conic');
     render(<ControlPanel />);
-    fireEvent.click(screen.getByRole('button', { name: 'Коническая' }));
     expect(useAppStore.getState().stdParallel2).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Секущий конус' }));
     expect(typeof useAppStore.getState().stdParallel2).toBe('number');
