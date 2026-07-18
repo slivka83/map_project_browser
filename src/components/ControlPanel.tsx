@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
+import type { ProjectionFamily } from '../store/useAppStore';
 import { useProjectionParams, useVisualizationParams } from '../store/selectors';
 import {
   variantDef,
@@ -459,7 +460,7 @@ function VisualizationSection({ def }: { def: ReturnType<typeof variantDef> }) {
   );
 }
 
-function familyIsCylOrConic(f: string): boolean {
+function familyIsCylOrConic(f: ProjectionFamily): boolean {
   return f === 'cylindrical' || f === 'conic';
 }
 

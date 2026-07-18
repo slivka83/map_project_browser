@@ -14,6 +14,13 @@ const allDocsRaw = KNOWN_DOCS.map((p) => docModules[p]).filter((t): t is string 
 const agentsMd = allDocsRaw[0];
 const brdMd = allDocsRaw[1];
 
+// Guard: if the dynamic glob fails to load a doc (e.g. an environment quirk),
+// every downstream check would silently pass on an empty string. Fail loudly
+// instead so a broken doc-load can never hide real doc↔code drift.
+if (allDocsRaw.length < 1) {
+  throw new Error('docsConsistency: no documentation files were loaded — the doc↔code guard is blind.');
+}
+
 const projectionParamsShape = defaultParamsForFamily('cylindrical');
 
 // ---------------------------------------------------------------------------

@@ -242,6 +242,13 @@ export const useAppStore = create<AppState>((set) => ({
   setShowHoverRay: (value) => set({ showHoverRay: value }),
 
   setParam: (key, value) => {
+    // Guard: the azimuthal-perspective family has no equal-area projection
+    // (area is routed by azLight, not by distortion). Reject an equalArea
+    // distortion there so the store can never hold a broken combination.
+    if (key === 'distortion' && value === 'equalArea') {
+      const family = useAppStore.getState().family;
+      if (family === 'azimuthalPerspective') return;
+    }
     set({ [key]: value } as Pick<AppState, typeof key>);
   },
   setVariant: (v) => {
@@ -302,7 +309,32 @@ export const useAppStore = create<AppState>((set) => ({
       somPeriod: def.defaultSomPeriod ?? NEW_DEFAULTS.somPeriod,
     };
   }),
-  applyPreset: (preset) => set({ ...preset }),
+  applyPreset: (preset) =>
+    set((s) => {
+      const merged = { ...s, ...preset } as Partial<ProjectionParams> & {
+        variant?: ProjectionVariant;
+        family?: ProjectionFamily;
+        distortion?: DistortionModel;
+      };
+      // Guard against an inconsistent variant/family/distortion combination that
+      // would produce a broken projection. If the merged variant belongs to a
+      // different family than the merged family, reset the variant to the
+      // family's default.
+      const def = merged.variant ? variantDef(merged.variant) : null;
+      const nextFamily = merged.family ?? s.family;
+      if (def && def.family !== nextFamily) {
+        const v = defaultVariant(nextFamily);
+        const vDef = variantDef(v);
+        return {
+          ...preset,
+          variant: v,
+          family: vDef.family,
+          distortion: vDef.distortion,
+          azLight: vDef.azLight,
+        };
+      }
+      return { ...preset };
+    }),
   loadGeoData: async () => {
     // A monotonically increasing token lets a later call supersede an earlier one
     // (e.g. on a fast remount): only the most recent fetch may commit its result.

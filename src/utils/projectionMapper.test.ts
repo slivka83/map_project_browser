@@ -47,7 +47,10 @@ describe('getD3Projection (spec §9.2)', () => {
     expect(t[1]).toBeCloseTo(275);
   });
 
-  it('returns geoMercator for cylindrical + conformal', () => {
+  it('cylindrical conformal matches d3 geoMercator at the origin', () => {
+    // At scaleFactor = 1 the secant conformal cylinder reduces to Mercator, so
+    // it coincides with d3.geoMercator at the origin. Other points diverge
+    // because our projection is a finite, precision(0) cylinder.
     const p = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal' }));
     const ref = d3Geo.geoMercator().rotate([0, 0]).scale(100).translate([400, 300]);
     expect(p([0, 0])).toEqual(ref([0, 0]));
@@ -248,11 +251,34 @@ describe('computeAreaDistortion', () => {
     ).toBeCloseTo(0, 1);
   });
 
+  it('azimuthalPerspective + equalArea falls back to a non-equal-area (gnomonic) projection', () => {
+    // The store permits family=azimuthalPerspective with distortion=equalArea
+    // (it is routed by azLight, not by distortion), so it must NOT be ~0%: the
+    // gnomonic projection does not preserve area.
+    const v = computeAreaDistortion(makeState({ family: 'azimuthalPerspective', distortion: 'equalArea', azLight: 'center' }));
+    expect(v).toBeGreaterThan(0);
+  });
+
   it('is large and positive for Mercator (cylindrical conformal)', () => {
     // A tangent conformal cylinder (scaleFactor = 1) is plain Mercator, whose
     // area distortion over the fitted ±85° band is large (~49%).
     const d = computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'conformal' }));
     expect(d).toBeGreaterThan(40);
+  });
+
+  it('uses the correct reference latitude when phiOrigin != 0 (cylindrical)', () => {
+    // The contact (standard) parallel is ±acos(scaleFactor) in the cylinder-local
+    // frame; after the d3 rotation by +phiOrigin the geographic latitude is
+    // ±phiS + phiOrigin. Shifting phiOrigin must move the reference, so the
+    // reported distortion for an oblique cylinder differs from the centred one.
+    const centred = computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'conformal', scaleFactor: 0.7, phiOrigin: 0 }));
+    const oblique = computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'conformal', scaleFactor: 0.7, phiOrigin: 20 }));
+    expect(centred).toBeGreaterThanOrEqual(0);
+    expect(oblique).toBeGreaterThanOrEqual(0);
+    // A centred secant cylinder leaves the standard parallel at the equator; an
+    // oblique one at +20° puts it at the same geographic latitude only via the
+    // corrected sign, so the two numbers must not be identical.
+    expect(oblique).not.toBeCloseTo(centred, 6);
   });
 
   it('is invariant to a true zoom (scaleFactor) for conic/azimuthal families', () => {

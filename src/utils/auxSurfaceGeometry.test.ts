@@ -35,6 +35,14 @@ import {
 const closeTo = (a: number, b: number, eps = 1e-6) =>
   expect(Math.abs(a - b)).toBeLessThan(eps);
 
+// Build a full ProjectionParams object with sensible defaults, so individual
+// tests only override the fields they care about. Centralises the ProjectionParams
+// shape in one place so adding a field does not break every hand-written object.
+const makeTestParams = (overrides: Partial<ProjectionParams> = {}): ProjectionParams => ({
+  ...defaultParamsForFamily('cylindrical'),
+  ...overrides,
+});
+
 // Mirror of the pole handling inside computeCentralMeridianRays: the two pole rays
 // land on the cylinder's topmost / bottommost edge (the central-meridian rim), i.e.
 // on the lateral surface at radius = surface.radius. Keeps the independent rebuild
@@ -354,7 +362,7 @@ describe('computeCentralMeridianRays', () => {
         // auxPointToWorld and confirm it matches the fan (single source of truth).
         // The on-axis-pole override must be mirrored here so the rebuild agrees
         // with the fan.
-        const proj = getD3Projection({ family: 'cylindrical', distortion, lambda0: 0, phiOrigin: 0, scaleFactor: 1, falseEasting: 0, falseNorthing: 0, gamma: 0, stdParallel2: null, azLight: 'math', variant: 'mercator', rulerMode: 'off', rulerPoint1: null, rulerPoint2: null, utmZone: null, azHeight: 400, azTiltDeg: 0, azAzimuthDeg: 0, coneHemisphere: 'north', somInclination: 98, somPeriod: 100, somNodeLongitude: 0, circleRadiusKm: 10000 });
+        const proj = getD3Projection(makeTestParams({ distortion, scaleFactor: 1, azLight: 'math', variant: 'mercator' }));
         segs.forEach((seg, i) => {
           const lat = -90 + (i * 180) / (segs.length - 1);
           const local = cylinderLocalEndWithPole(proj, 0, lat, surface);

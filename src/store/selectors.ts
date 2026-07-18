@@ -44,9 +44,6 @@ export function useVisualizationParams() {
       testFigureType: s.testFigureType,
       showRays: s.showRays,
       rulerActive: s.rulerActive,
-      rulerMode: s.rulerMode,
-      rulerPoint1: s.rulerPoint1,
-      rulerPoint2: s.rulerPoint2,
       unfoldTrigger: s.unfoldTrigger,
     })),
   );

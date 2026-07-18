@@ -49,8 +49,9 @@ export default function GlobeScene() {
         params.azLight,
         params.variant,
         params.azHeight,
+        params.circleRadiusKm,
       ),
-    [params.family, params.lambda0, params.phiOrigin, params.scaleFactor, params.distortion, params.azLight, params.stdParallel2, params.gamma, params.variant, params.azHeight],
+    [params.family, params.lambda0, params.phiOrigin, params.scaleFactor, params.distortion, params.azLight, params.stdParallel2, params.gamma, params.variant, params.azHeight, params.circleRadiusKm],
   );
 
   // Shared hover linkage (AGENTS.md): hovering the globe reads the

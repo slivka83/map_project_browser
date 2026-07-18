@@ -146,6 +146,9 @@ export function makeTiltedPerspective(
   azimuthDeg: number,
   earthRadiusKm = 6371,
 ): GeoProjection {
+  // A zero tilt is exactly the vertical (near-sided) perspective, which is
+  // cheaper and numerically cleaner — avoid building the heavier tilt map.
+  if (tiltDeg < 0.01) return makeVerticalPerspective(heightKm, earthRadiusKm);
   const R = earthRadiusKm;
   const H = Math.max(0, heightKm);
   const h = H / R; // observer height in Earth radii
@@ -343,7 +346,10 @@ export function computeAreaDistortion(params: ProjectionParams): number {
   if (params.family === 'cylindrical') {
     const s = Math.max(0, Math.min(1, params.scaleFactor));
     const phiS = (Math.acos(s) * 180) / Math.PI; // standard-parallel latitude magnitude, in degrees
-    const cands = [phiS - params.phiOrigin, -phiS - params.phiOrigin];
+    // The d3 rotation rotate([-(lambda0), -phiOrigin, 0]) turns the globe by
+    // +phiOrigin about Y, so the geographic latitude of the contact parallel is
+    // ±phiS + phiOrigin (not − phiOrigin).
+    const cands = [phiS + params.phiOrigin, -phiS + params.phiOrigin];
     let best: number | null = null;
     for (const lat of cands) {
       const a = localAreaScale(proj, params.lambda0, lat, d);
@@ -354,6 +360,14 @@ export function computeAreaDistortion(params: ProjectionParams): number {
       best = centre != null && centre > 0 ? centre : null;
     }
     aRef = best;
+  } else if (params.family === 'conic') {
+    // Near the equator the conic standard parallel falls back to ±30° (see
+    // signedStandardParallelDeg); the reference area scale must be measured at
+    // that same parallel, not at phiOrigin (which may sit far from it).
+    const sign = params.coneHemisphere === 'south' ? -1 : 1;
+    const phi1 = Math.abs(params.phiOrigin) < 10 ? 30 : Math.abs(params.phiOrigin);
+    const centre = localAreaScale(proj, params.lambda0, phi1 * sign, d);
+    aRef = centre != null && centre > 0 ? centre : null;
   } else {
     const lam = params.lambda0;
     const centre = localAreaScale(proj, lam, params.phiOrigin, d);
@@ -399,7 +413,7 @@ export function referenceAreaScale(params: ProjectionParams): number {
   if (params.family === 'cylindrical') {
     const s = Math.max(0, Math.min(1, params.scaleFactor));
     const phiS = (Math.acos(s) * 180) / Math.PI;
-    const cands = [phiS - params.phiOrigin, -phiS - params.phiOrigin];
+    const cands = [phiS + params.phiOrigin, -phiS + params.phiOrigin];
     let best: number | null = null;
     for (const lat of cands) {
       const a = localAreaScale(proj, params.lambda0, lat, d);
@@ -410,6 +424,11 @@ export function referenceAreaScale(params: ProjectionParams): number {
       best = centre != null && centre > 0 ? centre : null;
     }
     aRef = best;
+  } else if (params.family === 'conic') {
+    const sign = params.coneHemisphere === 'south' ? -1 : 1;
+    const phi1 = Math.abs(params.phiOrigin) < 10 ? 30 : Math.abs(params.phiOrigin);
+    const centre = localAreaScale(proj, params.lambda0, phi1 * sign, d);
+    aRef = centre != null && centre > 0 ? centre : null;
   } else {
     const centre = localAreaScale(proj, params.lambda0, params.phiOrigin, d);
     aRef = centre != null && centre > 0 ? centre : null;

@@ -8,7 +8,7 @@ import { getD3Projection, fitProjectionToView, computeAreaDistortion, referenceA
 import { computeTissotCircles } from '../utils/tissot';
 import { computeAuxSphereIntersectionsLonLat } from '../utils/auxSurfaceGeometry';
 import { variantDef } from '../utils/projectionVariants';
-import { utmZoneToCentralMeridian, UTM_ZONE_WIDTH, EARTH_RADIUS_KM } from '../constants/geometry';
+import { utmZoneToCentralMeridian, UTM_ZONE_WIDTH, EARTH_RADIUS_KM, RADIUS } from '../constants/geometry';
 import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT, NEON_YELLOW, NEON_WHITE, GRATICULE_STROKE, NEON_RED } from '../constants/designTokens';
 import { iconBtnPlain, iconGlow, glassPanel } from './ui/styles';
 import { TissotIcon, BorderIcon, DetailIcon, IntersectionIcon, HoverRayIcon } from './ui/icons';
@@ -168,7 +168,7 @@ export default function Map2D() {
   const intersectionRings = useMemo(
     () =>
       showIntersection
-        ? computeAuxSphereIntersectionsLonLat(family, lambda0, phiOrigin, scaleFactor, undefined, stdParallel2, family === 'cylindrical' ? 0 : params.gamma, params.distortion, params.azLight)
+        ? computeAuxSphereIntersectionsLonLat(family, lambda0, phiOrigin, scaleFactor, RADIUS, stdParallel2, family === 'cylindrical' ? 0 : params.gamma, params.distortion, params.azLight)
         : [],
     [showIntersection, family, lambda0, phiOrigin, scaleFactor, stdParallel2, params],
   );

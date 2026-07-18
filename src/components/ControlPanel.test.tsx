@@ -130,7 +130,8 @@ describe('ControlPanel', () => {
     render(<ControlPanel />);
     expect(screen.queryByText('Точные параметры проекции')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Точные параметры проекции' }));
-    expect(screen.getByText('Точные параметры проекции')).toBeTruthy();
+    // The modal owns an ARIA dialog role — verify it actually opened.
+    expect(screen.getByRole('dialog', { name: 'Точные параметры проекции' })).toBeTruthy();
   });
 
   it('shows context-driven controls per variant (3 representative cases)', () => {
@@ -193,14 +194,22 @@ describe('ControlPanel', () => {
     const grid = screen.getByRole('switch', { name: 'Сетка' });
     fireEvent.click(grid);
     expect(useAppStore.getState().showGraticule).toBe(true);
-    const rays = screen.queryByRole('switch', { name: 'Лучи света' });
-    if (rays) {
-      fireEvent.click(rays);
-      expect(useAppStore.getState().showRays).toBe(true);
-    }
+    // The default variant (Меркатор) has rays, so the switch must be present and
+    // its click must toggle the store.
+    const rays = screen.getByRole('switch', { name: 'Лучи света' });
+    fireEvent.click(rays);
+    expect(useAppStore.getState().showRays).toBe(true);
     const ruler = screen.getByRole('switch', { name: 'Линейка' });
     fireEvent.click(ruler);
     expect(useAppStore.getState().rulerActive).toBe(true);
+  });
+
+  it('hides the ray switch for a projection without rays (conic)', () => {
+    act(() => {
+      useAppStore.setState({ family: 'conic', variant: 'lambertConformal', distortion: 'conformal' });
+    });
+    render(<ControlPanel />);
+    expect(screen.queryByRole('switch', { name: 'Лучи света' })).toBeNull();
   });
 
   it('visualization method dropdown changes vizMethod', () => {
