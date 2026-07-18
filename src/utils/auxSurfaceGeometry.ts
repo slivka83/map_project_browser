@@ -933,9 +933,12 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
 
     const end = auxPointToWorld(surface, clampLocalToSurface(surface, localEnd));
 
-    // light at infinity → parallel beams arriving along the radial normal (orthographic)
+    // light at infinity → parallel beams arriving along the radial normal (orthographic).
+    // Light travels from the "viewer at infinity" (in the -normal direction, in front of the
+    // globe) THROUGH the globe point to the tangent plane (behind the globe, +normal). So
+    // `start` must sit at globe - normal·LEN (in front), not beyond the plane.
     if ((family === 'azimuthalPerspective' ) && azLight === 'infinity') {
-      start = [end[0] + normal[0] * PARALLEL_LEN, end[1] + normal[1] * PARALLEL_LEN, end[2] + normal[2] * PARALLEL_LEN];
+      start = [globe[0] - normal[0] * PARALLEL_LEN, globe[1] - normal[1] * PARALLEL_LEN, globe[2] - normal[2] * PARALLEL_LEN];
     }
 
     result.push({ start, globe, end });
@@ -1053,7 +1056,7 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
   const end = auxPointToWorld(surface, clampLocalToSurface(surface, localEnd));
 
   if ((family === 'azimuthalPerspective' ) && azLight === 'infinity') {
-    start = [end[0] + normal[0] * PARALLEL_LEN, end[1] + normal[1] * PARALLEL_LEN, end[2] + normal[2] * PARALLEL_LEN];
+    start = [globe[0] - normal[0] * PARALLEL_LEN, globe[1] - normal[1] * PARALLEL_LEN, globe[2] - normal[2] * PARALLEL_LEN];
   }
 
   return { start, globe, end };

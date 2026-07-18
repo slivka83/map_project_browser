@@ -53,6 +53,7 @@ const base = (over: Partial<ProjectionParams> = {}): ProjectionParams => ({
 });
 
 const closeTo = (a: number, b: number, eps = 1e-6) => expect(Math.abs(a - b)).toBeLessThan(eps);
+const vdot = (a: [number, number, number], b: [number, number, number]): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 
 // ---------------------------------------------------------------------------
 // 1. GLOBE ↔ MAP: the projection is the single bridge between the 3D globe and
@@ -395,6 +396,35 @@ describe('rays link globe point to map point', () => {
       });
     }
   }
+
+  // §2 — orthographic (light at infinity) ray direction must be physically
+  // correct: light travels from the viewer in front of the globe (-normal),
+  // through the globe point, to the tangent plane behind (+normal). Hence
+  // (end - globe) ∥ +normal and (globe - start) ∥ +normal (not reversed).
+  it('orthographic rays run from -normal (front) through globe to +normal (plane)', () => {
+    const p = base({ family: 'azimuthalPerspective', distortion: 'equidistant', azLight: 'infinity', phiOrigin: 30, variant: 'orthographic' });
+    const { normal } = computeTangentBasis(p.lambda0, p.phiOrigin, RADIUS);
+    const segs = computeCentralMeridianRays({ ...p, radius: RADIUS, rayCount: RAY_COUNT });
+    for (const seg of segs) {
+      const toPlane: [number, number, number] = [seg.end[0] - seg.globe[0], seg.end[1] - seg.globe[1], seg.end[2] - seg.globe[2]];
+      // The central meridian ray landing exactly on the tangent point is
+      // degenerate (end == globe); skip it for the direction check.
+      if (Math.hypot(...toPlane) < 1e-6) continue;
+      const toStart: [number, number, number] = [seg.globe[0] - seg.start[0], seg.globe[1] - seg.start[1], seg.globe[2] - seg.start[2]];
+      // both segments must be parallel to the outward normal
+      for (const v of [toPlane, toStart]) {
+        const cross = [
+          v[1] * normal[2] - v[2] * normal[1],
+          v[2] * normal[0] - v[0] * normal[2],
+          v[0] * normal[1] - v[1] * normal[0],
+        ];
+        closeTo(Math.hypot(...cross), 0, 1e-6);
+      }
+      // both must point in the +normal direction (same sign as normal)
+      expect(vdot(toPlane, normal)).toBeGreaterThan(0);
+      expect(vdot(toStart, normal)).toBeGreaterThan(0);
+    }
+  });
 
   it('azimuthal orthographic hover ray returns null for a far-hemisphere point', () => {
     const p = base({ family: 'azimuthalPerspective', distortion: 'equalArea', azLight: 'infinity', lambda0: 0, phiOrigin: 0 });
@@ -759,6 +789,43 @@ describe('aux-surface ↔ globe intersection physics', () => {
     closeTo(lats[0], phi1, 1e-6);
     closeTo(lats[1], phi2, 1e-6);
   });
+
+  // §7 — southern-hemisphere conic variants: the D3 2D projection and the 3D
+  // aux cone must agree on the SIGN of the standard parallel. A double sign-flip
+  // previously built a northern cone for a southern phiOrigin.
+  const conics: { phiOrigin: number; stdParallel2: number | null; hemisphere: 'north' | 'south' }[] = [
+    { phiOrigin: 30, stdParallel2: 50, hemisphere: 'north' },
+    { phiOrigin: 5, stdParallel2: null, hemisphere: 'north' }, // equator fallback → ±30
+    { phiOrigin: -30, stdParallel2: -45, hemisphere: 'south' },
+    { phiOrigin: -5, stdParallel2: null, hemisphere: 'south' }, // equator fallback → -30
+  ];
+  for (const c of conics) {
+    for (const distortion of DISTORTIONS) {
+      it(`conic ${distortion} (φ₀=${c.phiOrigin}, φ₂=${c.stdParallel2}) southern sign matches 3D cone`, () => {
+        const p = base({ family: 'conic', distortion, phiOrigin: c.phiOrigin, stdParallel2: c.stdParallel2, coneHemisphere: c.hemisphere });
+        const proj = getD3Projection(p);
+        const surface = computeAuxSurfaceParams('conic', p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, p.gamma, distortion, p.azLight)!;
+        const phi1 = c.stdParallel2 != null ? c.stdParallel2 : c.phiOrigin;
+        const center = proj([p.lambda0, p.phiOrigin]) as [number, number];
+        const stdParallelPt = proj([p.lambda0, phi1]) as [number, number];
+        // In a conic projection the standard parallel sits ABOVE the central
+        // latitude when it is north (smaller y in screen coords) and BELOW when
+        // it is south. Its signed offset from the central latitude's y must carry
+        // the same sign as (phi1 - phiOrigin). A double sign-flip previously put
+        // a southern standard parallel ABOVE centre (wrong hemisphere). Near the
+        // equator the cone's standard parallel may visually coincide with centre,
+        // so skip the y-ordering check when dy is ~0.
+        const dy = stdParallelPt[1] - center[1];
+        if (Math.abs(dy) > 1e-3) {
+          expect(Math.sign(dy)).toBe(-Math.sign(phi1 - c.phiOrigin));
+        }
+        // The 3D cone's intersection latitude carries the same sign as phi1.
+        const rings = computeAuxSphereIntersections('conic', p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2);
+        const lats = rings.map((r) => vec3ToLonLat(auxPointToWorld(surface, r[0]))[1]).sort((a, b) => a - b);
+        for (const lat of lats) expect(Math.sign(Math.round(lat))).toBe(Math.sign(phi1));
+      });
+    }
+  }
 });
 
 // ---------------------------------------------------------------------------

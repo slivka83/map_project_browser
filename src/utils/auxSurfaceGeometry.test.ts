@@ -582,10 +582,14 @@ describe('azimuthal light-source modes', () => {
   it("'infinity' beams are parallel to the plane normal", () => {
     const segs = computeCentralMeridianRays({ ...base, family: 'azimuthalPerspective', lambda0: lam, phiOrigin: phi, azLight: 'infinity' });
     const { normal } = computeTangentBasis(lam, phi, RADIUS);
-    for (const { start, end } of segs) {
-      const dir = [end[0] - start[0], end[1] - start[1], end[2] - start[2]];
-      // dir is antiparallel to the outward normal (beams come from outside)
-      closeTo(dir[0] * normal[0] + dir[1] * normal[1] + dir[2] * normal[2], -Math.hypot(...dir), 1e-6);
+    for (const { start, globe, end } of segs) {
+      const toPlane = [end[0] - globe[0], end[1] - globe[1], end[2] - globe[2]];
+      const toStart = [globe[0] - start[0], globe[1] - start[1], globe[2] - start[2]];
+      // Light travels from the viewer in front of the globe (-normal) through
+      // the globe point to the tangent plane behind it (+normal): both segments
+      // are parallel to the outward normal (not antiparallel).
+      closeTo(toPlane[0] * normal[0] + toPlane[1] * normal[1] + toPlane[2] * normal[2], Math.hypot(...toPlane), 1e-6);
+      closeTo(toStart[0] * normal[0] + toStart[1] * normal[1] + toStart[2] * normal[2], Math.hypot(...toStart), 1e-6);
     }
   });
 });

@@ -238,11 +238,11 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
     if (distortion === 'conformal') proj = d3Geo.geoConicConformal();
     else if (distortion === 'equalArea') proj = d3Geo.geoConicEqualArea();
     else proj = d3Geo.geoConicEquidistant();
-    // Hemisphere sign comes from the cone-hemisphere selector.
-    const sign = state.coneHemisphere === 'south' ? -1 : 1;
-    const phi1Raw = signedStandardParallelDeg(phiOrigin) * sign;
-    const phi1 = Math.abs(phiOrigin) < 10 ? (30 * sign) : phi1Raw;
-    const phi2 = state.stdParallel2 != null ? state.stdParallel2 * sign : phi1;
+    // The standard parallel already carries phiOrigin's sign (see
+    // signedStandardParallelDeg), so NO extra hemisphere sign is applied — that
+    // would double-flip and build a northern cone for a southern phiOrigin.
+    const phi1 = signedStandardParallelDeg(phiOrigin);
+    const phi2 = state.stdParallel2 != null ? state.stdParallel2 : phi1;
     proj = (proj as GeoConicProjection).parallels([phi1, phi2]);
     const rotZ = -gamma;
     proj
@@ -364,9 +364,8 @@ export function computeAreaDistortion(params: ProjectionParams): number {
     // Near the equator the conic standard parallel falls back to ±30° (see
     // signedStandardParallelDeg); the reference area scale must be measured at
     // that same parallel, not at phiOrigin (which may sit far from it).
-    const sign = params.coneHemisphere === 'south' ? -1 : 1;
-    const phi1 = Math.abs(params.phiOrigin) < 10 ? 30 : Math.abs(params.phiOrigin);
-    const centre = localAreaScale(proj, params.lambda0, phi1 * sign, d);
+    const phi1 = signedStandardParallelDeg(params.phiOrigin);
+    const centre = localAreaScale(proj, params.lambda0, phi1, d);
     aRef = centre != null && centre > 0 ? centre : null;
   } else {
     const lam = params.lambda0;
@@ -425,9 +424,8 @@ export function referenceAreaScale(params: ProjectionParams): number {
     }
     aRef = best;
   } else if (params.family === 'conic') {
-    const sign = params.coneHemisphere === 'south' ? -1 : 1;
-    const phi1 = Math.abs(params.phiOrigin) < 10 ? 30 : Math.abs(params.phiOrigin);
-    const centre = localAreaScale(proj, params.lambda0, phi1 * sign, d);
+    const phi1 = signedStandardParallelDeg(params.phiOrigin);
+    const centre = localAreaScale(proj, params.lambda0, phi1, d);
     aRef = centre != null && centre > 0 ? centre : null;
   } else {
     const centre = localAreaScale(proj, params.lambda0, params.phiOrigin, d);
@@ -503,13 +501,33 @@ export function fitProjectionToView(
   width: number,
   height: number,
   margin = FIT_MARGIN,
+  fitTarget: Polygon | null = null,
 ): GeoProjection {
   proj.fitExtent(
     [
       [margin, margin],
       [width - margin, height - margin],
     ],
-    FIT_SPHERE,
+    fitTarget ?? FIT_SPHERE,
   );
   return proj;
+}
+
+// Fit target for the azimuthal-math family: a spherical cap of angular radius
+// `capDeg` centred on (lambda0, phiOrigin). The 2D map then shows exactly the
+// region covered by the 3D auxiliary plane (which is sized by `circleRadiusKm`),
+// so the two views stay in agreement as the circle radius changes.
+export function makeCircleFitSphere(lambda0: number, phiOrigin: number, capDeg: number): Polygon {
+  const cap = Math.max(0, Math.min(180, capDeg));
+  const ring: [number, number][] = [];
+  const steps = 72;
+  for (let i = 0; i <= steps; i++) {
+    const az = (i / steps) * 2 * Math.PI;
+    const lat = Math.asin(
+      Math.max(-1, Math.min(1, Math.sin((phiOrigin * Math.PI) / 180) * Math.cos((cap * Math.PI) / 180) + Math.cos((phiOrigin * Math.PI) / 180) * Math.sin((cap * Math.PI) / 180) * Math.cos(az))),
+    );
+    const lon = lambda0 + (Math.atan2(Math.sin(az) * Math.sin((cap * Math.PI) / 180) * Math.cos((phiOrigin * Math.PI) / 180), Math.cos((cap * Math.PI) / 180) - Math.sin((phiOrigin * Math.PI) / 180) * Math.sin((lat * Math.PI) / 180)) * 180) / Math.PI;
+    ring.push([lon, (lat * 180) / Math.PI]);
+  }
+  return { type: 'Polygon', coordinates: [ring] };
 }

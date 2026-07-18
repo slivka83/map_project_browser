@@ -1,10 +1,10 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import * as d3Geo from 'd3-geo';
-import type { FeatureCollection } from 'geojson';
+import type { FeatureCollection, Polygon } from 'geojson';
 import { useAppStore } from '../store/useAppStore';
 import { useProjectionParams, useVisualizationParams } from '../store/selectors';
-import { getD3Projection, fitProjectionToView, computeAreaDistortion, referenceAreaScale, cellAreaDistortion, isPointerOverGlobe } from '../utils/projectionMapper';
+import { getD3Projection, fitProjectionToView, makeCircleFitSphere, computeAreaDistortion, referenceAreaScale, cellAreaDistortion, isPointerOverGlobe } from '../utils/projectionMapper';
 import { computeTissotCircles } from '../utils/tissot';
 import { computeAuxSphereIntersectionsLonLat } from '../utils/auxSurfaceGeometry';
 import { variantDef } from '../utils/projectionVariants';
@@ -148,7 +148,16 @@ export default function Map2D() {
 
   const pathGenerator = useMemo(() => {
     const proj = getD3Projection(params);
-    fitProjectionToView(proj, width, height, FIT_MARGIN);
+    // The azimuthal-math auxiliary plane is sized by circleRadiusKm; fit the 2D
+    // map to that same cap so the 2D view tracks the 3D plane as the radius
+    // changes (otherwise fitProjectionToView would always show ±85° and 2D/3D
+    // would diverge).
+    let fitTarget: Polygon | null = null;
+    if (params.family === 'azimuthalMath') {
+      const capDeg = (params.circleRadiusKm / EARTH_RADIUS_KM) * (180 / Math.PI);
+      fitTarget = makeCircleFitSphere(params.lambda0, params.phiOrigin, capDeg);
+    }
+    fitProjectionToView(proj, width, height, FIT_MARGIN, fitTarget);
     return d3Geo.geoPath().projection(proj);
   }, [params, width, height]);
 
