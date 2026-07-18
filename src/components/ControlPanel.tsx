@@ -4,27 +4,21 @@ import { useProjectionParams } from '../store/selectors';
 import {
   variantDef,
   defaultVariant,
-  CYLINDRICAL_VARIANT_OPTIONS,
-  CONIC_VARIANT_OPTIONS,
-  AZIMUTHAL_VARIANT_OPTIONS,
-  PSEUDOCYLINDRICAL_VARIANT_OPTIONS,
-  MATHEMATICAL_VARIANT_OPTIONS,
   type ProjectionVariant,
 } from '../utils/projectionVariants';
-import EpsgCatalog from './EpsgCatalog';
+import ProjectionCatalog from './ProjectionCatalog';
 import ProjectionSummary from './ProjectionSummary';
-import Dropdown from './Dropdown';
-import { EpsgIcon, ResetIcon, InfoIcon } from './ui/icons';
+import { FamilyIcon, ResetIcon, InfoIcon } from './ui/icons';
 import { labelClass, activeTab, inactiveTab, iconBtn, sliderClass, fieldRow } from './ui/styles';
 import { signedStandardParallelDeg } from '../constants/geometry';
 
-const FAMILY_OPTIONS: { value: ProjectionFamily; label: string }[] = [
-  { value: 'cylindrical', label: 'Цилиндрическая' },
-  { value: 'conic', label: 'Коническая' },
-  { value: 'azimuthal', label: 'Азимутальная' },
-  { value: 'pseudocylindrical', label: 'Псевдоцилиндрическая' },
-  { value: 'mathematical', label: 'Математическая' },
-];
+const FAMILY_LABEL_MAP: Record<ProjectionFamily, string> = {
+  cylindrical: 'Цилиндрическая',
+  conic: 'Коническая',
+  azimuthal: 'Азимутальная',
+  pseudocylindrical: 'Псевдоцилиндрическая',
+  mathematical: 'Математическая',
+};
 
 const PARAM_LABELS: Record<ProjectionFamily, { lambda0: string; phiOrigin: string; gamma: string; scaleFactor: string }> = {
   cylindrical: {
@@ -179,19 +173,9 @@ export default function ControlPanel() {
   const { variant, family, lambda0, phiOrigin, scaleFactor, gamma, stdParallel2, azLight } = params;
   const setParam = useAppStore((s) => s.setParam);
   const setVariant = useAppStore((s) => s.setVariant);
-  const setFamily = useAppStore((s) => s.setFamily);
   const resetParams = useAppStore((s) => s.resetParams);
-  const applyPreset = useAppStore((s) => s.applyPreset);
 
   const def = useMemo(() => variantDef(variant ?? defaultVariant(family)), [variant, family]);
-
-  const variantOptions = useMemo(() => {
-    if (family === 'cylindrical') return CYLINDRICAL_VARIANT_OPTIONS;
-    if (family === 'conic') return CONIC_VARIANT_OPTIONS;
-    if (family === 'azimuthal') return AZIMUTHAL_VARIANT_OPTIONS;
-    if (family === 'pseudocylindrical') return PSEUDOCYLINDRICAL_VARIANT_OPTIONS;
-    return MATHEMATICAL_VARIANT_OPTIONS;
-  }, [family]);
 
   const gammaLocked = def.lockedGamma !== null;
   const scaleLocked = def.lockedScaleFactor !== null;
@@ -216,52 +200,40 @@ export default function ControlPanel() {
     return m[azLight] ?? '';
   }, [isAz, azLight]);
 
+  const handleSelectProjection = (_family: ProjectionFamily, v: ProjectionVariant) => {
+    setVariant(v);
+  };
+
   return (
     <div className="flex flex-col gap-3.5 px-3 py-3">
       <div className="flex items-center gap-1">
-        <div className="flex-1">
-          <Dropdown<ProjectionFamily>
-            value={family}
-            options={FAMILY_OPTIONS}
-            onChange={(f) => setFamily(f as ProjectionFamily)}
-            aria-label="Группа проекций"
-          />
-        </div>
-        <div className="flex items-center gap-1">
-          <button
-            title="Библиотека EPSG"
-            aria-label="Библиотека EPSG"
-            onClick={() => setCatalogOpen(true)}
-            className={iconBtn}
-          >
-            <EpsgIcon />
-          </button>
-          <button
-            title="Точные параметры проекции"
-            aria-label="Точные параметры проекции"
-            onClick={() => setShowSummary(true)}
-            className={iconBtn}
-          >
-            <InfoIcon />
-          </button>
-          <button
-            title="Сбросить параметры"
-            aria-label="Сбросить параметры"
-            onClick={() => resetParams()}
-            className={iconBtn}
-          >
-            <ResetIcon />
-          </button>
-        </div>
-      </div>
-
-      <div className={fieldRow}>
-        <span className={`${labelClass} w-40 shrink-0`}>Вариант проекции</span>
-        <Dropdown<string>
-          value={(variant ?? defaultVariant(family)) as string}
-          options={variantOptions as { value: string; label: string }[]}
-          onChange={(v) => setVariant(v as ProjectionVariant)}
-        />
+        <button
+          title="Выбрать проекцию"
+          aria-label="Выбрать проекцию"
+          onClick={() => setCatalogOpen(true)}
+          className={`${iconBtn} flex-auto justify-start gap-2 px-3`}
+        >
+          <FamilyIcon family={family} />
+          <span className="truncate text-[12px]">
+            {FAMILY_LABEL_MAP[family]} — {def.label}
+          </span>
+        </button>
+        <button
+          title="Точные параметры проекции"
+          aria-label="Точные параметры проекции"
+          onClick={() => setShowSummary(true)}
+          className={iconBtn}
+        >
+          <InfoIcon />
+        </button>
+        <button
+          title="Сбросить параметры"
+          aria-label="Сбросить параметры"
+          onClick={() => resetParams()}
+          className={iconBtn}
+        >
+          <ResetIcon />
+        </button>
       </div>
 
       <ParamSlider
@@ -368,11 +340,16 @@ export default function ControlPanel() {
 
       {!hasDevelopableSurface && (
         <div className="text-[11px] text-neon-blue/30 italic">
-          Проекция без развёртываемой поверхности (3D-сцена не показывает вспомогательную фигуру)
+          Проекция без развёртываемой поверхности (3D-сцена показывает только глобус)
         </div>
       )}
 
-      {catalogOpen && <EpsgCatalog onClose={() => setCatalogOpen(false)} applyPreset={applyPreset} />}
+      {catalogOpen && (
+        <ProjectionCatalog
+          onClose={() => setCatalogOpen(false)}
+          onSelect={handleSelectProjection}
+        />
+      )}
       {showSummary && <ProjectionSummary params={params} onClose={() => setShowSummary(false)} />}
     </div>
   );

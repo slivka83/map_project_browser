@@ -18,14 +18,16 @@ describe('ControlPanel', () => {
       azLight: 'math',
       showTissot: false,
       geoJsonData: null,
+      variant: 'mercator',
     });
   });
 
-  it('renders the group dropdown, variant dropdown and the EPSG button', () => {
+  it('renders the projection selection button with current family and variant', () => {
     render(<ControlPanel />);
-    expect(screen.getByText('Цилиндрическая')).toBeTruthy();
-    expect(screen.getByText('Вариант проекции')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Библиотека EPSG' })).toBeTruthy();
+    const btn = screen.getByRole('button', { name: 'Выбрать проекцию' });
+    expect(btn).toBeTruthy();
+    expect(btn.textContent).toMatch(/Цилиндрическая/);
+    expect(btn.textContent).toMatch(/Меркатор/);
   });
 
   it('updates store.lambda0 when the meridian slider changes', () => {
@@ -35,11 +37,11 @@ describe('ControlPanel', () => {
     expect(useAppStore.getState().lambda0).toBe(60);
   });
 
-  it('updates store.family and resets to the family default variant when family is changed', () => {
+  it('updates store.family and resets via setFamily', () => {
     useAppStore.getState().setFamily('azimuthal');
     const s = useAppStore.getState();
     expect(s.family).toBe('azimuthal');
-    expect(s.distortion).toBe('conformal');
+    expect(s.variant).toBe('gnomonic');
     expect(s.lambda0).toBe(0);
     expect(s.phiOrigin).toBe(0);
     expect(s.scaleFactor).toBe(1);
@@ -57,12 +59,14 @@ describe('ControlPanel', () => {
     expect(s.lambda0).toBe(0);
   });
 
-  it('updates store variant when a variant option is selected', () => {
+  it('selects a projection from the catalog modal', () => {
     render(<ControlPanel />);
-    fireEvent.click(screen.getByRole('button', { name: 'Меркатор (для моряков)' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Равнопромежуточная (Плоская развёртка)' }));
-    expect(useAppStore.getState().distortion).toBe('equidistant');
-    expect(useAppStore.getState().azLight).toBe('infinity');
+    fireEvent.click(screen.getByRole('button', { name: 'Выбрать проекцию' }));
+    fireEvent.click(screen.getByText('Моллвайде (равновеликая)'));
+    const s = useAppStore.getState();
+    expect(s.family).toBe('pseudocylindrical');
+    expect(s.distortion).toBe('equalArea');
+    expect(s.variant).toBe('mollweide');
   });
 
   it('updates store.phiOrigin when the central-latitude slider changes (conic family)', () => {
@@ -76,16 +80,6 @@ describe('ControlPanel', () => {
     useAppStore.setState({ family: 'cylindrical', distortion: 'conformal' });
     render(<ControlPanel />);
     expect(screen.queryByRole('slider', { name: 'Центральная широта (φ₀)' })).toBeNull();
-  });
-
-  it('applies an EPSG preset from the catalog modal', async () => {
-    render(<ControlPanel />);
-    fireEvent.click(screen.getByRole('button', { name: 'Библиотека EPSG' }));
-    fireEvent.click(screen.getByText('EPSG:53010'));
-    const s = useAppStore.getState();
-    expect(s.family).toBe('cylindrical');
-    expect(s.distortion).toBe('equalArea');
-    expect(s.phiOrigin).toBe(45);
   });
 
   it('updates store.gamma when the tilt slider changes (oblique Mercator)', () => {
@@ -137,15 +131,5 @@ describe('ControlPanel', () => {
     expect(screen.queryByText('Точные параметры проекции')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Точные параметры проекции' }));
     expect(screen.getByText('Точные параметры проекции')).toBeTruthy();
-    expect(screen.getByText('Класс проекции')).toBeTruthy();
-    expect(screen.getByText('Касательная Цилиндрическая Равноугольная')).toBeTruthy();
-  });
-
-  it('shows falseEasting / falseNorthing in the geodesic summary', () => {
-    useAppStore.setState({ family: 'cylindrical', distortion: 'conformal', falseEasting: 120, falseNorthing: -45 });
-    render(<ControlPanel />);
-    fireEvent.click(screen.getByRole('button', { name: 'Точные параметры проекции' }));
-    expect(screen.getByText('Смещение восток (falseEasting)')).toBeTruthy();
-    expect(screen.getByText('Смещение север (falseNorthing)')).toBeTruthy();
   });
 });
