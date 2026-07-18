@@ -7,6 +7,7 @@ import { useProjectionParams, useVisualizationParams } from '../store/selectors'
 import { getD3Projection, fitProjectionToView, computeAreaDistortion, isPointerOverGlobe } from '../utils/projectionMapper';
 import { computeTissotCircles } from '../utils/tissot';
 import { computeAuxSphereIntersectionsLonLat } from '../utils/auxSurfaceGeometry';
+import { variantDef } from '../utils/projectionVariants';
 import { utmZoneToCentralMeridian, UTM_ZONE_WIDTH } from '../constants/geometry';
 import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT, NEON_YELLOW, NEON_WHITE, GRATICULE_STROKE, NEON_RED } from '../constants/designTokens';
 import { iconBtnPlain, iconGlow, glassPanel } from './ui/styles';
@@ -180,7 +181,7 @@ export default function Map2D() {
   // Ruler: a click records points (not hover). The first click → rulerPoint1,
   // second → rulerPoint2; further clicks reset.
   const handleMapClick = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (!rulerActive || !projRef) return;
+    if (!projRef) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const scale = Math.min(rect.width / width, rect.height / height);
     const offX = (rect.width - width * scale) / 2;
@@ -190,9 +191,17 @@ export default function Map2D() {
     const inv = projRef.invert?.([x, y]);
     if (!inv) return;
     const store = useAppStore.getState();
-    if (!store.rulerPoint1) store.setRulerPoint1([inv[0], inv[1]]);
-    else if (!store.rulerPoint2) store.setRulerPoint2([inv[0], inv[1]]);
-    else { store.setRulerPoint1([inv[0], inv[1]]); store.setRulerPoint2(null); }
+    if (rulerActive) {
+      if (!store.rulerPoint1) store.setRulerPoint1([inv[0], inv[1]]);
+      else if (!store.rulerPoint2) store.setRulerPoint2([inv[0], inv[1]]);
+      else { store.setRulerPoint1([inv[0], inv[1]]); store.setRulerPoint2(null); }
+      return;
+    }
+    const def = params.variant ? variantDef(params.variant) : undefined;
+    if (def?.showTouchPointPresets && (family === 'azimuthalPerspective' || family === 'azimuthalMath')) {
+      store.setParam('phiOrigin', inv[1]);
+      store.setParam('lambda0', inv[0]);
+    }
   };
 
   const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {

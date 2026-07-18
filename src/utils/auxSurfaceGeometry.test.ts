@@ -20,6 +20,15 @@ import {
   coneAxialHeight,
   computeAzimuthalLightLamp,
   coneApexWorld,
+  computePerpendicularNormals,
+  computeParticleTrajectories,
+  computeMagneticFieldLines,
+  computeLaserScanRing,
+  computeCutLine,
+  computeSatellitePosition,
+  computeOrbitalPath,
+  vec3Distance,
+  vec3Normalize,
 } from './auxSurfaceGeometry';
 
 const closeTo = (a: number, b: number, eps = 1e-6) =>
@@ -964,4 +973,122 @@ describe('rays always land on the rendered aux surface (no empty space)', () => 
       }
     });
   }
+});
+
+describe('computePerpendicularNormals', () => {
+  it('возвращает непустой массив нормалей для цилиндрической поверхности', () => {
+    const surface = computeAuxSurfaceParams('cylindrical', 0, 0, 1)!;
+    const normals = computePerpendicularNormals(surface, 30);
+    expect(normals.length).toBeGreaterThan(0);
+    for (const n of normals) {
+      expect(n.globePoint).toHaveLength(3);
+      expect(n.surfacePoint).toHaveLength(3);
+    }
+  });
+  it('работает для конической поверхности', () => {
+    const surface = computeAuxSurfaceParams('conic', 0, 45, 1)!;
+    expect(computePerpendicularNormals(surface, 30).length).toBeGreaterThan(0);
+  });
+  it('работает для плоскости', () => {
+    const surface = computeAuxSurfaceParams('azimuthalPerspective', 0, 30, 1)!;
+    expect(computePerpendicularNormals(surface, 30).length).toBeGreaterThan(0);
+  });
+});
+
+describe('computeParticleTrajectories', () => {
+  it('содержит globePoint, surfacePoint и controlPoints для каждого трека', () => {
+    const surface = computeAuxSurfaceParams('cylindrical', 0, 0, 1)!;
+    const trajs = computeParticleTrajectories(surface, 'cylindrical', 30);
+    expect(trajs.length).toBeGreaterThan(0);
+    for (const tr of trajs) {
+      expect(tr.globePoint).toHaveLength(3);
+      expect(tr.surfacePoint).toHaveLength(3);
+      expect(tr.controlPoints).toHaveLength(3);
+    }
+  });
+});
+
+describe('computeMagneticFieldLines', () => {
+  it('возвращает numLines линий', () => {
+    const surface = computeAuxSurfaceParams('cylindrical', 0, 0, 1)!;
+    const lines = computeMagneticFieldLines(surface, 'cylindrical', 8);
+    expect(lines).toHaveLength(8);
+  });
+});
+
+describe('computeLaserScanRing', () => {
+  it('возвращает кольцо + проекцию для заданной широты', () => {
+    const surface = computeAuxSurfaceParams('cylindrical', 0, 0, 1)!;
+    const frame = computeLaserScanRing(surface, 0, 'cylindrical', 32);
+    expect(frame.ringPoints.length).toBeGreaterThan(0);
+    expect(frame.projectedPoints.length).toBeGreaterThan(0);
+    expect(frame.latitude).toBe(0);
+  });
+});
+
+describe('computeCutLine', () => {
+  it('для цилиндра: линия вдоль образующей', () => {
+    const surface = computeAuxSurfaceParams('cylindrical', 0, 0, 1)!;
+    const pts = computeCutLine(surface, 0, 'cylindrical', 16);
+    expect(pts.length).toBeGreaterThan(0);
+  });
+  it('для конуса: линия вдоль образующей', () => {
+    const surface = computeAuxSurfaceParams('conic', 0, 45, 1)!;
+    const pts = computeCutLine(surface, 0, 'conic', 16);
+    expect(pts.length).toBeGreaterThan(0);
+  });
+  it('для плоскости: окружность', () => {
+    const surface = computeAuxSurfaceParams('azimuthalPerspective', 0, 30, 1)!;
+    const pts = computeCutLine(surface, 0, 'azimuthalPerspective', 16);
+    expect(pts.length).toBeGreaterThan(0);
+  });
+});
+
+describe('computeSatellitePosition', () => {
+  it('позиция вне глобуса (дальше RADIUS от центра)', () => {
+    const pos = computeSatellitePosition(0, 0, 400, 6371, RADIUS);
+    expect(Math.hypot(pos[0], pos[1], pos[2])).toBeGreaterThan(RADIUS);
+  });
+  it('направление совпадает с нормалью точки касания', () => {
+    const pos = computeSatellitePosition(0, 0, 400, 6371, RADIUS);
+    const touch = lonLatToVec3(0, 0, RADIUS);
+    const n = vec3Normalize(touch);
+    const dir = vec3Normalize(pos);
+    expect(Math.abs(n[0] * dir[0] + n[1] * dir[1] + n[2] * dir[2])).toBeCloseTo(1, 6);
+  });
+});
+
+describe('computeOrbitalPath', () => {
+  it('орбита периодична: t=0 и t=1 дают одну точку', () => {
+    const a = computeOrbitalPath(0, 98, 100, 0);
+    const b = computeOrbitalPath(1, 98, 100, 0);
+    expect(a[0]).toBeCloseTo(b[0], 6);
+    expect(a[1]).toBeCloseTo(b[1], 6);
+    expect(a[2]).toBeCloseTo(b[2], 6);
+  });
+});
+
+describe('vec3Distance', () => {
+  it('расстояние от (0,0,0) до (3,4,0) = 5', () => {
+    expect(vec3Distance([0, 0, 0], [3, 4, 0])).toBe(5);
+  });
+});
+
+describe('vec3Normalize', () => {
+  it('нормализованный вектор имеет длину 1', () => {
+    const n = vec3Normalize([3, 4, 0]);
+    expect(vec3Distance(n, [0, 0, 0])).toBeCloseTo(1, 6);
+  });
+});
+
+describe('computeAuxSurfaceParams для новых семейств', () => {
+  it('azimuthalPerspective: плоскость касания', () => {
+    const surface = computeAuxSurfaceParams('azimuthalPerspective', 0, 30, 1)!;
+    if (surface.kind !== 'plane') throw new Error('expected plane');
+    expect(surface.size).toBeGreaterThan(0);
+  });
+  it('azimuthalMath: плоскость касания', () => {
+    const surface = computeAuxSurfaceParams('azimuthalMath', 0, 30, 1, RADIUS, null, 0, 'equalArea', 'math', 'lambertAzimuthalEqualArea', 400, 10000)!;
+    expect(surface.kind).toBe('plane');
+  });
 });

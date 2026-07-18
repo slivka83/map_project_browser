@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import ControlPanel from './ControlPanel';
 import { useAppStore } from '../store/useAppStore';
+import { utmZoneToCentralMeridian } from '../constants/geometry';
 
 describe('ControlPanel', () => {
   beforeEach(() => {
@@ -130,5 +131,84 @@ describe('ControlPanel', () => {
     expect(screen.queryByText('Точные параметры проекции')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Точные параметры проекции' }));
     expect(screen.getByText('Точные параметры проекции')).toBeTruthy();
+  });
+
+  it('shows context-driven controls per variant (3 representative cases)', () => {
+    // Mercator (cylindrical) → UTM zone hidden, touch-point presets hidden.
+    useAppStore.getState().setVariant('mercator');
+    let { unmount } = render(<ControlPanel />);
+    expect(screen.queryByText('Зона UTM')).toBeNull();
+    expect(screen.queryByText('Пресеты точки касания')).toBeNull();
+    unmount();
+
+    // Transverse Mercator → UTM zone shown.
+    useAppStore.getState().setVariant('transverseMercator');
+    ({ unmount } = render(<ControlPanel />));
+    expect(screen.getByText('Зона UTM')).toBeTruthy();
+    unmount();
+
+    // Gnomonic (azimuthal) → touch-point presets shown.
+    useAppStore.getState().setVariant('gnomonic');
+    ({ unmount } = render(<ControlPanel />));
+    expect(screen.getByText('Пресеты точки касания')).toBeTruthy();
+    unmount();
+  });
+
+  it('preset chips change phiOrigin / lambda0', () => {
+    useAppStore.getState().setVariant('gnomonic');
+    render(<ControlPanel />);
+    fireEvent.click(screen.getByText('Москва'));
+    const s = useAppStore.getState();
+    expect(s.phiOrigin).toBeCloseTo(55.75);
+    expect(s.lambda0).toBeCloseTo(37.62);
+  });
+
+  it('UTM zone dropdown changes lambda0', () => {
+    useAppStore.getState().setVariant('transverseMercator');
+    render(<ControlPanel />);
+    // open the UTM zone dropdown (its trigger shows the current value "Зона 1")
+    fireEvent.click(screen.getByText('Зона 1'));
+    fireEvent.click(screen.getByText('Зона 31'));
+    const s = useAppStore.getState();
+    expect(s.utmZone).toBe(31);
+    expect(s.lambda0).toBe(utmZoneToCentralMeridian(31));
+  });
+
+  it('north/south radio changes coneHemisphere', () => {
+    useAppStore.getState().setFamily('conic');
+    render(<ControlPanel />);
+    expect(useAppStore.getState().coneHemisphere).toBe('north');
+    fireEvent.click(screen.getByText('Юг'));
+    expect(useAppStore.getState().coneHemisphere).toBe('south');
+  });
+
+  it('visualization toggles switch store state', () => {
+    act(() => {
+      useAppStore.setState({ showTissot: false, showGraticule: false, showRays: false, rulerActive: false });
+    });
+    render(<ControlPanel />);
+    const tissot = screen.getByRole('switch', { name: 'Индикатрисы Тиссо' });
+    fireEvent.click(tissot);
+    expect(useAppStore.getState().showTissot).toBe(true);
+    const grid = screen.getByRole('switch', { name: 'Сетка' });
+    fireEvent.click(grid);
+    expect(useAppStore.getState().showGraticule).toBe(true);
+    const rays = screen.queryByRole('switch', { name: 'Лучи света' });
+    if (rays) {
+      fireEvent.click(rays);
+      expect(useAppStore.getState().showRays).toBe(true);
+    }
+    const ruler = screen.getByRole('switch', { name: 'Линейка' });
+    fireEvent.click(ruler);
+    expect(useAppStore.getState().rulerActive).toBe(true);
+  });
+
+  it('visualization method dropdown changes vizMethod', () => {
+    render(<ControlPanel />);
+    // open the method dropdown (its trigger shows the current value "Нет" — the
+    // first of the two "Нет" matches is the Method dropdown, before the figures one)
+    fireEvent.click(screen.getAllByText('Нет')[0]);
+    fireEvent.click(screen.getByText('Перпендикулярные нормали'));
+    expect(useAppStore.getState().vizMethod).toBe('normals');
   });
 });

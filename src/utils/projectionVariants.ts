@@ -189,7 +189,7 @@ export const CYLINDRICAL_VARIANTS: Record<CylindricalVariant, VariantDef> = {
     azLight: 'center',
     lockedGamma: null,
     lockedStdParallel: null,
-    showOrbitalParams: false,
+    showOrbitalParams: true,
     cylinderOrientationEditable: false,
     propertyLabel: 'Сохраняет углы',
     applicationLabel: 'Вдоль больших осей (напр. Чили)',

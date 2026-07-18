@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as d3Geo from 'd3-geo';
 import type { ProjectionParams, ProjectionFamily, DistortionModel } from '../store/useAppStore';
-import { RADIUS, RAY_COUNT, MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y } from '../constants/geometry';
+import { RADIUS, RAY_COUNT, MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y, utmZoneToCentralMeridian, circleRadiusToScale } from '../constants/geometry';
 import { getD3Projection, computeAreaDistortion, FIT_SPHERE } from '../utils/projectionMapper';
 import {
   lonLatToVec3,
@@ -851,6 +851,48 @@ describe('globe geometry sanity', () => {
 function dot(a: [number, number, number], b: [number, number, number]) {
   return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 }
+
+describe('new projection round-trips (vertical / tilted perspective)', () => {
+  it('vertical perspective round-trips globe → map → globe', () => {
+    const p = base({ family: 'azimuthalPerspective', distortion: 'conformal', azLight: 'center', variant: 'verticalPerspective', azHeight: 400 });
+    const proj = getD3Projection(p);
+    const inv = proj.invert!;
+    for (const [lon, lat] of [[0, 0], [10, 20], [-30, -40], [45, 60]] as [number, number][]) {
+      const xy = proj([lon, lat])!;
+      const back = inv(xy)!;
+      closeTo(back[0], lon, 1e-6);
+      closeTo(back[1], lat, 1e-6);
+    }
+  });
+
+  it('tilted perspective round-trips globe → map → globe', () => {
+    const p = base({ family: 'azimuthalPerspective', distortion: 'conformal', azLight: 'center', variant: 'tiltedPerspective', azHeight: 400, azTiltDeg: 30, azAzimuthDeg: 45 });
+    const proj = getD3Projection(p);
+    const inv = proj.invert!;
+    for (const [lon, lat] of [[0, 0], [10, 20], [-30, -40]] as [number, number][]) {
+      const xy = proj([lon, lat])!;
+      const back = inv(xy)!;
+      closeTo(back[0], lon, 1e-6);
+      closeTo(back[1], lat, 1e-6);
+    }
+  });
+});
+
+describe('UTM zone & circle-radius helpers (spec §9.4 / new)', () => {
+  it('UTM zone 31 → central meridian 3°', () => {
+    expect(utmZoneToCentralMeridian(31)).toBe(3);
+  });
+
+  it('circleRadiusKm=10000 yields a reasonable azimuthal-math scale', () => {
+    const scale = circleRadiusToScale(10000);
+    expect(scale).toBeGreaterThan(0);
+    expect(scale).toBeLessThan(1);
+    const p = base({ family: 'azimuthalMath', distortion: 'equalArea', circleRadiusKm: 10000 });
+    const proj = getD3Projection(p);
+    const c = proj([p.lambda0, p.phiOrigin])!;
+    expect(Number.isFinite(c[0])).toBe(true);
+  });
+});
 
 // Local area scale (projected px² per unit true area) of a projection at (lon,lat),
 // from a tiny 2°×2° quad. Stand-in for the production localAreaScale used by the

@@ -90,4 +90,41 @@ describe('EpsgCatalog', () => {
     expect(colgroup).not.toBeNull();
     expect(colgroup?.querySelectorAll('col').length).toBe(5);
   });
+
+  it('filters rows by Вид проекции = Коническая (only conic rows remain)', () => {
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Вид проекции' }));
+    expect(screen.getByRole('button', { name: 'Коническая' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Коническая' }));
+    expect(screen.getByText('EPSG:9801')).toBeTruthy(); // Lambert conformal conic
+    expect(screen.queryByText('EPSG:3395')).toBeNull();
+    expect(screen.queryByText('EPSG:9810')).toBeNull();
+  });
+
+  it('filters rows by Вид проекции = Цилиндрическая (only cylindrical rows remain)', () => {
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Вид проекции' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Цилиндрическая' }));
+    expect(screen.getByText('EPSG:3395')).toBeTruthy();
+    expect(screen.queryByText('EPSG:9802')).toBeNull();
+  });
+
+  it('filters rows by Вид проекции = Азимутальная математическая', () => {
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Вид проекции' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Азимутальная математическая' }));
+    expect(screen.getByText('EPSG:9830')).toBeTruthy(); // Lambert azimuthal equal area
+    expect(screen.queryByText('EPSG:3395')).toBeNull();
+  });
+
+  it('text search narrows within the active family filter', () => {
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Вид проекции' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Азимутальная перспективная' }));
+    fireEvent.click(screen.getByRole('button', { name: 'EPSG-код' }));
+    fireEvent.change(screen.getByPlaceholderText('EPSG-код'), { target: { value: '981' } });
+    // 9810 (gnomonic) matches, 9809 (orthographic) is dropped from the azimuthal-perspective set
+    expect(screen.getByText('EPSG:9810')).toBeTruthy();
+    expect(screen.queryByText('EPSG:9809')).toBeNull();
+  });
 });

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as projectionMapper from '../utils/projectionMapper';
 import * as auxSurfaceGeometry from '../utils/auxSurfaceGeometry';
 import * as designTokens from '../constants/designTokens';
-import { MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y, CLIP_LAT } from '../constants/geometry';
+import { MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y, CLIP_LAT, EARTH_RADIUS_KM, UTM_ZONE_WIDTH, CIRCLE_RADIUS_MIN, CIRCLE_RADIUS_MAX } from '../constants/geometry';
 import { defaultParamsForFamily } from '../store/useAppStore';
 import agentsMd from '../../AGENTS.md?raw';
 import brdMd from '../../docs/BRD.md?raw';
@@ -158,6 +158,15 @@ describe('docs ↔ code: key exports are documented', () => {
     'computeTangentBasis',
     'lonLatToVec3',
     'computeConicRayEnd',
+    'computePerpendicularNormals',
+    'computeParticleTrajectories',
+    'computeMagneticFieldLines',
+    'computeLaserScanRing',
+    'computeCutLine',
+    'computeSatellitePosition',
+    'computeOrbitalPath',
+    'vec3Distance',
+    'vec3Normalize',
   ];
   for (const name of exported) {
     it(`documents exported symbol ${name}`, () => {
@@ -208,4 +217,18 @@ describe('docs ↔ code: math facts', () => {
     expectInDocsLower('geoStereographic', 'stereographic');
     expectInDocsLower('geoOrthographic', 'orthographic');
   });
+});
+
+describe('docs ↔ code: new geometry constants are documented', () => {
+  const consts: [string, unknown][] = [
+    ['EARTH_RADIUS_KM', EARTH_RADIUS_KM],
+    ['UTM_ZONE_WIDTH', UTM_ZONE_WIDTH],
+    ['CIRCLE_RADIUS_MIN', CIRCLE_RADIUS_MIN],
+    ['CIRCLE_RADIUS_MAX', CIRCLE_RADIUS_MAX],
+  ];
+  for (const [name] of consts) {
+    it(`documents constant ${name}`, () => {
+      expectInDocs(name, `${name} constant`);
+    });
+  }
 });

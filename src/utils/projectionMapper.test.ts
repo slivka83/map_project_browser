@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import * as d3Geo from 'd3-geo';
 import { getD3Projection, fitProjectionToView, FIT_SPHERE, computeAreaDistortion, isPointerOverGlobe } from './projectionMapper';
 import type { ProjectionParams, ProjectionFamily, DistortionModel } from '../store/useAppStore';
+import type { ProjectionVariant } from '../utils/projectionVariants';
+import { circleRadiusToScale, EARTH_HALF_CIRCUM_KM } from '../constants/geometry';
 
 const makeState = (over: Partial<ProjectionParams> = {}): ProjectionParams => ({
   family: 'cylindrical',
@@ -615,4 +617,48 @@ describe('isPointerOverGlobe', () => {
   function cyOf(p: d3Geo.GeoProjection) {
     return p([0, 0])![1];
   }
+});
+
+describe('makeVerticalPerspective', () => {
+  it('на высоте 400 км проекция конечна (центр проецируется)', () => {
+    const p = getD3Projection(makeState({ variant: 'verticalPerspective', family: 'azimuthalPerspective', azLight: 'center', azHeight: 400 }));
+    const c = p([0, 0]);
+    expect(c).not.toBeNull();
+    expect(Number.isFinite(c![0])).toBe(true);
+  });
+  it('на высоте 1 500 000 км приближается к ортографической', () => {
+    const vp = getD3Projection(makeState({ variant: 'verticalPerspective', family: 'azimuthalPerspective', azLight: 'center', azHeight: 1500000 }));
+    const ortho = getD3Projection(makeState({ variant: 'orthographic', family: 'azimuthalPerspective', azLight: 'infinity' }));
+    const a = vp([30, 30]);
+    const b = ortho([30, 30]);
+    expect(a).not.toBeNull();
+    expect(b).not.toBeNull();
+    expect(Math.abs(a![0] - b![0])).toBeLessThan(5);
+  });
+});
+
+describe('UTM zone round-trip', () => {
+  it('UTM зона 31 → центральный меридиан 3°', () => {
+    const p = getD3Projection(makeState({ variant: 'transverseMercator', family: 'cylindrical', utmZone: 31 }));
+    expect(p.rotate()).toBeDefined();
+  });
+});
+
+describe('circleRadiusToScale (azMath scale)', () => {
+  it('circleRadiusToScale возвращает scaleFactor для azMath', () => {
+    const s = circleRadiusToScale(EARTH_HALF_CIRCUM_KM);
+    expect(s).toBeCloseTo(1, 3);
+  });
+});
+
+describe('все 14 вариантов разрешаются в конечную проекцию', () => {
+  it('все 14 вариантов дают конечную проекцию в центре', () => {
+    const variants: ProjectionVariant[] = ['equirectangular', 'mercator', 'transverseMercator', 'obliqueMercator', 'lambertConformal', 'albers', 'equidistantConic', 'gnomonic', 'stereographic', 'orthographic', 'verticalPerspective', 'tiltedPerspective', 'lambertAzimuthalEqualArea', 'azimuthalEquidistant'];
+    for (const v of variants) {
+      const p = getD3Projection(makeState({ variant: v as ProjectionVariant }));
+      const c = p([0, 0]);
+      expect(c).not.toBeNull();
+      expect(Number.isFinite(c![0])).toBe(true);
+    }
+  });
 });

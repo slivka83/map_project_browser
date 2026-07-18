@@ -104,7 +104,7 @@ export const utmZoneToCentralMeridian = (zone: number): number => {
 
 // Map a central meridian (degrees) to the nearest UTM zone (1…60).
 export const centralMeridianToUtmZone = (lambda0: number): number => {
-  const step = Math.round((lambda0 - UTM_ZONE1_MERIDIAN) / UTM_ZONE_WIDTH);
+  const step = Math.round((lambda0 - UTM_ZONE1_MERIDIAN) / UTM_ZONE_WIDTH) + 1;
   return Math.max(UTM_ZONE_MIN, Math.min(UTM_ZONE_MAX, step));
 };
 

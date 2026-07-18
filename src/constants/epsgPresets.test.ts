@@ -72,4 +72,10 @@ describe('EPSG_PRESETS', () => {
       expect(Number.isFinite((out as number[])[1])).toBe(true);
     }
   });
+
+  it('пресет verticalPerspective содержит azHeight', () => {
+    const vp = EPSG_PRESETS.find((e) => e.params.variant === 'verticalPerspective');
+    expect(vp).toBeDefined();
+    expect(vp!.params.azHeight).toBe(400);
+  });
 });

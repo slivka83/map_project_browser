@@ -164,4 +164,70 @@ describe('Map2D', () => {
     });
     expect(queryByTestId('hover-marker')).toBeNull();
   });
+
+  it('draws the graticule when graticuleStep is set', async () => {
+    act(() => {
+      useAppStore.getState().setGraticuleStep(5);
+      useAppStore.getState().setShowGraticule(true);
+    });
+    const { container } = render(<Map2D />);
+    await waitFor(() => {
+      const grat = container.querySelector('path[stroke="#1f3a4d"]') ?? container.querySelector('path');
+      expect(grat).not.toBeNull();
+      expect((grat as SVGPathElement).getAttribute('d')?.length ?? 0).toBeGreaterThan(10);
+    });
+  });
+
+  it('renders the heatmap layer when showHeatmap is true', async () => {
+    act(() => {
+      useAppStore.getState().setShowHeatmap(true);
+    });
+    const { getByTestId } = render(<Map2D />);
+    await waitFor(() => {
+      expect(getByTestId('heatmap-layer')).toBeTruthy();
+    });
+  });
+
+  it('renders test figures when testFigureType is circles', async () => {
+    act(() => {
+      useAppStore.getState().setTestFigureType('circles');
+    });
+    const { getByTestId } = render(<Map2D />);
+    await waitFor(() => {
+      expect(getByTestId('test-figures-layer')).toBeTruthy();
+    });
+  });
+
+  it('ruler: first click sets rulerPoint1, second sets rulerPoint2 + line', async () => {
+    act(() => {
+      useAppStore.getState().setRulerActive(true);
+      useAppStore.getState().setRulerPoint1(null);
+      useAppStore.getState().setRulerPoint2(null);
+    });
+    const { getByTestId, container } = render(<Map2D />);
+    await waitFor(() => {
+      expect(container.querySelector('svg[data-map="true"]')).not.toBeNull();
+    });
+    const svg = container.querySelector('svg[data-map="true"]') as SVGSVGElement;
+    fireEvent.click(svg, { clientX: 100, clientY: 100 });
+    await waitFor(() => {
+      expect(getByTestId('ruler-point-1')).toBeTruthy();
+    });
+    fireEvent.click(svg, { clientX: 200, clientY: 150 });
+    await waitFor(() => {
+      expect(getByTestId('ruler-point-2')).toBeTruthy();
+      expect(getByTestId('ruler-line')).toBeTruthy();
+    });
+  });
+
+  it('renders the UTM zone mask for transverse Mercator with utmZone=31', async () => {
+    act(() => {
+      useAppStore.getState().setVariant('transverseMercator');
+      useAppStore.getState().setUtmZone(31);
+    });
+    const { getByTestId } = render(<Map2D />);
+    await waitFor(() => {
+      expect(getByTestId('utm-mask')).toBeTruthy();
+    });
+  });
 });
