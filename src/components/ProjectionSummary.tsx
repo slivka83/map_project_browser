@@ -16,7 +16,7 @@ const latLabel = (deg: number): string => {
 function describeProjection(p: ProjectionParams): string {
   const fam = FAMILY_LABEL[p.family];
   const dist = DISTORTION_LABEL[p.distortion];
-  if (p.family === 'azimuthal') {
+  if (p.family === 'azimuthalPerspective' || p.family === 'azimuthalMath') {
     const az: Record<AzimuthalLight, string> = {
       center: 'Гномоническая',
       antipode: 'Стереографическая',
@@ -50,6 +50,8 @@ export default function ProjectionSummary({ params, onClose }: { params: Project
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  const utm = params.utmZone != null ? `Зона ${params.utmZone}` : '—';
+
   return createPortal(
     <div
       className={modalOverlay}
@@ -79,6 +81,15 @@ export default function ProjectionSummary({ params, onClose }: { params: Project
           />
           <Row k="Масштабный коэффициент" v={params.scaleFactor.toFixed(2)} />
           <Row k="Наклон (γ)" v={`${params.gamma}°`} />
+          <Row k="Зона UTM" v={utm} />
+          <Row k="Высота источника (км)" v={params.azHeight != null ? `${params.azHeight}` : '—'} />
+          <Row k="Наклон камеры" v={params.azTiltDeg != null ? `${params.azTiltDeg}°` : '—'} />
+          <Row k="Азимут камеры" v={params.azAzimuthDeg != null ? `${params.azAzimuthDeg}°` : '—'} />
+          <Row k="Полушарие конуса" v={params.coneHemisphere === 'south' ? 'Юг' : 'Север'} />
+          <Row k="Радиус круга (км)" v={params.circleRadiusKm != null ? `${params.circleRadiusKm}` : '—'} />
+          <Row k="Наклонение SOM" v={params.somInclination != null ? `${params.somInclination}°` : '—'} />
+          <Row k="Период SOM (мин)" v={params.somPeriod != null ? `${params.somPeriod}` : '—'} />
+          <Row k="Долгота узла SOM" v={params.somNodeLongitude != null ? `${params.somNodeLongitude}°` : '—'} />
           <Row k="Смещение восток (falseEasting)" v={`${params.falseEasting}`} />
           <Row k="Смещение север (falseNorthing)" v={`${params.falseNorthing}`} />
           <Row k="Класс проекции" v={describeProjection(params)} />

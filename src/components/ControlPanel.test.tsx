@@ -32,15 +32,15 @@ describe('ControlPanel', () => {
 
   it('updates store.lambda0 when the meridian slider changes', () => {
     render(<ControlPanel />);
-    const slider = screen.getByRole('slider', { name: 'Поворот вокруг Земли' }) as HTMLInputElement;
+    const slider = screen.getByRole('slider', { name: 'Долгота (λ₀)' }) as HTMLInputElement;
     fireEvent.change(slider, { target: { value: '60' } });
     expect(useAppStore.getState().lambda0).toBe(60);
   });
 
   it('updates store.family and resets via setFamily', () => {
-    useAppStore.getState().setFamily('azimuthal');
+    useAppStore.getState().setFamily('azimuthalPerspective');
     const s = useAppStore.getState();
-    expect(s.family).toBe('azimuthal');
+    expect(s.family).toBe('azimuthalPerspective');
     expect(s.variant).toBe('gnomonic');
     expect(s.lambda0).toBe(0);
     expect(s.phiOrigin).toBe(0);
@@ -64,14 +64,14 @@ describe('ControlPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Выбрать проекцию' }));
     fireEvent.click(screen.getByText('Гномоническая'));
     const s = useAppStore.getState();
-    expect(s.family).toBe('azimuthal');
+    expect(s.family).toBe('azimuthalPerspective');
     expect(s.variant).toBe('gnomonic');
   });
 
   it('updates store.phiOrigin when the central-latitude slider changes (conic family)', () => {
     useAppStore.setState({ family: 'conic', distortion: 'equidistant' });
     render(<ControlPanel />);
-    fireEvent.change(screen.getByRole('slider', { name: 'Стандартная параллель 1' }), { target: { value: '25' } });
+    fireEvent.change(screen.getByRole('slider', { name: 'Параллель 1 (φ₁)' }), { target: { value: '25' } });
     expect(useAppStore.getState().phiOrigin).toBe(25);
   });
 
@@ -84,7 +84,7 @@ describe('ControlPanel', () => {
   it('updates store.gamma when the tilt slider changes (oblique Mercator)', () => {
     useAppStore.getState().setVariant('obliqueMercator');
     render(<ControlPanel />);
-    const slider = screen.getByRole('slider', { name: 'Угол наклона цилиндра' }) as HTMLInputElement;
+    const slider = screen.getByRole('slider', { name: 'Азимут' }) as HTMLInputElement;
     fireEvent.change(slider, { target: { value: '-30' } });
     expect(useAppStore.getState().gamma).toBe(-30);
   });
@@ -93,20 +93,20 @@ describe('ControlPanel', () => {
     const { unmount } = render(<ControlPanel />);
     expect(screen.queryByText('🔒 Источник света')).toBeNull();
     unmount();
-    useAppStore.setState({ family: 'azimuthal', distortion: 'conformal', azLight: 'antipode' });
+    useAppStore.setState({ family: 'azimuthalPerspective', distortion: 'conformal', azLight: 'antipode' });
     render(<ControlPanel />);
     expect(screen.getByText('🔒 Источник света')).toBeTruthy();
-    expect(screen.getByText('Противоположный полюс')).toBeTruthy();
+    expect(screen.getByText(/Противоположный полюс/)).toBeTruthy();
   });
 
   it('azimuthal stereographic shows light locked to antipode', () => {
-    useAppStore.setState({ family: 'azimuthal', distortion: 'conformal', azLight: 'antipode' });
+    useAppStore.setState({ family: 'azimuthalPerspective', distortion: 'conformal', azLight: 'antipode' });
     render(<ControlPanel />);
-    expect(screen.getByText('Противоположный полюс')).toBeTruthy();
+    expect(screen.getByText(/Противоположный полюс/)).toBeTruthy();
   });
 
   it('non-conformal azimuthal shows locked math light label', () => {
-    useAppStore.setState({ family: 'azimuthal', distortion: 'equalArea', azLight: 'math' });
+    useAppStore.setState({ family: 'azimuthalPerspective', distortion: 'equalArea', azLight: 'math' });
     render(<ControlPanel />);
     expect(screen.getByText('🔒 Источник света')).toBeTruthy();
   });

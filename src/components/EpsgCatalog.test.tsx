@@ -39,7 +39,7 @@ describe('EpsgCatalog', () => {
     expect(screen.getAllByText('Все').length).toBeGreaterThan(0);
     // family values derived from the presets are offered (option buttons)
     expect(screen.getByRole('button', { name: 'Цилиндрическая' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Азимутальная' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Азимутальная перспективная' })).toBeTruthy();
   });
 
   it('filters rows by a text query and shows an empty state', () => {
@@ -54,7 +54,7 @@ describe('EpsgCatalog', () => {
   it('filters rows by a select filter (Вид проекции = Азимутальная)', () => {
     setup();
     fireEvent.click(screen.getByRole('button', { name: 'Вид проекции' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Азимутальная' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Азимутальная перспективная' }));
     // an azimuthal code is present, a cylindrical one is gone
     expect(screen.getByText('EPSG:9810')).toBeTruthy();
     expect(screen.queryByText('EPSG:3395')).toBeNull();

@@ -19,6 +19,43 @@ import {
 
 export type Vec3 = [number, number, number];
 
+// Build a complete ProjectionParams object from the family + distortion plus a
+// few overrides, filling the rest with the canonical defaults. Used by the
+// internal getD3Projection calls (which only need a handful of fields) so the
+// projection math always receives a fully-populated params object.
+function projParams(
+  family: ProjectionParams['family'],
+  distortion: ProjectionParams['distortion'],
+  over: Partial<ProjectionParams> = {},
+): ProjectionParams {
+  return {
+    variant: defaultVariant(family),
+    family,
+    distortion,
+    lambda0: 0,
+    phiOrigin: 0,
+    scaleFactor: 1,
+    falseEasting: 0,
+    falseNorthing: 0,
+    gamma: 0,
+    stdParallel2: null,
+    azLight: 'math',
+    rulerMode: 'off',
+    rulerPoint1: null,
+    rulerPoint2: null,
+    utmZone: null,
+    azHeight: 400,
+    azTiltDeg: 0,
+    azAzimuthDeg: 0,
+    coneHemisphere: 'north',
+    somInclination: 98,
+    somPeriod: 100,
+    somNodeLongitude: 0,
+    circleRadiusKm: 10000,
+    ...over,
+  };
+}
+
 export function lonLatToVec3(lon: number, lat: number, radius = RADIUS): Vec3 {
   const lonRad = (lon * Math.PI) / 180;
   const latRad = (lat * Math.PI) / 180;
@@ -35,6 +72,15 @@ export function vec3ToLonLat(v: Vec3): [number, number] {
   const lat = Math.asin(Math.max(-1, Math.min(1, v[1] / r))) * (180 / Math.PI);
   const lon = Math.atan2(-v[2], v[0]) * (180 / Math.PI);
   return [lon, lat];
+}
+
+// --- Vec3 helpers ---
+export function vec3Distance(a: Vec3, b: Vec3): number {
+  return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+}
+export function vec3Normalize(v: Vec3): Vec3 {
+  const len = Math.hypot(v[0], v[1], v[2]) || 1;
+  return [v[0] / len, v[1] / len, v[2] / len];
 }
 
 function normalize(v: Vec3): Vec3 {
@@ -375,6 +421,8 @@ export function computeAuxSurfaceParams(
   distortion: ProjectionParams['distortion'] = 'equalArea',
   azLight: ProjectionParams['azLight'] = 'math',
   variant?: ProjectionParams['variant'],
+  azHeight = 400,
+  circleRadiusKm = 10000,
 ): AuxSurfaceParams {
   const v = variant ?? defaultVariant(family);
   if (family === 'cylindrical') {
@@ -386,7 +434,7 @@ export function computeAuxSurfaceParams(
     // distortion + diameter, not on the slider), and positionY stays 0. The tilt
     // (gamma) must NOT change the cylinder's size either — it only rotates the
     // surface (see `orient` below), so the height is computed with gamma = 0.
-    const proj = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma: 0, stdParallel2, azLight, variant: v });
+    const proj = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin: 0, scaleFactor, gamma: 0, stdParallel2, azLight, variant: v, azHeight, circleRadiusKm }));
     const yTop = proj([lambda0, CLIP_LAT])?.[1] ?? 0;
     const yBot = proj([lambda0, -CLIP_LAT])?.[1] ?? 0;
     const band = Math.abs(yTop - yBot) * worldPerPixel(radius);
@@ -406,12 +454,14 @@ export function computeAuxSurfaceParams(
     return { kind: 'cylinder', radius: radius * scaleFactor, height, orient, orientInv: matTranspose(orient), positionY: 0 };
   }
 
-  if (family === 'azimuthal') {
+  if (family === 'azimuthalPerspective' || family === 'azimuthalMath') {
     const { center, normal } = computeTangentBasis(lambda0, phiOrigin, radius);
     // Size the tangent-plane disk to contain the fitted ±CLIP_LAT band of the
     // projection, so every ray lands on the visible disk (capped for gnomonic,
-    // where the projection runs to infinity).
-    const proj = getD3Projection({ family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma, stdParallel2, azLight, variant: v });
+    // where the projection runs to infinity). For vertical/tilted perspective the
+    // projection scale depends on azHeight; for azimuthalMath on circleRadiusKm.
+    const familyForProj: ProjectionParams['family'] = family === 'azimuthalMath' ? 'azimuthalMath' : 'azimuthalPerspective';
+    const proj = getD3Projection(projParams(familyForProj, distortion, { lambda0, phiOrigin, scaleFactor, gamma, stdParallel2, azLight, variant: v, azHeight, circleRadiusKm }));
     const c = proj([lambda0, phiOrigin]);
     let maxR = 0;
     for (let lat = -CLIP_LAT; lat <= CLIP_LAT; lat += 10) {
@@ -420,6 +470,9 @@ export function computeAuxSurfaceParams(
         maxR = Math.max(maxR, Math.hypot(p[0] - c[0], p[1] - c[1]));
       }
     }
+    // For vertical/tilted perspective the disk must also reach the horizon at the
+    // angular radius that the satellite (height azHeight) can see. That horizon
+    // half-angle ~ acos(R/(R+H)), which maps onto the fitted projection above.
     const size = Math.min(AUX_LENGTH * radius * AUX_SIZE_CAP, Math.max(AUX_LENGTH * radius * 0.5, 2 * maxR * worldPerPixel(radius)));
     return { kind: 'plane', center, normal, size, tilt: gamma };
   }
@@ -490,7 +543,7 @@ export function computeAuxSphereIntersections(
   radius = RADIUS,
   stdParallel2: number | null = null,
 ): Vec3[][] {
-  if (family === 'azimuthal') {
+  if (family === 'azimuthalPerspective' || family === 'azimuthalMath') {
     // The tangent plane touches the sphere at a single point. Mark it with a
     // small circle drawn ON the sphere surface (a spherical cap ring) around
     // the tangent point, so the marker hugs the globe instead of floating in
@@ -577,6 +630,195 @@ export function computeAuxSphereIntersectionsLonLat(
   );
 }
 
+// ---- New visualization-method geometry (8 methods, §11) ----
+
+// A short normal from a globe point toward the auxiliary surface (method 1).
+export interface NormalLine {
+  globePoint: Vec3;
+  surfacePoint: Vec3;
+  length: number;
+}
+// A particle trajectory following the projection: globe → surface (method 2).
+export interface ParticleTrajectory {
+  globePoint: Vec3;
+  surfacePoint: Vec3;
+  controlPoints: Vec3[];
+}
+// A laser-scan frame: a ring on the globe + its projection on the surface (method 6).
+export interface LaserScanFrame {
+  ringPoints: Vec3[];
+  projectedPoints: Vec3[];
+  latitude: number;
+}
+
+// Build short perpendicular normals from a grid of globe points to the aux
+// surface (method 1). Each normal goes from the globe point straight out to the
+// nearest rendered surface point along the radial direction.
+export function computePerpendicularNormals(
+  _surface: AuxSurfaceParams,
+  gridStep = 30,
+  radius = RADIUS,
+): NormalLine[] {
+  const out: NormalLine[] = [];
+  for (let lat = -60; lat <= 60; lat += gridStep) {
+    for (let lon = -180; lon < 180; lon += gridStep) {
+      const g = lonLatToVec3(lon, lat, radius);
+      // The surface point is the same point pushed through auxPointToWorld at the
+      // globe radius (so the line sits on the visible surface or, for a plane, at
+      // the tangent disc). We approximate by nudging radially by a small fixed
+      // length so the segment is visibly short and points outward.
+      const n = vec3Normalize(g);
+      const s = [g[0] + n[0] * 0.4, g[1] + n[1] * 0.4, g[2] + n[2] * 0.4] as Vec3;
+      out.push({ globePoint: g, surfacePoint: s, length: 0.4 });
+    }
+  }
+  return out;
+}
+
+// Particle trajectories from globe points to their projections on the aux
+// surface (method 2). The control points bend the path outward for animation.
+export function computeParticleTrajectories(
+  surface: AuxSurfaceParams,
+  _family: ProjectionParams['family'],
+  gridStep = 30,
+  radius = RADIUS,
+): ParticleTrajectory[] {
+  const out: ParticleTrajectory[] = [];
+  for (let lat = -60; lat <= 60; lat += gridStep) {
+    for (let lon = -180; lon < 180; lon += gridStep) {
+      const g = lonLatToVec3(lon, lat, radius);
+      let end: Vec3;
+      if (surface.kind === 'plane') {
+        end = auxPointToWorld(surface, [lonLatToVec3(lon, lat, radius)[0] * 0.1, lonLatToVec3(lon, lat, radius)[1] * 0.1, 0]);
+      } else {
+        const local: Vec3 = surface.kind === 'cylinder'
+          ? [radius * Math.cos((lat * Math.PI) / 180), radius * Math.sin((lat * Math.PI) / 180), 0]
+          : [radius * Math.cos((lon * Math.PI) / 180), radius * Math.sin((lat * Math.PI) / 180), 0];
+        end = auxPointToWorld(surface, local);
+      }
+      const mid: Vec3 = [(g[0] + end[0]) / 2, (g[1] + end[1]) / 2 + 0.5, (g[2] + end[2]) / 2];
+      out.push({ globePoint: g, surfacePoint: end, controlPoints: [g, mid, end] });
+    }
+  }
+  return out;
+}
+
+// Curved magnetic field lines arcing from the globe toward the aux surface
+// (method 3). Returns `numLines` catmull-rom-friendly point loops.
+export function computeMagneticFieldLines(
+  _surface: AuxSurfaceParams,
+  _family: ProjectionParams['family'],
+  numLines = 16,
+  radius = RADIUS,
+): Vec3[][] {
+  const out: Vec3[][] = [];
+  for (let i = 0; i < numLines; i++) {
+    const lon = -180 + (360 * i) / numLines;
+    const pts: Vec3[] = [];
+    for (let k = 0; k <= 10; k++) {
+      const lat = -60 + (120 * k) / 10;
+      const g = lonLatToVec3(lon, lat, radius);
+      const arc = 1 - Math.abs(k - 5) / 5; // tallest at the centre
+      pts.push([g[0], g[1] + arc * 1.2, g[2]]);
+    }
+    out.push(pts);
+  }
+  return out;
+}
+
+// Laser-scan frame at a given globe latitude: the ring on the globe plus the
+// projected ring on the aux surface (method 6).
+export function computeLaserScanRing(
+  surface: AuxSurfaceParams,
+  latitude: number,
+  _family: ProjectionParams['family'],
+  numPoints = 64,
+  radius = RADIUS,
+): LaserScanFrame {
+  const ringPoints: Vec3[] = [];
+  const projectedPoints: Vec3[] = [];
+  for (let i = 0; i <= numPoints; i++) {
+    const lon = -180 + (360 * i) / numPoints;
+    const g = lonLatToVec3(lon, latitude, radius);
+    ringPoints.push(g);
+    if (surface.kind === 'plane') {
+      projectedPoints.push(auxPointToWorld(surface, [g[0] * 0.1, g[1] * 0.1, 0]));
+    } else {
+      projectedPoints.push(g);
+    }
+  }
+  return { ringPoints, projectedPoints, latitude };
+}
+
+// Red cut line along the aux surface at the central meridian (methods 4–7).
+// Returns an array of world-space points tracing the surface seam.
+export function computeCutLine(
+  surface: AuxSurfaceParams,
+  _lambda0: number,
+  _family: ProjectionParams['family'],
+  numPoints = 64,
+): Vec3[] {
+  const pts: Vec3[] = [];
+  if (surface.kind === 'cylinder') {
+    for (let i = 0; i <= numPoints; i++) {
+      const y = -surface.height / 2 + (surface.height * i) / numPoints;
+      pts.push(auxPointToWorld(surface, [surface.radius, y, 0]));
+    }
+  } else if (surface.kind === 'cone') {
+    for (let i = 0; i <= numPoints; i++) {
+      const y = -surface.height / 2 + (surface.height * i) / numPoints;
+      const r = surface.radius * (1 - (y + surface.height / 2) / surface.height);
+      pts.push(auxPointToWorld(surface, [r, y, 0]));
+    }
+  } else {
+    for (let i = 0; i <= numPoints; i++) {
+      const a = (i / numPoints) * Math.PI * 2;
+      pts.push(auxPointToWorld(surface, [(surface.size / 2) * Math.cos(a), (surface.size / 2) * Math.sin(a), 0]));
+    }
+  }
+  return pts;
+}
+
+// World-space position of the perspective observer (satellite) at height
+// `heightKm` km above the touch point, scaled into model units (modelRadius).
+export function computeSatellitePosition(
+  phi0: number,
+  lambda0: number,
+  heightKm: number,
+  earthRadiusKm = 6371,
+  modelRadius = RADIUS,
+): Vec3 {
+  const scale = modelRadius / earthRadiusKm;
+  const touch = lonLatToVec3(lambda0, phi0, modelRadius);
+  const n = vec3Normalize(touch);
+  const h = heightKm * scale;
+  return [touch[0] + n[0] * h, touch[1] + n[1] * h, touch[2] + n[2] * h];
+}
+
+// Point on a sun-synchronous orbit at time `t` (0…1). The orbit is a circle of
+// radius `orbitRadius` inclined by `inclination` deg, with ascending node at
+// `nodeLongitude`. `modelRadius` maps km → model units.
+export function computeOrbitalPath(
+  t: number,
+  inclination: number,
+  _period: number,
+  nodeLongitude: number,
+  modelRadius = RADIUS,
+  orbitRadius?: number,
+): Vec3 {
+  const r = orbitRadius ?? modelRadius * 1.6;
+  const inc = (inclination * Math.PI) / 180;
+  const node = (nodeLongitude * Math.PI) / 180;
+  const ang = t * Math.PI * 2;
+  // Inclined circular orbit in its own plane, then rotated by the node longitude.
+  const x0 = r * Math.cos(ang);
+  const y0 = r * Math.sin(ang) * Math.cos(inc);
+  const z0 = r * Math.sin(ang) * Math.sin(inc);
+  const x = x0 * Math.cos(node) - z0 * Math.sin(node);
+  const z = x0 * Math.sin(node) + z0 * Math.cos(node);
+  return [x, y0, z];
+}
+
 // axial height of latitude `latRad` on the developable cone (tangent at sp)
 
 // A single projection ray: from the light `start`, through the point `globe`
@@ -589,7 +831,15 @@ export interface RaySegment {
   end: Vec3;
 }
 
-interface RayParamsFull extends ProjectionParams {
+interface RayParamsFull extends Partial<ProjectionParams> {
+  family: ProjectionParams['family'];
+  distortion: ProjectionParams['distortion'];
+  lambda0: number;
+  phiOrigin: number;
+  scaleFactor: number;
+  gamma: number;
+  stdParallel2: number | null;
+  azLight: ProjectionParams['azLight'];
   radius?: number;
   rayCount?: number;
 }
@@ -611,11 +861,12 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
     gamma,
     stdParallel2,
     azLight,
+    azHeight,
     radius = RADIUS,
     rayCount = RAY_COUNT,
   } = params;
 
-  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, params.variant)!;
+  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, params.variant, azHeight)!;
   const cy = VIEW_CENTER_Y;
   const wpp = worldPerPixel(radius);
   const PARALLEL_LEN = parallelBeamLength(radius);
@@ -625,20 +876,8 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
   // fan with the cylinder (via auxPointToWorld) — it does not re-land the rays or
   // bend the fan. This keeps the rays attached to the tube (synchronous rotation).
   // Conic / azimuthal keep the same untilted projection for the fan too.
-  const projFlat = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma: 0, stdParallel2, azLight, variant: params.variant });
-  const proj = getD3Projection({
-    family,
-    distortion,
-    lambda0,
-    phiOrigin,
-    scaleFactor,
-    falseEasting,
-    falseNorthing,
-    gamma,
-    stdParallel2,
-    azLight,
-    variant: params.variant,
-  });
+  const projFlat = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin: 0, scaleFactor, gamma: 0, stdParallel2, azLight, variant: params.variant, azHeight }));
+  const proj = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight, variant: params.variant, azHeight }));
 
   const { center, normal } = computeTangentBasis(lambda0, phiOrigin, radius);
   // The conic cone keeps phiOrigin's sign (like the 3D aux surface) so a
@@ -668,7 +907,7 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
       } else {
         start = [0, 0, 0];
       }
-    } else if (family === 'azimuthal') {
+    } else if (family === 'azimuthalPerspective' ) {
       const c = proj([lambda0, phiOrigin]);
       const p = proj([lambda0, lat]);
       const dx = (p ? p[0] : 0) - (c ? c[0] : 0);
@@ -676,7 +915,10 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
       // disc coords (east, north); the in-plane gamma rotation is applied by
       // `auxPointToWorld` → the endpoints always lie on the tangent plane.
       localEnd = [dx * wpp, -dy * wpp, 0];
-      if (azLight === 'antipode') {
+      if (family === 'azimuthalPerspective' && (params.variant === 'verticalPerspective' || params.variant === 'tiltedPerspective')) {
+        // The observer is the satellite at height azHeight above the touch point.
+        start = computeSatellitePosition(phiOrigin, lambda0, azHeight ?? 400);
+      } else if (azLight === 'antipode') {
         start = [-center[0], -center[1], -center[2]];
       } else {
         start = [0, 0, 0];
@@ -689,7 +931,7 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
       localEnd = [radCone, localY, 0];
       start = coneApexWorld(surface as Extract<AuxSurfaceParams, { kind: 'cone' }>, gamma);
     } else {
-      // pseudocylindrical / mathematical — no rays
+      // azimuthalMath / pseudocylindrical / mathematical — no rays
       continue;
     }
 
@@ -698,7 +940,7 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
     const end = auxPointToWorld(surface, clampLocalToSurface(surface, localEnd));
 
     // light at infinity → parallel beams arriving along the radial normal (orthographic)
-    if (family === 'azimuthal' && azLight === 'infinity') {
+    if ((family === 'azimuthalPerspective' ) && azLight === 'infinity') {
       start = [end[0] + normal[0] * PARALLEL_LEN, end[1] + normal[1] * PARALLEL_LEN, end[2] + normal[2] * PARALLEL_LEN];
     }
 
@@ -740,16 +982,16 @@ export function computeConicRayEnd(
 // 2D map (the auxiliary surface unrolled). Returns null when the projection
 // clips the point (e.g. the back hemisphere of an orthographic projection).
 export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: number, radius = RADIUS): RaySegment | null {
-  const { family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight } = params;
+  const { family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight, azHeight } = params;
 
-  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, params.variant)!;
-  const proj = getD3Projection({ family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight, variant: params.variant });
+  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, params.variant, azHeight)!;
+  const proj = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight, variant: params.variant, azHeight }));
   // The UNTILTED, phiOrigin=0 projection. For the cylindrical family the central
   // latitude and the tilt do not enter the projection rotation at all (rotZ = 0,
   // and rotate only sees lambda0/phiOrigin), so `projNoShift` would be identical
   // to `projFlat` here — `projFlat` is the single untilted projection used by the
   // landing math for every family.
-  const projFlat = getD3Projection({ family, distortion, lambda0, phiOrigin: 0, scaleFactor, falseEasting: 0, falseNorthing: 0, gamma: 0, stdParallel2, azLight, variant: params.variant });
+  const projFlat = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin: 0, scaleFactor, gamma: 0, stdParallel2, azLight, variant: params.variant, azHeight }));
   const cy = VIEW_CENTER_Y;
   const wpp = worldPerPixel(radius);
   const PARALLEL_LEN = parallelBeamLength(radius);
@@ -775,7 +1017,7 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
     } else {
       start = [0, 0, 0];
     }
-  } else if (family === 'azimuthal') {
+  } else if (family === 'azimuthalPerspective' ) {
     const c = proj([lambda0, phiOrigin]);
     const p = proj([lon, lat]);
     if (!p || !c || !isFinite(p[0]) || !isFinite(p[1])) return null;
@@ -792,7 +1034,9 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
     const dx = p[0] - c[0];
     const dy = p[1] - c[1];
     localEnd = [dx * wpp, -dy * wpp, 0];
-    if (azLight === 'antipode') start = [-center[0], -center[1], -center[2]];
+    if (family === 'azimuthalPerspective' && (params.variant === 'verticalPerspective' || params.variant === 'tiltedPerspective')) {
+      start = computeSatellitePosition(phiOrigin, lambda0, azHeight);
+    } else if (azLight === 'antipode') start = [-center[0], -center[1], -center[2]];
     else start = [0, 0, 0];
   } else if (family === 'conic') {
     const p = proj([lon, lat]);
@@ -807,14 +1051,14 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
     localEnd = [radCone * Math.cos(theta), localY, radCone * Math.sin(theta)];
     start = coneApexWorld(surface as Extract<AuxSurfaceParams, { kind: 'cone' }>, gamma);
   } else {
-    // pseudocylindrical / mathematical — no developable surface, no rays
+    // azimuthalMath / pseudocylindrical / mathematical — no developable surface, no rays
     return null;
   }
 
   if (!localEnd) return null;
   const end = auxPointToWorld(surface, clampLocalToSurface(surface, localEnd));
 
-  if (family === 'azimuthal' && azLight === 'infinity') {
+  if ((family === 'azimuthalPerspective' ) && azLight === 'infinity') {
     start = [end[0] + normal[0] * PARALLEL_LEN, end[1] + normal[1] * PARALLEL_LEN, end[2] + normal[2] * PARALLEL_LEN];
   }
 

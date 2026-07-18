@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { useAppStore, type ProjectionFamily, type DistortionModel } from './useAppStore';
+import { useAppStore, DEFAULT_DISTORTION, type ProjectionFamily, type DistortionModel } from './useAppStore';
 import type { Topology } from 'topojson-specification';
 
 describe('useAppStore', () => {
@@ -24,6 +24,7 @@ describe('useAppStore', () => {
   it('has the default values from the spec', () => {
     const s = useAppStore.getState();
     expect(s.family).toBe('cylindrical');
+    expect(s.variant).toBe('mercator');
     expect(s.distortion).toBe('conformal');
     expect(s.lambda0).toBe(0);
     expect(s.phiOrigin).toBe(0);
@@ -31,8 +32,9 @@ describe('useAppStore', () => {
     expect(s.falseEasting).toBe(0);
     expect(s.falseNorthing).toBe(0);
     expect(s.gamma).toBe(0);
-    expect(s.stdParallel2).toBeNull();
-      expect(s.azLight).toBe('center');
+    // mercator is a secant cylinder → std parallel 2 locked to 0
+    expect(s.stdParallel2).toBe(0);
+    expect(s.azLight).toBe('center');
     expect(s.showTissot).toBe(false);
     expect(s.showBorders).toBe(false);
     expect(s.showIntersection).toBe(false);
@@ -57,46 +59,34 @@ describe('useAppStore', () => {
   it('changes a single parameter via setParam (spec §9.1)', () => {
     const store = useAppStore.getState();
     store.setParam('lambda0', 90);
-    store.setParam('family', 'azimuthal');
+    store.setParam('family', 'azimuthalPerspective');
     const s = useAppStore.getState();
     expect(s.lambda0).toBe(90);
-    expect(s.family).toBe('azimuthal');
+    expect(s.family).toBe('azimuthalPerspective');
     // unrelated params untouched
     expect(s.distortion).toBe('conformal');
     expect(s.phiOrigin).toBe(0);
     expect(s.showTissot).toBe(false);
   });
 
-  it('conformal azimuthal fixes the light source to antipode (select hidden)', () => {
-    // Конформная азимутальная существует только как стереографическая, и оба
-    // допустимых режима дают одну карту, поэтому переключатель скрывается, а
-    // источник фиксируется в «antipode» (канонический источник стереографической).
-    useAppStore.setState({ family: 'azimuthal', distortion: 'equalArea', azLight: 'center' });
+  it('setParam does NOT change azLight when distortion becomes conformal', () => {
+    // Per spec §1.10 the conformal→antipode coercion was removed: azLight is now
+    // owned by the variant, so changing distortion leaves the light source alone.
+    useAppStore.setState({ family: 'azimuthalPerspective', distortion: 'equalArea', azLight: 'center' });
     useAppStore.getState().setParam('distortion', 'conformal');
     const s = useAppStore.getState();
     expect(s.distortion).toBe('conformal');
-    expect(s.azLight).toBe('antipode');
+    expect(s.azLight).toBe('center');
 
-    // Любой другой режим при смене на conformal тоже сводится к «antipode».
-    useAppStore.setState({ family: 'azimuthal', distortion: 'equalArea', azLight: 'math' });
-    useAppStore.getState().setParam('distortion', 'conformal');
-    expect(useAppStore.getState().azLight).toBe('antipode');
-
-    // Смена на не-конформную искажения не трогает источник света.
-    useAppStore.setState({ family: 'azimuthal', distortion: 'conformal', azLight: 'antipode' });
+    // Switching away from conformal also leaves the light source untouched.
+    useAppStore.setState({ family: 'azimuthalPerspective', distortion: 'conformal', azLight: 'antipode' });
     useAppStore.getState().setParam('distortion', 'equalArea');
     expect(useAppStore.getState().azLight).toBe('antipode');
-
-    // Фильтрация касается только азимутальной семьи: для цилиндрической
-    // конформная допустима со своими проекциями, azLight не сбрасывается.
-    useAppStore.setState({ family: 'cylindrical', distortion: 'equalArea', azLight: 'center' });
-    useAppStore.getState().setParam('distortion', 'conformal');
-    expect(useAppStore.getState().azLight).toBe('center');
   });
 
   it('applies a preset, overwriting several fields at once (spec §9.1)', () => {
     const preset = {
-      family: 'azimuthal' as const,
+      family: 'azimuthalPerspective' as const,
       distortion: 'conformal' as const,
       lambda0: 45,
       phiOrigin: 30,
@@ -106,7 +96,7 @@ describe('useAppStore', () => {
     };
     useAppStore.getState().applyPreset(preset);
     const s = useAppStore.getState();
-    expect(s.family).toBe('azimuthal');
+    expect(s.family).toBe('azimuthalPerspective');
     expect(s.distortion).toBe('conformal');
     expect(s.lambda0).toBe(45);
     expect(s.phiOrigin).toBe(30);
@@ -138,18 +128,21 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().detailedMap).toBe(true);
   });
 
-  it('sets the family default distortion via setFamily', () => {
-    const cases: [ProjectionFamily, DistortionModel, string][] = [
-      ['cylindrical', 'conformal', 'center'],
-      ['conic', 'conformal', 'math'],
-      ['azimuthal', 'conformal', 'center'],
+  it('sets the family default params via setFamily', () => {
+    const cases: [ProjectionFamily, DistortionModel, string, number | null][] = [
+      ['cylindrical', 'conformal', 'center', 0],
+      ['conic', 'conformal', 'math', null],
+      ['azimuthalPerspective', 'conformal', 'center', null],
+      ['azimuthalMath', 'equalArea', 'math', null],
     ];
-    for (const [family, distortion, azLight] of cases) {
+    for (const [family, distortion, azLight, sp2] of cases) {
       useAppStore.setState({ family: 'cylindrical', distortion: 'equalArea', lambda0: 90, phiOrigin: 45, scaleFactor: 1.1, falseEasting: 100, falseNorthing: -50 });
       useAppStore.getState().setFamily(family);
       const s = useAppStore.getState();
       expect(s.family).toBe(family);
       expect(s.distortion).toBe(distortion);
+      expect(s.azLight).toBe(azLight);
+      expect(s.stdParallel2).toBe(sp2);
       // other params reset to defaults
       expect(s.lambda0).toBe(0);
       expect(s.phiOrigin).toBe(0);
@@ -157,8 +150,6 @@ describe('useAppStore', () => {
       expect(s.falseEasting).toBe(0);
       expect(s.falseNorthing).toBe(0);
       expect(s.gamma).toBe(0);
-      expect(s.stdParallel2).toBeNull();
-      expect(s.azLight).toBe(azLight);
     }
   });
 
@@ -238,9 +229,9 @@ describe('useAppStore', () => {
   });
 
   it('applyPreset can override distortion independently of family', () => {
-    useAppStore.getState().applyPreset({ family: 'azimuthal', distortion: 'conformal' });
+    useAppStore.getState().applyPreset({ family: 'azimuthalPerspective', distortion: 'conformal' });
     const s = useAppStore.getState();
-    expect(s.family).toBe('azimuthal');
+    expect(s.family).toBe('azimuthalPerspective');
     expect(s.distortion).toBe('conformal');
   });
 
@@ -339,5 +330,61 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().showHoverRay).toBe(false);
     useAppStore.getState().setShowHoverRay(true);
     expect(useAppStore.getState().showHoverRay).toBe(true);
+  });
+
+  it('exercises the new parameter actions', () => {
+    const store = useAppStore.getState();
+    store.setUtmZone(31);
+    store.setAzHeight(1000);
+    store.setAzTiltDeg(30);
+    store.setAzAzimuthDeg(120);
+    store.setConeHemisphere('south');
+    store.setCircleRadiusKm(15000);
+    const s = useAppStore.getState();
+    expect(s.utmZone).toBe(31);
+    expect(s.azHeight).toBe(1000);
+    expect(s.azTiltDeg).toBe(30);
+    expect(s.azAzimuthDeg).toBe(120);
+    expect(s.coneHemisphere).toBe('south');
+    expect(s.circleRadiusKm).toBe(15000);
+  });
+
+  it('setVariant resets the new fields to the variant defaults', () => {
+    useAppStore.setState({ utmZone: 31, azHeight: 2000, circleRadiusKm: 15000, coneHemisphere: 'south' });
+    useAppStore.getState().setVariant('verticalPerspective');
+    let s = useAppStore.getState();
+    expect(s.variant).toBe('verticalPerspective');
+    expect(s.family).toBe('azimuthalPerspective');
+    expect(s.utmZone).toBeNull();
+    expect(s.azHeight).toBe(400);
+    expect(s.circleRadiusKm).toBe(10000);
+    // switching to a maths azimuthal clears the perspective height
+    useAppStore.getState().setVariant('lambertAzimuthalEqualArea');
+    s = useAppStore.getState();
+    expect(s.family).toBe('azimuthalMath');
+    expect(s.azLight).toBe('math');
+  });
+
+  it('resetParams resets the new fields for every family', () => {
+    useAppStore.getState().setVariant('azimuthalEquidistant');
+    useAppStore.setState({ circleRadiusKm: 18000, somInclination: 50 });
+    useAppStore.getState().resetParams();
+    const s = useAppStore.getState();
+    expect(s.circleRadiusKm).toBe(10000);
+    expect(s.somInclination).toBe(98);
+  });
+
+  it('applyPreset accepts the new optional fields', () => {
+    useAppStore.getState().applyPreset({ variant: 'verticalPerspective', family: 'azimuthalPerspective', azHeight: 800 });
+    const s = useAppStore.getState();
+    expect(s.variant).toBe('verticalPerspective');
+    expect(s.azHeight).toBe(800);
+  });
+
+  it('DEFAULT_DISTORTION covers the four families', () => {
+    expect(DEFAULT_DISTORTION.cylindrical).toBe('conformal');
+    expect(DEFAULT_DISTORTION.conic).toBe('equidistant');
+    expect(DEFAULT_DISTORTION.azimuthalPerspective).toBe('conformal');
+    expect(DEFAULT_DISTORTION.azimuthalMath).toBe('equalArea');
   });
 });

@@ -150,7 +150,7 @@ describe('computeAuxSurfaceParams', () => {
     }
   });
   it('plane for azimuthal', () => {
-    expect(computeAuxSurfaceParams('azimuthal', 10, 20, 1)!.kind).toBe('plane');
+    expect(computeAuxSurfaceParams('azimuthalPerspective', 10, 20, 1)!.kind).toBe('plane');
   });
   it('cone positionY is negative for southern phiOrigin', () => {
     const p = computeAuxSurfaceParams('conic', 0, -30, 1)!;
@@ -223,7 +223,7 @@ describe('computeAuxGraticule', () => {
   });
 
   it('plane graticule is a polar disk grid within the plane radius', () => {
-    const p = computeAuxSurfaceParams('azimuthal', 10, 20, 1)!;
+    const p = computeAuxSurfaceParams('azimuthalPerspective', 10, 20, 1)!;
     if (p.kind !== 'plane') throw new Error('expected plane');
     const { meridians, parallels } = computeAuxGraticule(p);
     const radius = p.size / 2;
@@ -344,7 +344,7 @@ describe('computeCentralMeridianRays', () => {
         // auxPointToWorld and confirm it matches the fan (single source of truth).
         // The on-axis-pole override must be mirrored here so the rebuild agrees
         // with the fan.
-        const proj = getD3Projection({ family: 'cylindrical', distortion, lambda0: 0, phiOrigin: 0, scaleFactor: 1, falseEasting: 0, falseNorthing: 0, gamma: 0, stdParallel2: null, azLight: 'math' });
+        const proj = getD3Projection({ family: 'cylindrical', distortion, lambda0: 0, phiOrigin: 0, scaleFactor: 1, falseEasting: 0, falseNorthing: 0, gamma: 0, stdParallel2: null, azLight: 'math', variant: 'mercator', rulerMode: 'off', rulerPoint1: null, rulerPoint2: null, utmZone: null, azHeight: 400, azTiltDeg: 0, azAzimuthDeg: 0, coneHemisphere: 'north', somInclination: 98, somPeriod: 100, somNodeLongitude: 0, circleRadiusKm: 10000 });
         segs.forEach((seg, i) => {
           const lat = -90 + (i * 180) / (segs.length - 1);
           const local = cylinderLocalEndWithPole(proj, 0, lat, surface);
@@ -361,7 +361,7 @@ describe('computeCentralMeridianRays', () => {
     for (const g of [0, 45]) {
       const lambda0 = 15;
       const phiOrigin = 25;
-      const segs = computeCentralMeridianRays({ ...base, family: 'azimuthal', lambda0, phiOrigin, gamma: g });
+      const segs = computeCentralMeridianRays({ ...base, family: 'azimuthalPerspective', lambda0, phiOrigin, gamma: g });
       const { center, normal } = computeTangentBasis(lambda0, phiOrigin, RADIUS);
       for (const { end } of segs) {
         const d = [end[0] - center[0], end[1] - center[1], end[2] - center[2]];
@@ -389,7 +389,7 @@ describe('computeCentralMeridianRays', () => {
   });
 
   it('globe point equals lonLatToVec3(lambda0, lat)', () => {
-    const segs = computeCentralMeridianRays({ ...base, family: 'azimuthal', lambda0: 12, phiOrigin: 34 });
+    const segs = computeCentralMeridianRays({ ...base, family: 'azimuthalPerspective', lambda0: 12, phiOrigin: 34 });
     for (const { globe } of segs) {
       // every globe marker lies on the sphere of radius RADIUS
       closeTo(Math.hypot(...globe), RADIUS, 1e-6);
@@ -509,7 +509,7 @@ describe('projectToAuxWorld (hover demo ray)', () => {
   });
 
   it('azimuthal (center): lands on the tangent plane and the globe point matches', () => {
-    const params = point({ family: 'azimuthal', lambda0: 15, phiOrigin: 25, azLight: 'center' });
+    const params = point({ family: 'azimuthalPerspective', lambda0: 15, phiOrigin: 25, azLight: 'center' });
     const ray = projectToAuxWorld(params, -40, 10, RADIUS);
     expect(ray).not.toBeNull();
     if (!ray) return;
@@ -537,7 +537,7 @@ describe('projectToAuxWorld (hover demo ray)', () => {
   });
 
   it('azimuthal infinity: returns null for a point on the far hemisphere', () => {
-    const params = point({ family: 'azimuthal', lambda0: 0, phiOrigin: 0, azLight: 'infinity' });
+    const params = point({ family: 'azimuthalPerspective', lambda0: 0, phiOrigin: 0, azLight: 'infinity' });
     // antipodal-ish point should be clipped by the orthographic projection
     const ray = projectToAuxWorld(params, 179, 0, RADIUS);
     expect(ray).toBeNull();
@@ -551,18 +551,18 @@ describe('azimuthal light-source modes', () => {
 
   it("'center' / 'math' beams emanate from the globe centre", () => {
     for (const mode of ['center', 'math'] as const) {
-      const segs = computeCentralMeridianRays({ ...base, family: 'azimuthal', lambda0: lam, phiOrigin: phi, azLight: mode });
+      const segs = computeCentralMeridianRays({ ...base, family: 'azimuthalPerspective', lambda0: lam, phiOrigin: phi, azLight: mode });
       for (const { start } of segs) expect(start).toEqual([0, 0, 0]);
     }
   });
 
   it("'antipode' beams start at the point opposite the tangent point", () => {
-    const segs = computeCentralMeridianRays({ ...base, family: 'azimuthal', lambda0: lam, phiOrigin: phi, azLight: 'antipode' });
+    const segs = computeCentralMeridianRays({ ...base, family: 'azimuthalPerspective', lambda0: lam, phiOrigin: phi, azLight: 'antipode' });
     for (const { start } of segs) expect(start).toEqual([-center[0], -center[1], -center[2]]);
   });
 
   it("'infinity' beams are parallel to the plane normal", () => {
-    const segs = computeCentralMeridianRays({ ...base, family: 'azimuthal', lambda0: lam, phiOrigin: phi, azLight: 'infinity' });
+    const segs = computeCentralMeridianRays({ ...base, family: 'azimuthalPerspective', lambda0: lam, phiOrigin: phi, azLight: 'infinity' });
     const { normal } = computeTangentBasis(lam, phi, RADIUS);
     for (const { start, end } of segs) {
       const dir = [end[0] - start[0], end[1] - start[1], end[2] - start[2]];
@@ -653,7 +653,7 @@ describe('computeAuxSphereIntersections', () => {
   });
 
   it('azimuthal marker is a small ring on the sphere at the tangent point', () => {
-    const rings = computeAuxSphereIntersections('azimuthal', 15, 25, 1);
+    const rings = computeAuxSphereIntersections('azimuthalPerspective', 15, 25, 1);
     expect(rings.length).toBe(1);
     const ring = rings[0];
     // every marker point lies ON the sphere surface (radius R from origin)
@@ -814,7 +814,7 @@ describe('computeAuxSurfaceParams surface-kind invariants', () => {
   });
 
   it('azimuthal: a tangent plane whose normal points outward', () => {
-    const p = computeAuxSurfaceParams('azimuthal', 0, 30, 1)!;
+    const p = computeAuxSurfaceParams('azimuthalPerspective', 0, 30, 1)!;
     if (p.kind !== 'plane') throw new Error('expected plane');
     const t = lonLatToVec3(0, 30, 1);
     const dot = p.normal[0] * t[0] + p.normal[1] * t[1] + p.normal[2] * t[2];
@@ -836,8 +836,8 @@ describe('computeAuxGraticule', () => {
   });
 
   it('returns loops for a cone and a plane too', () => {
-    for (const family of ['conic', 'azimuthal'] as const) {
-      const surface = computeAuxSurfaceParams(family, 0, family === 'azimuthal' ? 30 : 45, 1)!;
+    for (const family of ['conic', 'azimuthalPerspective'] as const) {
+      const surface = computeAuxSurfaceParams(family, 0, family === 'azimuthalPerspective' ? 30 : 45, 1)!;
       const g = computeAuxGraticule(surface);
       expect(g.meridians.length).toBeGreaterThan(0);
       expect(g.parallels.length).toBeGreaterThan(0);
@@ -867,7 +867,7 @@ describe('computeAuxSphereIntersections edge cases', () => {
   });
 
   it('azimuthal tangent plane yields exactly one marker ring on the sphere', () => {
-    const circles = computeAuxSphereIntersections('azimuthal', 0, 30, 1);
+    const circles = computeAuxSphereIntersections('azimuthalPerspective', 0, 30, 1);
     expect(circles.length).toBe(1);
     for (const [x, y, z] of circles[0]) closeTo(Math.hypot(x, y, z), RADIUS, 1e-6);
   });
@@ -925,10 +925,10 @@ describe('rays always land on the rendered aux surface (no empty space)', () => 
     { family: 'conic', distortion: 'conformal', phiOrigin: 40 },
     { family: 'conic', distortion: 'equalArea', phiOrigin: 40 },
     { family: 'conic', distortion: 'equidistant', phiOrigin: 40 },
-    { family: 'azimuthal', distortion: 'equalArea', azLight: 'center' },
-    { family: 'azimuthal', distortion: 'equalArea', azLight: 'antipode' },
-    { family: 'azimuthal', distortion: 'equalArea', azLight: 'infinity' },
-    { family: 'azimuthal', distortion: 'equalArea', azLight: 'math' },
+    { family: 'azimuthalPerspective', distortion: 'equalArea', azLight: 'center' },
+    { family: 'azimuthalPerspective', distortion: 'equalArea', azLight: 'antipode' },
+    { family: 'azimuthalPerspective', distortion: 'equalArea', azLight: 'infinity' },
+    { family: 'azimuthalPerspective', distortion: 'equalArea', azLight: 'math' },
   ];
 
   for (const c of cases) {

@@ -37,3 +37,33 @@ export const fieldRow = 'flex items-center gap-[12px]';
 // Slider track styling (accent + accessible focus ring).
 export const sliderClass =
   'h-1 flex-1 cursor-pointer rounded-full bg-white/10 accent-neon-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70 disabled:opacity-40';
+
+// ---- Badge + toggle + radio + misc design-system additions (new spec) ----
+
+export const badgeClass =
+  'inline-flex items-center gap-1.5 rounded border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-gray-300 backdrop-blur-md';
+export const badgeMuted = 'opacity-70';
+
+export const toggleTrack = 'relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200';
+export const toggleTrackOn = 'bg-neon-blue/30';
+export const toggleTrackOff = 'bg-white/10';
+export const toggleThumb = 'inline-block h-4 w-4 transform rounded-full bg-neon-blue shadow transition-transform duration-200';
+export const toggleThumbOn = 'translate-x-4';
+export const toggleThumbOff = 'translate-x-0';
+
+export const circularSliderTrack = 'fill-none stroke-white/10';
+export const circularSliderFill = 'fill-none stroke-neon-blue';
+export const circularSliderThumb = 'fill-neon-blue';
+
+export const radioGroup = 'flex gap-1';
+export const radioOption =
+  'rounded px-2 py-1 text-[11px] uppercase transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70';
+export const radioOptionActive = 'bg-neon-blue/15 text-neon-blue';
+export const radioOptionInactive = 'text-neon-blue/70 hover:bg-neon-blue/5';
+
+export const presetChip =
+  'rounded border border-neon-blue/40 px-2 py-1 text-[11px] text-neon-blue/80 transition hover:bg-neon-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70';
+export const presetChipActive = 'bg-neon-blue/20 text-neon-blue';
+
+export const numberInput =
+  'w-16 rounded border border-neon-blue/40 bg-panel-bg px-1.5 py-0.5 text-right text-[12px] text-neon-blue outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70';

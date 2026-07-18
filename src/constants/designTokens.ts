@@ -22,3 +22,12 @@ export const NEON_DIVIDER_GLOW = '0 0 3px rgba(0, 229, 255, 0.28), 0 0 6px rgba(
 export const NEON_UNDERLAY_BORDER = '1px solid rgba(0, 229, 255, 0.30)';
 export const NEON_UNDERLAY_BG = 'rgba(0, 229, 255, 0.04)';
 export const NEON_UNDERLAY_GLOW = '0 0 22px rgba(0, 229, 255, 0.18), inset 0 0 16px rgba(0, 229, 255, 0.06)';
+
+// Additional palette tokens for the new visualization methods, touch-point
+// markers and cut line. Kept in sync with the 2D map and the 3D scene.
+export const NEON_GREEN = '#00ff66'; // touch-point / tangency marker
+export const NEON_RED = '#ff3333'; // cut line
+export const PARTICLE_COLOR = '#ffe600'; // particles
+export const WAVE_COLOR = 'rgba(0, 229, 255, 0.15)';
+export const LASER_COLOR = '#ff00ff'; // laser scanner
+export const NORMAL_COLOR = 'rgba(255, 255, 255, 0.6)';

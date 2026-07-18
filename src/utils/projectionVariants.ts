@@ -1,29 +1,15 @@
-import type { ProjectionFamily, DistortionModel, AzimuthalLight } from '../store/useAppStore';
+import type { ProjectionFamily, DistortionModel, AzimuthalLight, VizMethod } from '../store/useAppStore';
 
-export type CylindricalVariant =
-  | 'mercator'
-  | 'transverseMercator'
-  | 'obliqueMercator'
-  | 'miller'
-  | 'equirectangular'
-  | 'gallPeters'
-  | 'lambertCylEqualArea';
+export type CylindricalVariant = 'equirectangular' | 'mercator' | 'transverseMercator' | 'obliqueMercator';
+export type ConicVariant = 'lambertConformal' | 'albers' | 'equidistantConic';
+export type AzimuthalPerspectiveVariant = 'gnomonic' | 'stereographic' | 'orthographic' | 'verticalPerspective' | 'tiltedPerspective';
+export type AzimuthalMathVariant = 'lambertAzimuthalEqualArea' | 'azimuthalEquidistant';
 
-export type ConicVariant =
-  | 'lambertConformal'
-  | 'albers'
-  | 'equidistantConic'
-  | 'polyconic';
-
-export type AzimuthalVariant =
-  | 'gnomonic'
-  | 'stereographic'
-  | 'orthographic'
-  | 'externalPerspective'
-  | 'lambertAzimuthalEqualArea'
-  | 'azimuthalEquidistant';
-
-export type ProjectionVariant = CylindricalVariant | ConicVariant | AzimuthalVariant;
+export type ProjectionVariant =
+  | CylindricalVariant
+  | ConicVariant
+  | AzimuthalPerspectiveVariant
+  | AzimuthalMathVariant;
 
 export type CylinderOrientation = 'straight' | 'transverse' | 'oblique';
 
@@ -44,11 +30,53 @@ export interface VariantDef {
   orientationLabel: string;
   tooltips: Partial<Record<string, string>>;
   formulaDescription: string | null;
+
+  // Human-readable surface / property / distortion / application labels shown
+  // in the control-panel badge row and the geodetic summary.
+  surfaceTypeLabel: string;
+  propertyLabel: string;
+  poleDistortionLabel: string | null;
+  applicationLabel: string | null;
+
+  // Context-driven control visibility flags.
+  showCylinderOrientation: boolean;
+  cylinderOrientationEditable: boolean;
+  showUtmZone: boolean;
+  showParallel1: boolean;
+  showParallel2: boolean;
+  parallel2Editable: boolean;
+  showK0: boolean;
+  k0Editable: boolean;
+  showNorthSouth: boolean;
+  showAzHeight: boolean;
+  showAzTilt: boolean;
+  showAzAzimuth: boolean;
+  showTouchPointPresets: boolean;
+  showCircleRadius: boolean;
+  showOrbitalParams: boolean;
+
+  recommendedVizMethod: VizMethod;
+  touchPointPresets: { label: string; phi: number; lambda: number }[] | null;
+  defaultAzHeight: number | null;
+  defaultSomInclination: number | null;
+  defaultSomPeriod: number | null;
 }
+
+const GAMMA_DISABLED_TOOLTIP = 'Эта проекция работает только с вертикальным цилиндром. Наклон возможен только у варианта "Наклонный Меркатор"';
+const STD_PARALLEL2_DISABLED_TOOLTIP = 'У этой проекции одна линия касания. Вторая параллель бывает у секущих модификаций';
+const LIGHT_DISABLED_MATH = 'Математическая формула без оптической модели. Лучей нет';
+const RAYS_DISABLED_MATH = 'Только математика — вместо лучей показывается поверхность с сеткой координат';
+const K0_TOOLTIP = 'k₀ — масштаб вдоль стандартной параллели. Параллель 1 и k₀ связаны: cos(φ₁) = k₀';
+
+const TOUCH_PRESETS: { label: string; phi: number; lambda: number }[] = [
+  { label: 'Северный полюс', phi: 90, lambda: 0 },
+  { label: 'Экватор (0°,0°)', phi: 0, lambda: 0 },
+  { label: 'Москва', phi: 55.75, lambda: 37.62 },
+  { label: 'Южный полюс', phi: -90, lambda: 0 },
+];
 
 const DEFAULT_CYL: Partial<VariantDef> = {
   family: 'cylindrical',
-  distortion: 'conformal',
   azLight: 'center',
   hasRays: true,
   hasLamp: false,
@@ -60,15 +88,54 @@ const DEFAULT_CYL: Partial<VariantDef> = {
   lockedStdParallel2: null,
   lockedLight: true,
   formulaDescription: null,
+  surfaceTypeLabel: 'Цилиндр',
+  propertyLabel: 'Компромиссная',
+  poleDistortionLabel: null,
+  applicationLabel: null,
+  showCylinderOrientation: true,
+  cylinderOrientationEditable: false,
+  showUtmZone: false,
+  showParallel1: true,
+  showParallel2: false,
+  parallel2Editable: false,
+  showK0: false,
+  k0Editable: false,
+  showNorthSouth: false,
+  showAzHeight: false,
+  showAzTilt: false,
+  showAzAzimuth: false,
+  showTouchPointPresets: false,
+  showCircleRadius: false,
+  showOrbitalParams: false,
+  recommendedVizMethod: 'none',
+  touchPointPresets: null,
+  defaultAzHeight: null,
+  defaultSomInclination: null,
+  defaultSomPeriod: null,
 };
 
-const GAMMA_DISABLED_TOOLTIP = 'Эта проекция работает только с вертикальным цилиндром. Наклон возможен только у варианта "Наклонный Меркатор"';
-const STD_PARALLEL2_DISABLED_TOOLTIP = 'У этой проекции одна линия касания. Две параллели бывают у модификаций вроде Галла-Петерса';
-const LIGHT_DISABLED_MATH = 'Математическая формула без оптической модели. Лучей нет';
-const RAYS_DISABLED_MATH = 'Только математика — вместо лучей показывается поверхность с сеткой координат';
-const POLYCONIC_TOOLTIP = 'В поликонической проекции для каждой параллели используется свой конус — поэтому параметры фиксированы формулой';
-
 export const CYLINDRICAL_VARIANTS: Record<CylindricalVariant, VariantDef> = {
+  equirectangular: {
+    ...DEFAULT_CYL as VariantDef,
+    label: 'Равнопромежуточная (Плоская развёртка)',
+    orientationLabel: 'Ровный',
+    cylinderOrientation: 'straight',
+    distortion: 'equidistant',
+    azLight: 'infinity',
+    lightIsParallel: true,
+    lockedGamma: 0,
+    lockedStdParallel: 0,
+    lockedLight: true,
+    propertyLabel: 'Компромиссная',
+    showParallel1: true,
+    showK0: true,
+    k0Editable: true,
+    tooltips: {
+      gamma: GAMMA_DISABLED_TOOLTIP,
+      stdParallel2: STD_PARALLEL2_DISABLED_TOOLTIP,
+      k0: K0_TOOLTIP,
+    },
+  },
   mercator: {
     ...DEFAULT_CYL as VariantDef,
     label: 'Меркатор (для моряков)',
@@ -78,9 +145,18 @@ export const CYLINDRICAL_VARIANTS: Record<CylindricalVariant, VariantDef> = {
     azLight: 'center',
     lockedGamma: 0,
     lockedStdParallel: 0,
+    lockedStdParallel2: 0,
+    parallel2Editable: false,
+    showParallel2: true,
+    showK0: true,
+    k0Editable: false,
+    propertyLabel: 'Сохраняет углы',
+    poleDistortionLabel: 'Полюса = линии',
+    applicationLabel: 'Морская навигация, веб-карты',
     tooltips: {
       gamma: GAMMA_DISABLED_TOOLTIP,
       stdParallel2: STD_PARALLEL2_DISABLED_TOOLTIP,
+      k0: K0_TOOLTIP,
     },
   },
   transverseMercator: {
@@ -92,9 +168,16 @@ export const CYLINDRICAL_VARIANTS: Record<CylindricalVariant, VariantDef> = {
     azLight: 'center',
     lockedGamma: 90,
     lockedStdParallel: null,
+    showUtmZone: true,
+    showK0: true,
+    k0Editable: true,
+    cylinderOrientationEditable: false,
+    propertyLabel: 'Сохраняет углы',
+    applicationLabel: 'Кадастр, топография (UTM)',
     tooltips: {
       gamma: GAMMA_DISABLED_TOOLTIP,
       stdParallel2: STD_PARALLEL2_DISABLED_TOOLTIP,
+      k0: K0_TOOLTIP,
     },
   },
   obliqueMercator: {
@@ -106,76 +189,11 @@ export const CYLINDRICAL_VARIANTS: Record<CylindricalVariant, VariantDef> = {
     azLight: 'center',
     lockedGamma: null,
     lockedStdParallel: null,
+    showOrbitalParams: false,
+    cylinderOrientationEditable: false,
+    propertyLabel: 'Сохраняет углы',
+    applicationLabel: 'Вдоль больших осей (напр. Чили)',
     tooltips: {
-      stdParallel2: STD_PARALLEL2_DISABLED_TOOLTIP,
-    },
-  },
-  miller: {
-    ...DEFAULT_CYL as VariantDef,
-    label: 'Миллера',
-    orientationLabel: 'Ровный',
-    cylinderOrientation: 'straight',
-    distortion: 'conformal',
-    azLight: 'math',
-    hasRays: false,
-    hasLamp: false,
-    lockedGamma: 0,
-    lockedStdParallel: 0,
-    lockedLight: true,
-    formulaDescription: 'Формула: Y = (5/4)·ln[tan(π/4 + 2φ/5)]',
-    tooltips: {
-      gamma: GAMMA_DISABLED_TOOLTIP,
-      stdParallel2: STD_PARALLEL2_DISABLED_TOOLTIP,
-    },
-  },
-  equirectangular: {
-    ...DEFAULT_CYL as VariantDef,
-    label: 'Равнопромежуточная (Плоская развёртка)',
-    orientationLabel: 'Ровный',
-    cylinderOrientation: 'straight',
-    distortion: 'equidistant',
-    azLight: 'infinity',
-    lightIsParallel: true,
-    hasLamp: false,
-    lockedGamma: 0,
-    lockedStdParallel: 0,
-    lockedLight: true,
-    tooltips: {
-      gamma: GAMMA_DISABLED_TOOLTIP,
-      stdParallel2: STD_PARALLEL2_DISABLED_TOOLTIP,
-    },
-  },
-  gallPeters: {
-    ...DEFAULT_CYL as VariantDef,
-    label: 'Галла-Петерса',
-    orientationLabel: 'Ровный',
-    cylinderOrientation: 'straight',
-    distortion: 'equalArea',
-    azLight: 'infinity',
-    lightIsParallel: true,
-    hasLamp: false,
-    lockedGamma: 0,
-    lockedStdParallel: 45,
-    lockedStdParallel2: -45,
-    lockedLight: true,
-    tooltips: {
-      gamma: GAMMA_DISABLED_TOOLTIP,
-    },
-  },
-  lambertCylEqualArea: {
-    ...DEFAULT_CYL as VariantDef,
-    label: 'Цилиндрическая равновеликая Ламберта',
-    orientationLabel: 'Ровный',
-    cylinderOrientation: 'straight',
-    distortion: 'equalArea',
-    azLight: 'infinity',
-    lightIsParallel: true,
-    hasLamp: false,
-    lockedGamma: 0,
-    lockedStdParallel: 0,
-    lockedLight: true,
-    tooltips: {
-      gamma: GAMMA_DISABLED_TOOLTIP,
       stdParallel2: STD_PARALLEL2_DISABLED_TOOLTIP,
     },
   },
@@ -198,6 +216,30 @@ export const CONIC_VARIANTS: Record<ConicVariant, VariantDef> = {
     label: 'Ламберта конформная (для авиации)',
     orientationLabel: '',
     formulaDescription: null,
+    surfaceTypeLabel: 'Конус',
+    propertyLabel: 'Сохраняет углы (формы)',
+    poleDistortionLabel: null,
+    applicationLabel: 'Авиация, средние широты',
+    showParallel1: true,
+    showParallel2: true,
+    parallel2Editable: true,
+    showNorthSouth: true,
+    showCylinderOrientation: false,
+    cylinderOrientationEditable: false,
+    showUtmZone: false,
+    showK0: false,
+    k0Editable: false,
+    showAzHeight: false,
+    showAzTilt: false,
+    showAzAzimuth: false,
+    showTouchPointPresets: false,
+    showCircleRadius: false,
+    showOrbitalParams: false,
+    recommendedVizMethod: 'none',
+    touchPointPresets: null,
+    defaultAzHeight: null,
+    defaultSomInclination: null,
+    defaultSomPeriod: null,
     tooltips: {},
   },
   albers: {
@@ -216,6 +258,30 @@ export const CONIC_VARIANTS: Record<ConicVariant, VariantDef> = {
     label: 'Альберса равновеликая (для площадей)',
     orientationLabel: '',
     formulaDescription: null,
+    surfaceTypeLabel: 'Конус',
+    propertyLabel: 'Сохраняет площади',
+    poleDistortionLabel: null,
+    applicationLabel: 'Статистические карты площадей',
+    showParallel1: true,
+    showParallel2: true,
+    parallel2Editable: true,
+    showNorthSouth: true,
+    showCylinderOrientation: false,
+    cylinderOrientationEditable: false,
+    showUtmZone: false,
+    showK0: false,
+    k0Editable: false,
+    showAzHeight: false,
+    showAzTilt: false,
+    showAzAzimuth: false,
+    showTouchPointPresets: false,
+    showCircleRadius: false,
+    showOrbitalParams: false,
+    recommendedVizMethod: 'none',
+    touchPointPresets: null,
+    defaultAzHeight: null,
+    defaultSomInclination: null,
+    defaultSomPeriod: null,
     tooltips: {},
   },
   equidistantConic: {
@@ -234,35 +300,37 @@ export const CONIC_VARIANTS: Record<ConicVariant, VariantDef> = {
     label: 'Равнопромежуточная коническая',
     orientationLabel: '',
     formulaDescription: null,
+    surfaceTypeLabel: 'Конус',
+    propertyLabel: 'Сохраняет расстояния вдоль меридианов',
+    poleDistortionLabel: null,
+    applicationLabel: 'Региональные карты',
+    showParallel1: true,
+    showParallel2: true,
+    parallel2Editable: true,
+    showNorthSouth: true,
+    showCylinderOrientation: false,
+    cylinderOrientationEditable: false,
+    showUtmZone: false,
+    showK0: false,
+    k0Editable: false,
+    showAzHeight: false,
+    showAzTilt: false,
+    showAzAzimuth: false,
+    showTouchPointPresets: false,
+    showCircleRadius: false,
+    showOrbitalParams: false,
+    recommendedVizMethod: 'none',
+    touchPointPresets: null,
+    defaultAzHeight: null,
+    defaultSomInclination: null,
+    defaultSomPeriod: null,
     tooltips: {},
-  },
-  polyconic: {
-    family: 'conic',
-    distortion: 'equidistant',
-    azLight: 'math',
-    hasRays: false,
-    hasLamp: true,
-    lightIsParallel: false,
-    cylinderOrientation: null,
-    lockedGamma: null,
-    lockedScaleFactor: 1,
-    lockedStdParallel: null,
-    lockedStdParallel2: null,
-    lockedLight: true,
-    label: 'Поликоническая (для длинных стран)',
-    orientationLabel: '',
-    formulaDescription: 'Поликоническая: для каждой параллели — свой конус',
-    tooltips: {
-      stdParallel: POLYCONIC_TOOLTIP,
-      stdParallel2: POLYCONIC_TOOLTIP,
-      scaleFactor: POLYCONIC_TOOLTIP,
-    },
   },
 };
 
-export const AZIMUTHAL_VARIANTS: Record<AzimuthalVariant, VariantDef> = {
+export const AZIMUTHAL_PERSPECTIVE_VARIANTS: Record<AzimuthalPerspectiveVariant, VariantDef> = {
   gnomonic: {
-    family: 'azimuthal',
+    family: 'azimuthalPerspective',
     distortion: 'conformal',
     azLight: 'center',
     hasRays: true,
@@ -277,10 +345,34 @@ export const AZIMUTHAL_VARIANTS: Record<AzimuthalVariant, VariantDef> = {
     label: 'Гномоническая',
     orientationLabel: '',
     formulaDescription: null,
+    surfaceTypeLabel: 'Плоскость',
+    propertyLabel: 'Сохраняет углы',
+    poleDistortionLabel: null,
+    applicationLabel: 'Кратчайшие дуги (навигация)',
+    showParallel1: true,
+    showParallel2: false,
+    parallel2Editable: false,
+    showNorthSouth: false,
+    showCylinderOrientation: false,
+    cylinderOrientationEditable: false,
+    showUtmZone: false,
+    showK0: false,
+    k0Editable: false,
+    showAzHeight: false,
+    showAzTilt: false,
+    showAzAzimuth: false,
+    showTouchPointPresets: true,
+    showCircleRadius: false,
+    showOrbitalParams: false,
+    recommendedVizMethod: 'none',
+    touchPointPresets: TOUCH_PRESETS,
+    defaultAzHeight: null,
+    defaultSomInclination: null,
+    defaultSomPeriod: null,
     tooltips: {},
   },
   stereographic: {
-    family: 'azimuthal',
+    family: 'azimuthalPerspective',
     distortion: 'conformal',
     azLight: 'antipode',
     hasRays: true,
@@ -295,10 +387,34 @@ export const AZIMUTHAL_VARIANTS: Record<AzimuthalVariant, VariantDef> = {
     label: 'Стереографическая (углы не искажаются)',
     orientationLabel: '',
     formulaDescription: null,
+    surfaceTypeLabel: 'Плоскость',
+    propertyLabel: 'Сохраняет углы',
+    poleDistortionLabel: null,
+    applicationLabel: 'Полярные карты, геология',
+    showParallel1: true,
+    showParallel2: false,
+    parallel2Editable: false,
+    showNorthSouth: false,
+    showCylinderOrientation: false,
+    cylinderOrientationEditable: false,
+    showUtmZone: false,
+    showK0: false,
+    k0Editable: false,
+    showAzHeight: false,
+    showAzTilt: false,
+    showAzAzimuth: false,
+    showTouchPointPresets: true,
+    showCircleRadius: false,
+    showOrbitalParams: false,
+    recommendedVizMethod: 'none',
+    touchPointPresets: TOUCH_PRESETS,
+    defaultAzHeight: null,
+    defaultSomInclination: null,
+    defaultSomPeriod: null,
     tooltips: {},
   },
   orthographic: {
-    family: 'azimuthal',
+    family: 'azimuthalPerspective',
     distortion: 'conformal',
     azLight: 'infinity',
     hasRays: true,
@@ -313,10 +429,34 @@ export const AZIMUTHAL_VARIANTS: Record<AzimuthalVariant, VariantDef> = {
     label: 'Ортографическая (вид из космоса)',
     orientationLabel: '',
     formulaDescription: null,
+    surfaceTypeLabel: 'Плоскость',
+    propertyLabel: 'Вид сферы из бесконечности',
+    poleDistortionLabel: null,
+    applicationLabel: 'Глобальные обзорные карты',
+    showParallel1: true,
+    showParallel2: false,
+    parallel2Editable: false,
+    showNorthSouth: false,
+    showCylinderOrientation: false,
+    cylinderOrientationEditable: false,
+    showUtmZone: false,
+    showK0: false,
+    k0Editable: false,
+    showAzHeight: false,
+    showAzTilt: false,
+    showAzAzimuth: false,
+    showTouchPointPresets: true,
+    showCircleRadius: false,
+    showOrbitalParams: false,
+    recommendedVizMethod: 'none',
+    touchPointPresets: TOUCH_PRESETS,
+    defaultAzHeight: null,
+    defaultSomInclination: null,
+    defaultSomPeriod: null,
     tooltips: {},
   },
-  externalPerspective: {
-    family: 'azimuthal',
+  verticalPerspective: {
+    family: 'azimuthalPerspective',
     distortion: 'conformal',
     azLight: 'center',
     hasRays: true,
@@ -328,13 +468,82 @@ export const AZIMUTHAL_VARIANTS: Record<AzimuthalVariant, VariantDef> = {
     lockedStdParallel: null,
     lockedStdParallel2: null,
     lockedLight: true,
-    label: 'Внешняя перспектива (вид со спутника)',
+    label: 'Вертикальная перспектива (вид со спутника)',
     orientationLabel: '',
     formulaDescription: null,
+    surfaceTypeLabel: 'Плоскость + наблюдатель',
+    propertyLabel: 'Перспектива с высоты H',
+    poleDistortionLabel: null,
+    applicationLabel: 'Снимки из космоса',
+    showParallel1: true,
+    showParallel2: false,
+    parallel2Editable: false,
+    showNorthSouth: false,
+    showCylinderOrientation: false,
+    cylinderOrientationEditable: false,
+    showUtmZone: false,
+    showK0: false,
+    k0Editable: false,
+    showAzHeight: true,
+    showAzTilt: false,
+    showAzAzimuth: false,
+    showTouchPointPresets: true,
+    showCircleRadius: false,
+    showOrbitalParams: false,
+    recommendedVizMethod: 'shadow',
+    touchPointPresets: TOUCH_PRESETS,
+    defaultAzHeight: 400,
+    defaultSomInclination: null,
+    defaultSomPeriod: null,
     tooltips: {},
   },
+  tiltedPerspective: {
+    family: 'azimuthalPerspective',
+    distortion: 'conformal',
+    azLight: 'center',
+    hasRays: true,
+    hasLamp: true,
+    lightIsParallel: false,
+    cylinderOrientation: null,
+    lockedGamma: null,
+    lockedScaleFactor: null,
+    lockedStdParallel: null,
+    lockedStdParallel2: null,
+    lockedLight: true,
+    label: 'Наклонная перспектива (камера под углом)',
+    orientationLabel: '',
+    formulaDescription: null,
+    surfaceTypeLabel: 'Плоскость + наблюдатель',
+    propertyLabel: 'Перспектива с наклоном',
+    poleDistortionLabel: null,
+    applicationLabel: 'Художественные снимки Земли',
+    showParallel1: true,
+    showParallel2: false,
+    parallel2Editable: false,
+    showNorthSouth: false,
+    showCylinderOrientation: false,
+    cylinderOrientationEditable: false,
+    showUtmZone: false,
+    showK0: false,
+    k0Editable: false,
+    showAzHeight: true,
+    showAzTilt: true,
+    showAzAzimuth: true,
+    showTouchPointPresets: true,
+    showCircleRadius: false,
+    showOrbitalParams: false,
+    recommendedVizMethod: 'shadow',
+    touchPointPresets: TOUCH_PRESETS,
+    defaultAzHeight: 400,
+    defaultSomInclination: null,
+    defaultSomPeriod: null,
+    tooltips: {},
+  },
+};
+
+export const AZIMUTHAL_MATH_VARIANTS: Record<AzimuthalMathVariant, VariantDef> = {
   lambertAzimuthalEqualArea: {
-    family: 'azimuthal',
+    family: 'azimuthalMath',
     distortion: 'equalArea',
     azLight: 'math',
     hasRays: false,
@@ -349,13 +558,37 @@ export const AZIMUTHAL_VARIANTS: Record<AzimuthalVariant, VariantDef> = {
     label: 'Ламберта азимутальная равновеликая',
     orientationLabel: '',
     formulaDescription: 'Математическая формула, без лучей',
+    surfaceTypeLabel: 'Плоскость',
+    propertyLabel: 'Сохраняет площади',
+    poleDistortionLabel: null,
+    applicationLabel: 'Полярные площадные карты',
+    showParallel1: true,
+    showParallel2: false,
+    parallel2Editable: false,
+    showNorthSouth: false,
+    showCylinderOrientation: false,
+    cylinderOrientationEditable: false,
+    showUtmZone: false,
+    showK0: false,
+    k0Editable: false,
+    showAzHeight: false,
+    showAzTilt: false,
+    showAzAzimuth: false,
+    showTouchPointPresets: true,
+    showCircleRadius: true,
+    showOrbitalParams: false,
+    recommendedVizMethod: 'none',
+    touchPointPresets: TOUCH_PRESETS,
+    defaultAzHeight: null,
+    defaultSomInclination: null,
+    defaultSomPeriod: null,
     tooltips: {
       light: LIGHT_DISABLED_MATH,
       rays: RAYS_DISABLED_MATH,
     },
   },
   azimuthalEquidistant: {
-    family: 'azimuthal',
+    family: 'azimuthalMath',
     distortion: 'equidistant',
     azLight: 'math',
     hasRays: false,
@@ -370,6 +603,30 @@ export const AZIMUTHAL_VARIANTS: Record<AzimuthalVariant, VariantDef> = {
     label: 'Азимутальная равнопромежуточная',
     orientationLabel: '',
     formulaDescription: 'Математическая формула, без лучей',
+    surfaceTypeLabel: 'Плоскость',
+    propertyLabel: 'Сохраняет расстояния от центра',
+    poleDistortionLabel: null,
+    applicationLabel: 'Расстояния от точки (радиус-карты)',
+    showParallel1: true,
+    showParallel2: false,
+    parallel2Editable: false,
+    showNorthSouth: false,
+    showCylinderOrientation: false,
+    cylinderOrientationEditable: false,
+    showUtmZone: false,
+    showK0: false,
+    k0Editable: false,
+    showAzHeight: false,
+    showAzTilt: false,
+    showAzAzimuth: false,
+    showTouchPointPresets: true,
+    showCircleRadius: true,
+    showOrbitalParams: false,
+    recommendedVizMethod: 'none',
+    touchPointPresets: TOUCH_PRESETS,
+    defaultAzHeight: null,
+    defaultSomInclination: null,
+    defaultSomPeriod: null,
     tooltips: {
       light: LIGHT_DISABLED_MATH,
       rays: RAYS_DISABLED_MATH,
@@ -380,13 +637,15 @@ export const AZIMUTHAL_VARIANTS: Record<AzimuthalVariant, VariantDef> = {
 export function variantDef(v: ProjectionVariant): VariantDef {
   if (v in CYLINDRICAL_VARIANTS) return CYLINDRICAL_VARIANTS[v as CylindricalVariant];
   if (v in CONIC_VARIANTS) return CONIC_VARIANTS[v as ConicVariant];
-  return AZIMUTHAL_VARIANTS[v as AzimuthalVariant];
+  if (v in AZIMUTHAL_PERSPECTIVE_VARIANTS) return AZIMUTHAL_PERSPECTIVE_VARIANTS[v as AzimuthalPerspectiveVariant];
+  return AZIMUTHAL_MATH_VARIANTS[v as AzimuthalMathVariant];
 }
 
 export function defaultVariant(family: ProjectionFamily): ProjectionVariant {
   if (family === 'cylindrical') return 'mercator';
   if (family === 'conic') return 'lambertConformal';
-  return 'gnomonic';
+  if (family === 'azimuthalPerspective') return 'gnomonic';
+  return 'lambertAzimuthalEqualArea';
 }
 
 function toOptions<K extends string>(obj: Record<K, VariantDef>): { value: K; label: string }[] {
@@ -395,4 +654,5 @@ function toOptions<K extends string>(obj: Record<K, VariantDef>): { value: K; la
 
 export const CYLINDRICAL_VARIANT_OPTIONS = toOptions(CYLINDRICAL_VARIANTS);
 export const CONIC_VARIANT_OPTIONS = toOptions(CONIC_VARIANTS);
-export const AZIMUTHAL_VARIANT_OPTIONS = toOptions(AZIMUTHAL_VARIANTS);
+export const AZIMUTHAL_PERSPECTIVE_VARIANT_OPTIONS = toOptions(AZIMUTHAL_PERSPECTIVE_VARIANTS);
+export const AZIMUTHAL_MATH_VARIANT_OPTIONS = toOptions(AZIMUTHAL_MATH_VARIANTS);

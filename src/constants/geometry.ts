@@ -66,3 +66,65 @@ export const signedStandardParallelDeg = (phiOrigin: number): number => {
   const base = mag < STD_PARALLEL_MIN_ABS ? STD_PARALLEL_FALLBACK : mag;
   return phiOrigin < 0 ? -base : base;
 };
+
+// ---- UTM / Earth / circle-radius helpers (new spec) ----
+
+// Earth model is spherical: R = 6371 km. Used to convert circle radii (km) and
+// satellite altitudes (km) into the projection's scale / model units.
+export const EARTH_RADIUS_KM = 6371;
+export const EARTH_HALF_CIRCUM_KM = Math.PI * EARTH_RADIUS_KM;
+
+// UTM zonation: 60 zones of 6° each, zone 1 centred on the meridian -177°.
+export const UTM_ZONE_WIDTH = 6;
+export const UTM_ZONE1_MERIDIAN = -177;
+export const UTM_TOTAL_ZONES = 60;
+export const UTM_ZONE_MIN = 1;
+export const UTM_ZONE_MAX = 60;
+
+// Vertical / tilted perspective satellite-altitude slider bounds (km).
+export const AZ_HEIGHT_MIN = 100;
+export const AZ_HEIGHT_MAX = 1500000;
+export const AZ_HEIGHT_STEP = 100;
+
+// Test-circle radius (km) bounds: 1000 km … half Earth circumference.
+export const CIRCLE_RADIUS_MIN = 1000;
+export const CIRCLE_RADIUS_MAX = EARTH_HALF_CIRCUM_KM;
+
+// Sun-synchronous orbit (SOM) parameter bounds.
+export const SOM_INCLINATION_MIN = 0;
+export const SOM_INCLINATION_MAX = 180;
+export const SOM_PERIOD_MIN = 1;
+export const SOM_PERIOD_MAX = 1440;
+
+// Map a UTM zone (1…60) to its central meridian (degrees).
+export const utmZoneToCentralMeridian = (zone: number): number => {
+  const z = Math.max(UTM_ZONE_MIN, Math.min(UTM_ZONE_MAX, Math.round(zone)));
+  return UTM_ZONE1_MERIDIAN + (z - 1) * UTM_ZONE_WIDTH;
+};
+
+// Map a central meridian (degrees) to the nearest UTM zone (1…60).
+export const centralMeridianToUtmZone = (lambda0: number): number => {
+  const step = Math.round((lambda0 - UTM_ZONE1_MERIDIAN) / UTM_ZONE_WIDTH);
+  return Math.max(UTM_ZONE_MIN, Math.min(UTM_ZONE_MAX, step));
+};
+
+// Circle radius (km) ↔ scaleFactor. The azimuthal-math projections use the
+// circle radius to set their azimuthal scale: a radius equal to the half
+// circumference (pole-to-pole) maps to scaleFactor ≈ 1.
+export const circleRadiusToScale = (radiusKm: number): number => {
+  const r = Math.max(0, radiusKm);
+  return EARTH_HALF_CIRCUM_KM <= 0 ? 1 : r / EARTH_HALF_CIRCUM_KM;
+};
+export const scaleToCircleRadius = (scale: number): number => {
+  const s = Math.max(0, scale);
+  return s * EARTH_HALF_CIRCUM_KM;
+};
+
+// k₀ (scale along the standard parallel) ↔ standard-parallel latitude.
+// At the standard parallel cos(φ) = k₀, so φ = arccos(k₀).
+export const k0ToStandardParallel = (k0: number): number => {
+  const k = Math.max(0, Math.min(1, k0));
+  return (Math.acos(k) * 180) / Math.PI;
+};
+export const standardParallelToK0 = (phi: number): number =>
+  Math.max(0, Math.min(1, Math.cos((phi * Math.PI) / 180)));

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Line } from '@react-three/drei';
-import { NEON_WHITE } from '../constants/designTokens';
+import { NEON_GREEN } from '../constants/designTokens';
 import { computeAuxSphereIntersections, auxPointToWorld, type AuxSurfaceParams } from '../utils/auxSurfaceGeometry';
 import { RADIUS } from '../constants/geometry';
 import type { ProjectionParams } from '../store/useAppStore';
@@ -39,7 +39,7 @@ export default function IntersectionDisks({
         <Line
           key={i}
           points={pts}
-          color={NEON_WHITE}
+          color={NEON_GREEN}
           lineWidth={1.5}
           transparent
           opacity={0.95}

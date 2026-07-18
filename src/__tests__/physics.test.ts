@@ -22,7 +22,7 @@ import {
 } from '../utils/auxSurfaceGeometry';
 import { computeTissotCircles } from '../utils/tissot';
 
-const FAMILIES: ProjectionFamily[] = ['cylindrical', 'conic', 'azimuthal'];
+const FAMILIES: ProjectionFamily[] = ['cylindrical', 'conic', 'azimuthalPerspective', 'azimuthalMath'];
 const DISTORTIONS: DistortionModel[] = ['conformal', 'equalArea', 'equidistant'];
 
 const base = (over: Partial<ProjectionParams> = {}): ProjectionParams => ({
@@ -36,6 +36,19 @@ const base = (over: Partial<ProjectionParams> = {}): ProjectionParams => ({
   gamma: 0,
   stdParallel2: null,
   azLight: 'math',
+  utmZone: null,
+  azHeight: 400,
+  azTiltDeg: 0,
+  azAzimuthDeg: 0,
+  coneHemisphere: 'north',
+  somInclination: 98,
+  somPeriod: 100,
+  somNodeLongitude: 0,
+  circleRadiusKm: 10000,
+  variant: 'mercator',
+  rulerMode: 'off',
+  rulerPoint1: null,
+  rulerPoint2: null,
   ...over,
 });
 
@@ -155,7 +168,7 @@ describe('globe ↔ map projection consistency', () => {
 describe('rays link globe point to map point', () => {
   for (const family of FAMILIES) {
     for (const distortion of DISTORTIONS) {
-      const az = family === 'azimuthal' ? 'center' : 'math';
+      const az = family === 'azimuthalPerspective' ? 'center' : 'math';
       const p = base({ family, distortion, azLight: az, phiOrigin: family === 'cylindrical' ? 0 : 25 });
 
       it(`${family}/${distortion}: every central-meridian ray's globe endpoint is the true 3D point`, () => {
@@ -355,7 +368,7 @@ describe('rays link globe point to map point', () => {
         // landing must lie in the plane (perpendicular distance to the tangent
         // plane ≈ 0) and within the rendered disk radius. A ray that flew off the
         // plane would break the "globe point → map point on the plane" link.
-        if (family !== 'azimuthal') return;
+        if (family !== 'azimuthalPerspective') return;
         const segs = computeCentralMeridianRays({ ...p, radius: RADIUS, rayCount: RAY_COUNT });
         const surface = computeAuxSurfaceParams(family, p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, p.gamma, distortion, p.azLight)!;
         if (surface.kind !== 'plane') return;
@@ -384,7 +397,7 @@ describe('rays link globe point to map point', () => {
   }
 
   it('azimuthal orthographic hover ray returns null for a far-hemisphere point', () => {
-    const p = base({ family: 'azimuthal', distortion: 'equalArea', azLight: 'infinity', lambda0: 0, phiOrigin: 0 });
+    const p = base({ family: 'azimuthalPerspective', distortion: 'equalArea', azLight: 'infinity', lambda0: 0, phiOrigin: 0 });
     // A point on the opposite hemisphere from the tangent point.
     const ray = projectToAuxWorld(p, 180, 0, RADIUS);
     expect(ray).toBeNull();
@@ -536,7 +549,14 @@ describe('Tissot indicatrix physics', () => {
 
   it('equal-area projection keeps ~equal projected area of every indicatrix', () => {
     const proj = getD3Projection(base({ family: 'cylindrical', distortion: 'equalArea' }));
-    const areas = computeTissotCircles().map((c) => shoelaceArea(project(c, proj)));
+    // Exclude indicatrices whose vertices reach the antimeridian: a 5°-radius
+    // circle there wraps across ±180°, so the shoelace area (not the real
+    // projected area) blows up — an artifact of the flat-map parameterisation,
+    // not a distortion of the equal-area projection itself.
+    const circles = computeTissotCircles().filter(
+      (c) => !c.coordinates[0].some(([lon]) => Math.abs(lon) > 170),
+    );
+    const areas = circles.map((c) => shoelaceArea(project(c, proj)));
     const min = Math.min(...areas);
     const max = Math.max(...areas);
     // Equal-area: all indicatrices project to (almost) the same area.
@@ -546,6 +566,8 @@ describe('Tissot indicatrix physics', () => {
   it('conformal projection keeps every indicatrix ~circular (bbox aspect ≈ 1)', () => {
     const proj = getD3Projection(base({ family: 'cylindrical', distortion: 'conformal' }));
     for (const c of computeTissotCircles()) {
+      // skip antimeridian-wrapping indicatrices (their bbox spans the seam)
+      if (c.coordinates[0].some(([lon]) => Math.abs(lon) > 170)) continue;
       const pts = project(c, proj);
       const xs = pts.map((p) => p[0]);
       const ys = pts.map((p) => p[1]);
@@ -684,7 +706,7 @@ describe('aux-surface ↔ globe intersection physics', () => {
   });
 
   it('azimuthal tangent plane touches the sphere at a single point (lambda0, phiOrigin)', () => {
-    const rings = computeAuxSphereIntersections('azimuthal', 40, 25, 1, RADIUS);
+    const rings = computeAuxSphereIntersections('azimuthalPerspective', 40, 25, 1, RADIUS);
     expect(rings.length).toBe(1);
     // The ring marks a small cap (angular radius AZIMUTHAL_POINT_DEG) around the
     // tangent point, so its CENTROID must be the tangent point (lambda0, phiOrigin).
@@ -706,8 +728,8 @@ describe('aux-surface ↔ globe intersection physics', () => {
     // what keeps it correct).
     const lambda0 = 40;
     const phiOrigin = 25;
-    const surface = computeAuxSurfaceParams('azimuthal', lambda0, phiOrigin, 1, RADIUS, null, 0)!;
-    const ll = computeAuxSphereIntersectionsLonLat('azimuthal', lambda0, phiOrigin, 1, RADIUS)[0];
+    const surface = computeAuxSurfaceParams('azimuthalPerspective', lambda0, phiOrigin, 1, RADIUS, null, 0)!;
+    const ll = computeAuxSphereIntersectionsLonLat('azimuthalPerspective', lambda0, phiOrigin, 1, RADIUS)[0];
     const c = ll.reduce((acc, p) => [acc[0] + p[0], acc[1] + p[1]], [0, 0] as [number, number]);
     const lon = c[0] / ll.length;
     const lat = c[1] / ll.length;
@@ -715,7 +737,7 @@ describe('aux-surface ↔ globe intersection physics', () => {
     closeTo(lat, phiOrigin, 0.5);
     // Applying auxPointToWorld (the old, buggy path) must move the ring off the
     // contact point — otherwise this test would not protect against a regression.
-    const raw = computeAuxSphereIntersections('azimuthal', lambda0, phiOrigin, 1, RADIUS)[0];
+    const raw = computeAuxSphereIntersections('azimuthalPerspective', lambda0, phiOrigin, 1, RADIUS)[0];
     const moved = raw.map((p) => auxPointToWorld(surface, p));
     const mc = moved.reduce((acc, p) => [acc[0] + p[0], acc[1] + p[1], acc[2] + p[2]], [0, 0, 0] as [number, number, number]);
     const [mlon, mlat] = vec3ToLonLat([mc[0] / moved.length, mc[1] / moved.length, mc[2] / moved.length]);
@@ -750,7 +772,12 @@ describe('aux-surface ↔ globe intersection physics', () => {
 describe('area-distortion invariants', () => {
   it('equal-area family reports ~0% mean area distortion for every family', () => {
     for (const family of FAMILIES) {
-      const az = family === 'azimuthal' ? 'math' : 'math';
+      // azimuthalPerspective's "equalArea" distortion is not an equal-area
+      // projection (it routes to gnomonic); the equal-area azimuthal family is
+      // azimuthalMath. Only test the families whose equal-area model actually
+      // preserves area.
+      if (family === 'azimuthalPerspective') continue;
+      const az = 'math';
       const d = computeAreaDistortion(base({ family, distortion: 'equalArea', azLight: az, phiOrigin: family === 'cylindrical' ? 0 : 25 }));
       expect(d).toBeLessThan(5);
     }
@@ -771,7 +798,7 @@ describe('area-distortion invariants', () => {
   });
 
   it('conic/azimuthal area distortion is invariant under scaleFactor (pure zoom)', () => {
-    for (const family of ['conic', 'azimuthal'] as ProjectionFamily[]) {
+    for (const family of ['conic', 'azimuthalPerspective', 'azimuthalMath'] as ProjectionFamily[]) {
       const a = computeAreaDistortion(base({ family, distortion: 'equalArea', scaleFactor: 0.9, phiOrigin: 25, azLight: 'math' }));
       const b = computeAreaDistortion(base({ family, distortion: 'equalArea', scaleFactor: 1.1, phiOrigin: 25, azLight: 'math' }));
       closeTo(a, b, 1e-6);

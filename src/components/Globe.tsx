@@ -5,6 +5,7 @@ import { NEON_BLUE, BG } from '../constants/designTokens';
 import { RADIUS, GLOBE_INFLATE } from '../constants/geometry';
 import { lonLatToVec3, type Vec3 } from '../utils/auxSurfaceGeometry';
 import type { FeatureCollection, Geometry } from 'geojson';
+import { useVisualizationParams } from '../store/selectors';
 
 function GlobeShell() {
   return (
@@ -22,20 +23,23 @@ function GlobeShell() {
 }
 
 function Graticule() {
+  const { graticuleStep, showGraticule } = useVisualizationParams();
   const lines = useMemo<Vec3[][]>(() => {
+    if (!showGraticule) return [];
+    const step = graticuleStep;
     const out: Vec3[][] = [];
-    for (let lon = -180; lon <= 180; lon += 30) {
+    for (let lon = -180; lon <= 180; lon += step) {
       const pts: Vec3[] = [];
       for (let lat = -90; lat <= 90; lat += 3) pts.push(lonLatToVec3(lon, lat));
       out.push(pts);
     }
-    for (const lat of [-60, -30, 0, 30, 60]) {
+    for (let lat = -90; lat <= 90; lat += step) {
       const pts: Vec3[] = [];
       for (let lon = -180; lon <= 180; lon += 3) pts.push(lonLatToVec3(lon, lat));
       out.push(pts);
     }
     return out;
-  }, []);
+  }, [graticuleStep, showGraticule]);
 
   return (
     <group>

@@ -1,43 +1,58 @@
 import { useMemo, useState } from 'react';
-import { useAppStore, type ProjectionFamily } from '../store/useAppStore';
-import { useProjectionParams } from '../store/selectors';
+import { useAppStore } from '../store/useAppStore';
+import { useProjectionParams, useVisualizationParams } from '../store/selectors';
 import {
   variantDef,
   defaultVariant,
-  type ProjectionVariant,
 } from '../utils/projectionVariants';
 import ProjectionCatalog from './ProjectionCatalog';
 import ProjectionSummary from './ProjectionSummary';
-import { FamilyIcon, ResetIcon, InfoIcon } from './ui/icons';
-import { labelClass, activeTab, inactiveTab, iconBtn, sliderClass, fieldRow } from './ui/styles';
-import { signedStandardParallelDeg } from '../constants/geometry';
-
-const FAMILY_LABEL_MAP: Record<ProjectionFamily, string> = {
-  cylindrical: 'Цилиндрическая',
-  conic: 'Коническая',
-  azimuthal: 'Азимутальная',
-};
-
-const PARAM_LABELS: Record<ProjectionFamily, { lambda0: string; phiOrigin: string; gamma: string; scaleFactor: string }> = {
-  cylindrical: {
-    lambda0: 'Поворот вокруг Земли',
-    phiOrigin: 'Центральная широта (φ₀)',
-    gamma: 'Угол наклона цилиндра',
-    scaleFactor: 'Диаметр цилиндра',
-  },
-  conic: {
-    lambda0: 'Центральный меридиан',
-    phiOrigin: 'Стандартная параллель 1',
-    gamma: 'Наклон конуса',
-    scaleFactor: 'Масштаб',
-  },
-  azimuthal: {
-    lambda0: 'Долгота точки касания',
-    phiOrigin: 'Широта точки касания',
-    gamma: 'Вращение плоскости',
-    scaleFactor: 'Расстояние до плоскости',
-  },
-};
+import Dropdown from './Dropdown';
+import CircularSlider from './CircularSlider';
+import Toggle from './Toggle';
+import Badge from './ui/Badge';
+import { FamilyIcon, ResetIcon, InfoIcon, RulerIcon, HeatmapIcon, RaysIcon, GraticuleIcon, UnfoldIcon, NorthSouthIcon } from './ui/icons';
+import {
+  labelClass,
+  activeTab,
+  inactiveTab,
+  iconBtn,
+  sliderClass,
+  fieldRow,
+  radioGroup,
+  radioOption,
+  radioOptionActive,
+  radioOptionInactive,
+  presetChip,
+  presetChipActive,
+} from './ui/styles';
+import {
+  FAMILY_LABEL,
+  VIZ_METHOD_OPTIONS,
+  HEATMAP_TYPE_OPTIONS,
+  TEST_FIGURE_OPTIONS,
+  GRATICULE_STEP_OPTIONS,
+  CONE_HEMISPHERE_OPTIONS,
+  UTM_ZONE_OPTIONS,
+  CYLINDER_ORIENTATION_LABELS,
+  AZ_LIGHT_LABEL_MAP,
+  AZ_LIGHT_ICON_MAP,
+} from './ui/labels';
+import {
+  utmZoneToCentralMeridian,
+  signedStandardParallelDeg,
+  k0ToStandardParallel,
+  standardParallelToK0,
+  AZ_HEIGHT_MIN,
+  AZ_HEIGHT_MAX,
+  AZ_HEIGHT_STEP,
+  CIRCLE_RADIUS_MIN,
+  CIRCLE_RADIUS_MAX,
+  SOM_INCLINATION_MIN,
+  SOM_INCLINATION_MAX,
+  SOM_PERIOD_MIN,
+  SOM_PERIOD_MAX,
+} from '../constants/geometry';
 
 function ParamSlider({
   label,
@@ -63,11 +78,11 @@ function ParamSlider({
   return (
     <div className={fieldRow} title={disabled && tooltip ? tooltip : undefined}>
       {tooltip && disabled ? (
-        <span className={`${labelClass} w-40 shrink-0 cursor-help opacity-40`} title={tooltip}>
+        <span className={`${labelClass} w-44 shrink-0 cursor-help opacity-40`} title={tooltip}>
           {label} 🔗
         </span>
       ) : (
-        <span className={`${labelClass} w-40 shrink-0 ${disabled ? 'opacity-40' : ''}`}>
+        <span className={`${labelClass} w-44 shrink-0 ${disabled ? 'opacity-40' : ''}`}>
           {disabled ? `🔒 ${label}` : label}
         </span>
       )}
@@ -84,7 +99,7 @@ function ParamSlider({
           onChange={(e) => onChange(Number(e.target.value))}
           className={sliderClass}
         />
-        <span className={`w-9 shrink-0 text-right text-[12px] ${disabled ? 'text-gray-500' : 'text-neon-blue'}`}>
+        <span className={`w-12 shrink-0 text-right text-[12px] ${disabled ? 'text-gray-500' : 'text-neon-blue'}`}>
           {value}
           {suffix}
         </span>
@@ -112,9 +127,7 @@ function StdParallel2Control({
   if (disabled) {
     return (
       <div className={fieldRow} title={tooltip ?? undefined}>
-        <span className={`${labelClass} w-40 shrink-0 cursor-help opacity-40`}>
-          🔗 Параллель 2
-        </span>
+        <span className={`${labelClass} w-44 shrink-0 cursor-help opacity-40`}>🔗 Параллель 2</span>
         <div className="flex flex-1 items-center gap-[4px]">
           <input type="range" min={0} max={90} step={1} value={value ?? 30} disabled className={sliderClass} />
           <span className="w-9 shrink-0 text-right text-[12px] text-gray-500">—</span>
@@ -125,7 +138,7 @@ function StdParallel2Control({
 
   return (
     <div className={fieldRow}>
-      <span className={`${labelClass} w-40 shrink-0`}>Параллель 2</span>
+      <span className={`${labelClass} w-44 shrink-0`}>Параллель 2</span>
       <button
         type="button"
         aria-pressed={secant}
@@ -152,42 +165,312 @@ function StdParallel2Control({
   );
 }
 
+function PresetChips({
+  presets,
+  active,
+  onSelect,
+}: {
+  presets: { label: string; phi: number; lambda: number }[];
+  active: { phi: number; lambda: number } | null;
+  onSelect: (phi: number, lambda: number) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      {presets.map((p) => {
+        const isActive = active != null && Math.abs(active.phi - p.phi) < 0.5 && Math.abs(active.lambda - p.lambda) < 0.5;
+        return (
+          <button
+            key={p.label}
+            type="button"
+            onClick={() => onSelect(p.phi, p.lambda)}
+            className={`${presetChip} ${isActive ? presetChipActive : ''}`}
+          >
+            {p.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// Top-level projection parameter controls (context-driven by VariantDef).
+function ProjectionParamsSection({ def }: { def: ReturnType<typeof variantDef> }) {
+  const params = useProjectionParams();
+  const setParam = useAppStore((s) => s.setParam);
+  const { family, lambda0, phiOrigin, scaleFactor, gamma, stdParallel2, utmZone, coneHemisphere, azHeight, azTiltDeg, azAzimuthDeg, circleRadiusKm, somInclination, somPeriod, somNodeLongitude } = params;
+
+  const effLambda0 = utmZone != null ? utmZoneToCentralMeridian(utmZone) : lambda0;
+
+  return (
+    <div className="flex flex-col gap-2.5">
+      {def.showCylinderOrientation && (
+        <div className={fieldRow}>
+          <span className={`${labelClass} w-44 shrink-0`}>Ориентация цилиндра</span>
+          <span className="text-[12px] text-neon-blue">{CYLINDER_ORIENTATION_LABELS[def.cylinderOrientation ?? 'straight']}</span>
+        </div>
+      )}
+
+      {def.showUtmZone && (
+        <>
+          <div className={fieldRow}>
+            <span className={`${labelClass} w-44 shrink-0`}>Зона UTM</span>
+            <Dropdown
+              value={utmZone != null ? String(utmZone) : ''}
+              options={UTM_ZONE_OPTIONS}
+              onChange={(v) => {
+                const z = Number(v);
+                useAppStore.getState().setUtmZone(z);
+                setParam('lambda0', utmZoneToCentralMeridian(z));
+              }}
+            />
+          </div>
+          <ParamSlider label="Долгота (λ₀)" value={effLambda0} min={-180} max={180} step={1} disabled onChange={() => {}} />
+        </>
+      )}
+
+      {!def.showUtmZone && (
+        <ParamSlider label="Долгота (λ₀)" value={lambda0} min={-180} max={180} step={1} onChange={(v) => setParam('lambda0', v)} />
+      )}
+
+      {def.showParallel1 && (
+        <ParamSlider label="Параллель 1 (φ₁)" value={phiOrigin} min={-90} max={90} step={1} onChange={(v) => setParam('phiOrigin', v)} />
+      )}
+
+      {def.showK0 && (
+        <ParamSlider
+          label="k₀"
+          value={Math.round(standardParallelToK0(phiOrigin) * 1000) / 1000}
+          min={0.5}
+          max={1}
+          step={0.001}
+          suffix=""
+          disabled={!def.k0Editable}
+          tooltip={def.tooltips.k0 ?? null}
+          onChange={(v) => setParam('phiOrigin', k0ToStandardParallel(v))}
+        />
+      )}
+
+      {def.showParallel2 && (
+        <StdParallel2Control
+          value={stdParallel2}
+          phiOrigin={phiOrigin}
+          onChange={(v) => setParam('stdParallel2', v)}
+          disabled={!def.parallel2Editable}
+          tooltip={def.tooltips.stdParallel2 ?? null}
+        />
+      )}
+
+      {def.showNorthSouth && (
+        <div className={fieldRow}>
+          <span className={`${labelClass} w-44 shrink-0`}>Полушарие</span>
+          <div className={radioGroup}>
+            {CONE_HEMISPHERE_OPTIONS.map((o) => (
+              <button
+                key={o.value}
+                type="button"
+                aria-pressed={coneHemisphere === o.value}
+                onClick={() => useAppStore.getState().setConeHemisphere(o.value)}
+                className={`${radioOption} ${coneHemisphere === o.value ? radioOptionActive : radioOptionInactive}`}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {def.showAzHeight && (
+        <ParamSlider label="Высота фонарика (км)" value={azHeight} min={AZ_HEIGHT_MIN} max={AZ_HEIGHT_MAX} step={AZ_HEIGHT_STEP} suffix="" onChange={(v) => useAppStore.getState().setAzHeight(v)} />
+      )}
+
+      {def.showAzTilt && (
+        <ParamSlider label="Наклон камеры" value={azTiltDeg} min={0} max={89} step={1} onChange={(v) => useAppStore.getState().setAzTiltDeg(v)} />
+      )}
+
+      {def.showAzAzimuth && (
+        <div className={fieldRow}>
+          <span className={`${labelClass} w-44 shrink-0`}>Азимут камеры</span>
+          <CircularSlider value={azAzimuthDeg} min={0} max={360} step={1} onChange={(v) => useAppStore.getState().setAzAzimuthDeg(v)} />
+        </div>
+      )}
+
+      {family === 'azimuthalPerspective' || family === 'azimuthalMath' ? (
+        <ParamSlider label="Широта точки (φ₀)" value={phiOrigin} min={-90} max={90} step={1} onChange={(v) => setParam('phiOrigin', v)} />
+      ) : null}
+
+      {def.showTouchPointPresets && def.touchPointPresets && (
+        <div className="flex flex-col gap-1">
+          <span className={labelClass}>Пресеты точки касания</span>
+          <PresetChips presets={def.touchPointPresets} active={{ phi: phiOrigin, lambda: lambda0 }} onSelect={(phi, lambda) => { setParam('phiOrigin', phi); setParam('lambda0', lambda); }} />
+        </div>
+      )}
+
+      {def.showCircleRadius && (
+        <ParamSlider label="Радиус круга (км)" value={circleRadiusKm} min={CIRCLE_RADIUS_MIN} max={CIRCLE_RADIUS_MAX} step={500} suffix="" onChange={(v) => useAppStore.getState().setCircleRadiusKm(v)} />
+      )}
+
+      {def.showOrbitalParams && (
+        <>
+          <ParamSlider label="Наклонение орбиты" value={somInclination} min={SOM_INCLINATION_MIN} max={SOM_INCLINATION_MAX} step={1} onChange={(v) => useAppStore.getState().setSomInclination(v)} />
+          <ParamSlider label="Период (мин)" value={somPeriod} min={SOM_PERIOD_MIN} max={SOM_PERIOD_MAX} step={1} onChange={(v) => useAppStore.getState().setSomPeriod(v)} />
+          <ParamSlider label="Долгота узла" value={somNodeLongitude} min={-180} max={180} step={1} onChange={(v) => useAppStore.getState().setSomNodeLongitude(v)} />
+        </>
+      )}
+
+      {def.showCylinderOrientation && (
+        <ParamSlider
+          label={family === 'cylindrical' && def.cylinderOrientation === 'oblique' ? 'Азимут' : 'Наклон (γ)'}
+          value={gamma}
+          min={-180}
+          max={180}
+          step={1}
+          disabled={def.lockedGamma !== null}
+          tooltip={def.tooltips.gamma ?? null}
+          onChange={(v) => setParam('gamma', v)}
+        />
+      )}
+
+      {family !== 'cylindrical' && (
+        <ParamSlider
+          label="Наклон (γ)"
+          value={gamma}
+          min={-180}
+          max={180}
+          step={1}
+          disabled={def.lockedGamma !== null}
+          tooltip={def.tooltips.gamma ?? null}
+          onChange={(v) => setParam('gamma', v)}
+        />
+      )}
+
+      <ParamSlider
+        label="Масштаб"
+        value={scaleFactor}
+        min={family === 'cylindrical' ? 0.5 : 0.9}
+        max={family === 'cylindrical' ? 1.0 : 1.1}
+        step={0.01}
+        suffix=""
+        disabled={def.lockedScaleFactor !== null}
+        tooltip={def.tooltips.scaleFactor ?? null}
+        onChange={(v) => setParam('scaleFactor', v)}
+      />
+
+      {(family === 'azimuthalPerspective' || family === 'azimuthalMath') && (
+        <div className={fieldRow}>
+          <span className={`${labelClass} w-44 shrink-0 ${def.lockedLight ? 'opacity-40' : ''}`}>
+            {def.lockedLight ? '🔒 Источник света' : 'Источник света'}
+          </span>
+          <span className="text-[12px] text-gray-400">
+            {AZ_LIGHT_ICON_MAP[params.azLight]} {AZ_LIGHT_LABEL_MAP[params.azLight]}
+          </span>
+        </div>
+      )}
+
+      {def.poleDistortionLabel && (
+        <div className="text-[11px] text-neon-blue/50 italic">Искажение полюсов: {def.poleDistortionLabel}</div>
+      )}
+      {def.applicationLabel && (
+        <div className="text-[11px] text-neon-blue/40 italic">Применение: {def.applicationLabel}</div>
+      )}
+      {!def.hasRays && (
+        <div className="text-[11px] text-neon-blue/40 italic">Математическая формула, без лучей</div>
+      )}
+    </div>
+  );
+}
+
+// Universal visualization panel (rays, heatmap, graticule, figures, methods).
+function VisualizationSection({ def }: { def: ReturnType<typeof variantDef> }) {
+  const viz = useVisualizationParams();
+  const store = useAppStore();
+  const setVizMethod = store.setVizMethod;
+  const setShowHeatmap = store.setShowHeatmap;
+  const setHeatmapType = store.setHeatmapType;
+  const setGraticuleStep = store.setGraticuleStep;
+  const setShowGraticule = store.setShowGraticule;
+  const setTestFigureType = store.setTestFigureType;
+  const setShowRays = store.setShowRays;
+  const setRulerActive = store.setRulerActive;
+  const startUnfold = store.startUnfold;
+
+  return (
+    <div className="flex flex-col gap-2.5 border-t border-white/10 pt-3">
+      <span className={labelClass}>Визуализация</span>
+
+      <div className={fieldRow}>
+        <span className={`${labelClass} w-44 shrink-0`}>Метод</span>
+        <Dropdown
+          value={viz.vizMethod}
+          options={VIZ_METHOD_OPTIONS}
+          onChange={(v) => setVizMethod(v as typeof viz.vizMethod)}
+        />
+      </div>
+
+      <Toggle label="Индикатрисы Тиссо" checked={store.showTissot} onChange={store.setShowTissot} icon={<span className="w-4 text-center text-neon-blue/80">◎</span>} />
+
+      <div className="flex items-center gap-2">
+        <Toggle label="Сетка" checked={viz.showGraticule} onChange={setShowGraticule} icon={<GraticuleIcon />} />
+        <Dropdown
+          value={String(viz.graticuleStep)}
+          options={GRATICULE_STEP_OPTIONS.map((o) => ({ value: String(o.value), label: o.label }))}
+          onChange={(v) => setGraticuleStep(Number(v) as typeof viz.graticuleStep)}
+        />
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Toggle label="Тепловая карта" checked={viz.showHeatmap} onChange={setShowHeatmap} icon={<HeatmapIcon />} />
+        {viz.showHeatmap && (
+          <Dropdown
+            value={viz.heatmapType}
+            options={HEATMAP_TYPE_OPTIONS}
+            onChange={(v) => setHeatmapType(v as typeof viz.heatmapType)}
+          />
+        )}
+      </div>
+
+      <div className={fieldRow}>
+        <span className={`${labelClass} w-44 shrink-0`}>Тестовые фигуры</span>
+        <Dropdown
+          value={viz.testFigureType ?? ''}
+          allLabel="Нет"
+          options={TEST_FIGURE_OPTIONS}
+          onChange={(v) => setTestFigureType(v ? (v as NonNullable<typeof viz.testFigureType>) : null)}
+        />
+      </div>
+
+      {def.hasRays && (
+        <Toggle label="Лучи света" checked={viz.showRays} onChange={setShowRays} icon={<RaysIcon />} />
+      )}
+
+      {(familyIsCylOrConic(def.family)) && (
+        <button
+          type="button"
+          onClick={() => startUnfold()}
+          className={`${iconBtn} justify-start gap-2 px-3`}
+          title="Развернуть вспомогательную поверхность"
+        >
+          <UnfoldIcon />
+          <span className="text-[12px]">Развернуть</span>
+        </button>
+      )}
+
+      <Toggle label="Линейка" checked={viz.rulerActive} onChange={setRulerActive} icon={<RulerIcon />} />
+    </div>
+  );
+}
+
+function familyIsCylOrConic(f: string): boolean {
+  return f === 'cylindrical' || f === 'conic';
+}
+
 export default function ControlPanel() {
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const params = useProjectionParams();
-  const { variant, family, lambda0, phiOrigin, scaleFactor, gamma, stdParallel2, azLight } = params;
-  const setParam = useAppStore((s) => s.setParam);
+  const { variant, family } = params;
   const setVariant = useAppStore((s) => s.setVariant);
-  const resetParams = useAppStore((s) => s.resetParams);
 
   const def = useMemo(() => variantDef(variant ?? defaultVariant(family)), [variant, family]);
-
-  const gammaLocked = def.lockedGamma !== null;
-  const scaleLocked = def.lockedScaleFactor !== null;
-  const stdParallel2Locked = def.lockedStdParallel2 !== null;
-
-  const scaleTooltip = def.tooltips.scaleFactor ?? null;
-  const gammaTooltip = def.tooltips.gamma ?? null;
-
-  const isCyl = family === 'cylindrical';
-  const isCon = family === 'conic';
-  const isAz = family === 'azimuthal';
-
-  const lightLabel = useMemo(() => {
-    if (!isAz) return null;
-    const m: Record<string, string> = {
-      center: 'Центр Земли',
-      antipode: 'Противоположный полюс',
-      infinity: 'Бесконечность',
-      math: 'Математическая',
-    };
-    return m[azLight] ?? '';
-  }, [isAz, azLight]);
-
-  const handleSelectProjection = (_family: ProjectionFamily, v: ProjectionVariant) => {
-    setVariant(v);
-  };
 
   return (
     <div className="flex flex-col gap-3.5 px-3 py-3">
@@ -200,129 +483,29 @@ export default function ControlPanel() {
         >
           <FamilyIcon family={family} />
           <span className="truncate text-[12px]">
-            {FAMILY_LABEL_MAP[family]} — {def.label}
+            {FAMILY_LABEL[family as keyof typeof FAMILY_LABEL]} — {def.label}
           </span>
         </button>
-        <button
-          title="Точные параметры проекции"
-          aria-label="Точные параметры проекции"
-          onClick={() => setShowSummary(true)}
-          className={iconBtn}
-        >
+        <button title="Точные параметры проекции" aria-label="Точные параметры проекции" onClick={() => setShowSummary(true)} className={iconBtn}>
           <InfoIcon />
         </button>
-        <button
-          title="Сбросить параметры"
-          aria-label="Сбросить параметры"
-          onClick={() => resetParams()}
-          className={iconBtn}
-        >
+        <button title="Сбросить параметры" aria-label="Сбросить параметры" onClick={() => useAppStore.getState().resetParams()} className={iconBtn}>
           <ResetIcon />
         </button>
       </div>
 
-      <ParamSlider
-        label={PARAM_LABELS[family].lambda0}
-        value={lambda0}
-        min={-180}
-        max={180}
-        step={1}
-        suffix="°"
-        onChange={(v) => setParam('lambda0', v)}
-      />
+      <div className="flex flex-wrap gap-1.5">
+        <Badge label={def.surfaceTypeLabel} icon={<NorthSouthIcon />} />
+        <Badge label={def.propertyLabel} />
+      </div>
 
-      {isAz && (
-        <ParamSlider
-          label={PARAM_LABELS[family].phiOrigin}
-          value={phiOrigin}
-          min={-90}
-          max={90}
-          step={1}
-          suffix="°"
-          onChange={(v) => setParam('phiOrigin', v)}
-        />
-      )}
-
-      {isCon && (
-        <ParamSlider
-          label={PARAM_LABELS[family].phiOrigin}
-          value={phiOrigin}
-          min={-90}
-          max={90}
-          step={1}
-          suffix="°"
-          onChange={(v) => setParam('phiOrigin', v)}
-        />
-      )}
-
-      {isCon && (
-        <StdParallel2Control
-          value={stdParallel2}
-          phiOrigin={phiOrigin}
-          onChange={(v) => setParam('stdParallel2', v)}
-          disabled={stdParallel2Locked}
-          tooltip={stdParallel2Locked ? (def.tooltips.stdParallel2 ?? null) : null}
-        />
-      )}
-
-      {isCyl && (
-        <StdParallel2Control
-          value={stdParallel2}
-          phiOrigin={phiOrigin}
-          onChange={(v) => setParam('stdParallel2', v)}
-          disabled={true}
-        />
-      )}
-
-      <ParamSlider
-        label={PARAM_LABELS[family].gamma}
-        value={gammaLocked ? (def.lockedGamma ?? 0) : gamma}
-        min={-180}
-        max={180}
-        step={1}
-        suffix="°"
-        disabled={gammaLocked}
-        tooltip={gammaTooltip}
-        onChange={(v) => setParam('gamma', v)}
-      />
-
-      <ParamSlider
-        label={PARAM_LABELS[family].scaleFactor}
-        value={scaleFactor}
-        min={isCyl ? 0.5 : 0.9}
-        max={isCyl ? 1.0 : 1.1}
-        step={0.01}
-        suffix=""
-        disabled={scaleLocked}
-        tooltip={scaleTooltip}
-        onChange={(v) => setParam('scaleFactor', v)}
-      />
-
-      {isAz && (
-        <div className={fieldRow}>
-          <span className={`${labelClass} w-40 shrink-0 ${def.lockedLight ? 'opacity-40' : ''}`}>
-            {def.lockedLight ? '🔒 Источник света' : 'Источник света'}
-          </span>
-          <span className="text-[12px] text-gray-400">{lightLabel}</span>
-        </div>
-      )}
-
-      {def.formulaDescription && !isAz && (
-        <div className="text-[11px] text-neon-blue/50 italic">
-          {def.formulaDescription}
-        </div>
-      )}
-
-      {!def.hasRays && (
-        <div className="text-[11px] text-neon-blue/40 italic">
-          Математическая формула, без лучей
-        </div>
-      )}
+      <ProjectionParamsSection def={def} />
+      <VisualizationSection def={def} />
 
       {catalogOpen && (
         <ProjectionCatalog
           onClose={() => setCatalogOpen(false)}
-          onSelect={handleSelectProjection}
+          onSelect={(_f, v) => setVariant(v)}
         />
       )}
       {showSummary && <ProjectionSummary params={params} onClose={() => setShowSummary(false)} />}

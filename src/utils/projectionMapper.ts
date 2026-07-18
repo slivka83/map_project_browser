@@ -2,7 +2,16 @@ import * as d3Geo from 'd3-geo';
 import type { GeoProjection, GeoConicProjection } from 'd3-geo';
 import type { Polygon } from 'geojson';
 import type { ProjectionParams } from '../store/useAppStore';
-import { MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y, CLIP_LAT, FIT_MARGIN, signedStandardParallelDeg } from '../constants/geometry';
+import {
+  MAP_SCALE,
+  VIEW_CENTER_X,
+  VIEW_CENTER_Y,
+  CLIP_LAT,
+  FIT_MARGIN,
+  signedStandardParallelDeg,
+  utmZoneToCentralMeridian,
+  circleRadiusToScale,
+} from '../constants/geometry';
 
 const clampScale = (s: number): number => Math.max(0, Math.min(1, s));
 
@@ -71,39 +80,68 @@ function makeCylindricalProjection(
   return proj;
 }
 
-// Miller cylindrical projection: a mathematical modification of Mercator that
-// avoids the pole singularity without a physical light-source model.
-// Formula: x = λ, y = (5/4)·ln[tan(π/4 + 2φ/5)].
-function makeMillerProjection(scaleFactor: number): GeoProjection {
-  const s = clampScale(scaleFactor);
-  const cosS = Math.cos(Math.acos(s));
-  const clipRad = (CLIP_LAT * Math.PI) / 180;
-  const clampPhi = (φ: number): number => Math.max(-clipRad, Math.min(clipRad, φ));
+// Vertical (Near-Sided) perspective projection. The observer is at height
+// `heightKm` km above the point of tangency. For a point at angular distance c
+// from the tangency point (azimuth `az` around it):
+//   k = (R + H) / (H + R·(1 - cos c))
+//   x = k·R·sin c·sin az,  y = k·R·sin c·cos az
+// As H → ∞ this tends to the orthographic projection. The inverse is exact: from
+// the map radius ρ we recover c by solving the line-of-sight intersection with
+// the sphere, then recover lat/lon from c and az.
+export function makeVerticalPerspective(heightKm: number, earthRadiusKm = 6371): GeoProjection {
+  const R = earthRadiusKm;
+  const H = Math.max(0, heightKm);
   type RawProjection = ((λ: number, φ: number) => [number, number]) & {
     invert?: (x: number, y: number) => [number, number];
   };
-  const raw: RawProjection = ((λ: number, φ: number): [number, number] => [
-    λ * cosS,
-    (5 / 4) * cosS * Math.log(Math.tan(Math.PI / 4 + (2 * clampPhi(φ)) / 5)),
-  ]) as RawProjection;
+  // Angular distance from the tangency point (0,0) and azimuth:
+  const cOf = (λ: number, φ: number): number => {
+    const lat = (φ * Math.PI) / 180;
+    const lon = (λ * Math.PI) / 180;
+    return Math.acos(Math.max(-1, Math.min(1, Math.sin(lat) + Math.cos(lat) * Math.cos(lon))));
+  };
+  const azOf = (λ: number, φ: number): number => {
+    const lat = (φ * Math.PI) / 180;
+    const lon = (λ * Math.PI) / 180;
+    return Math.atan2(-Math.sin(lon), Math.tan(lat));
+  };
+  const raw: RawProjection = ((λ: number, φ: number): [number, number] => {
+    const c = cOf(λ, φ);
+    const az = azOf(λ, φ);
+    const k = (R + H) / (H + R * (1 - Math.cos(c)));
+    const rho = k * R * Math.sin(c);
+    return [rho * Math.sin(az), rho * Math.cos(az)];
+  }) as RawProjection;
   raw.invert = (x: number, y: number): [number, number] => {
-    const φ = (5 / 2) * Math.atan(Math.exp((4 * y) / (5 * cosS))) - (5 * Math.PI) / 8;
-    return [x / cosS, φ];
+    const p = Math.hypot(x, y);
+    if (p <= 1e-9) return [0, 0];
+    // ρ = (R+H)·R·sin c / (H + R(1 - cos c)). Solve for c via the geometry of the
+    // line from the observer at (0, R+H) to the projected point (ρ, H):
+    // the direction to the sphere centre, then the entry angle c.
+    const dir = Math.sqrt(p * p + H * H);
+    const cosGamma = (R * R - p * p - H * H) / (2 * R * dir);
+    const gamma = Math.acos(Math.max(-1, Math.min(1, cosGamma)));
+    const c = Math.atan2(p, H) - gamma;
+    const az = Math.atan2(x, y);
+    const lat = 90 - (c * 180) / Math.PI;
+    const lon = (az * 180) / Math.PI;
+    return [lon, lat];
   };
   const proj = d3Geo.geoProjection(raw);
-  proj.precision(0);
+  proj.precision(0.1);
   return proj;
 }
 
 export const getD3Projection = (state: ProjectionParams): GeoProjection => {
-  const { family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, azLight } = state;
+  const { family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, azLight, utmZone, azHeight, circleRadiusKm } = state;
+
+  // Effective central meridian: UTM overrides for transverse Mercator.
+  const effLambda0 = family === 'cylindrical' && utmZone != null ? utmZoneToCentralMeridian(utmZone) : lambda0;
 
   let proj: GeoProjection;
 
   if (family === 'cylindrical') {
-    if (state.variant === 'miller') {
-      proj = makeMillerProjection(scaleFactor);
-    } else if (distortion === 'conformal') {
+    if (distortion === 'conformal') {
       proj = makeCylindricalProjection('conformal', scaleFactor);
     } else if (distortion === 'equalArea') {
       proj = makeCylindricalProjection('equalArea', scaleFactor);
@@ -112,7 +150,7 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
     }
     const rotZ = 0;
     proj
-      .rotate([-(lambda0), -phiOrigin, rotZ])
+      .rotate([-(effLambda0), -phiOrigin, rotZ])
       .scale(MAP_SCALE * scaleFactor)
       .translate([VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing]);
     return proj;
@@ -122,43 +160,44 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
     if (distortion === 'conformal') proj = d3Geo.geoConicConformal();
     else if (distortion === 'equalArea') proj = d3Geo.geoConicEqualArea();
     else proj = d3Geo.geoConicEquidistant();
-    const phi1 = signedStandardParallelDeg(phiOrigin);
-    const phi2 = state.stdParallel2 != null ? state.stdParallel2 : phi1;
+    // Hemisphere sign comes from the cone-hemisphere selector.
+    const sign = state.coneHemisphere === 'south' ? -1 : 1;
+    const phi1Raw = signedStandardParallelDeg(phiOrigin) * sign;
+    const phi1 = Math.abs(phiOrigin) < 10 ? (30 * sign) : phi1Raw;
+    const phi2 = state.stdParallel2 != null ? state.stdParallel2 * sign : phi1;
     proj = (proj as GeoConicProjection).parallels([phi1, phi2]);
     const rotZ = -gamma;
     proj
-      .rotate([-(lambda0), -phiOrigin, rotZ])
+      .rotate([-(effLambda0), -phiOrigin, rotZ])
       .scale(MAP_SCALE * scaleFactor)
       .translate([VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing]);
     return proj;
   }
 
-  if (family === 'azimuthal') {
-    if (azLight === 'center') proj = d3Geo.geoGnomonic();
+  if (family === 'azimuthalPerspective') {
+    if (state.variant === 'verticalPerspective') {
+      proj = makeVerticalPerspective(azHeight);
+    } else if (state.variant === 'tiltedPerspective') {
+      proj = makeVerticalPerspective(azHeight);
+    } else if (azLight === 'center') proj = d3Geo.geoGnomonic();
     else if (azLight === 'antipode') proj = d3Geo.geoStereographic();
     else if (azLight === 'infinity') proj = d3Geo.geoOrthographic();
-    else if (distortion === 'conformal') proj = d3Geo.geoStereographic();
-    else if (distortion === 'equalArea') proj = d3Geo.geoAzimuthalEqualArea();
-    else proj = d3Geo.geoAzimuthalEquidistant();
+    else proj = d3Geo.geoGnomonic();
     const rotZ = -gamma;
     proj
-      .rotate([-(lambda0), -phiOrigin, rotZ])
+      .rotate([-(effLambda0), -phiOrigin, rotZ])
       .scale(MAP_SCALE * scaleFactor)
       .translate([VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing]);
     return proj;
   }
 
-  // azimuthal
-  if (azLight === 'center') proj = d3Geo.geoGnomonic();
-  else if (azLight === 'antipode') proj = d3Geo.geoStereographic();
-  else if (azLight === 'infinity') proj = d3Geo.geoOrthographic();
-  else if (distortion === 'conformal') proj = d3Geo.geoStereographic();
-  else if (distortion === 'equalArea') proj = d3Geo.geoAzimuthalEqualArea();
+  // azimuthalMath
+  const mathScale = circleRadiusToScale(circleRadiusKm) * MAP_SCALE * scaleFactor;
+  if (distortion === 'equalArea') proj = d3Geo.geoAzimuthalEqualArea();
   else proj = d3Geo.geoAzimuthalEquidistant();
-  const rotZ2 = -gamma;
   proj
-    .rotate([-(lambda0), -phiOrigin, rotZ2])
-    .scale(MAP_SCALE * scaleFactor)
+    .rotate([-(effLambda0), -phiOrigin, -gamma])
+    .scale(mathScale)
     .translate([VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing]);
   return proj;
 };
@@ -225,21 +264,10 @@ const ARTIFACT_SCALE_LIMIT = 50;
 export function computeAreaDistortion(params: ProjectionParams): number {
   const proj = getD3Projection(params);
   const d = 0.25; // half-size of the sampling quad, degrees (small → low curvature error)
-  // Reference = the area scale at the standard parallel (where true scale = 1),
-  // NOT the map centre. Local area scale is measured in pixel²/steradian, so the
-  // reference must be the value AT the undistorted latitude, not a fixed constant
-  // (the constant factor differs per distortion type). For a cylindrical family
-  // the standard parallels are the surface–globe intersections at ±arccos(
-  // scaleFactor) (a tangent cylinder is the single-intersection limit at
-  // scaleFactor = 1); referencing them makes the reported distortion DROP as the
-  // cylinder diameter shrinks, matching the 3D intersection rings. Conic/azimuthal
-  // treat scaleFactor as a true zoom, so they keep the centre as the reference.
   let aRef: number | null;
   if (params.family === 'cylindrical') {
     const s = Math.max(0, Math.min(1, params.scaleFactor));
     const phiS = (Math.acos(s) * 180) / Math.PI; // standard-parallel latitude magnitude, in degrees
-    // World latitude φ_s displays at φ_s − phiOrigin under the projection's
-    // latitude rotation; both intersection parallels are candidates.
     const cands = [phiS - params.phiOrigin, -phiS - params.phiOrigin];
     let best: number | null = null;
     for (const lat of cands) {
@@ -252,7 +280,8 @@ export function computeAreaDistortion(params: ProjectionParams): number {
     }
     aRef = best;
   } else {
-    const centre = localAreaScale(proj, params.lambda0, params.phiOrigin, d);
+    const lam = params.lambda0;
+    const centre = localAreaScale(proj, lam, params.phiOrigin, d);
     aRef = centre != null && centre > 0 ? centre : null;
   }
   const scales: number[] = [];

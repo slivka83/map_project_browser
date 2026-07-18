@@ -3,23 +3,27 @@ import { createPortal } from 'react-dom';
 import {
   CYLINDRICAL_VARIANT_OPTIONS,
   CONIC_VARIANT_OPTIONS,
-  AZIMUTHAL_VARIANT_OPTIONS,
+  AZIMUTHAL_PERSPECTIVE_VARIANT_OPTIONS,
+  AZIMUTHAL_MATH_VARIANT_OPTIONS,
   type ProjectionVariant,
 } from '../utils/projectionVariants';
 import type { ProjectionFamily } from '../store/useAppStore';
-import { FamilyIcon } from './ui/icons';
+import { CylinderSurfaceIcon, ConeSurfaceIcon, LightSourceIcon, PlaneMathIcon } from './ui/icons';
 import { modalOverlay, modalShell } from './ui/styles';
+import type { ReactNode } from 'react';
 
 interface GroupedOptions {
   family: ProjectionFamily;
   label: string;
+  icon: ReactNode;
   options: { value: ProjectionVariant; label: string }[];
 }
 
 const ALL_GROUPS: GroupedOptions[] = [
-  { family: 'cylindrical', label: 'Цилиндрическая', options: CYLINDRICAL_VARIANT_OPTIONS as { value: ProjectionVariant; label: string }[] },
-  { family: 'conic', label: 'Коническая', options: CONIC_VARIANT_OPTIONS as { value: ProjectionVariant; label: string }[] },
-  { family: 'azimuthal', label: 'Азимутальная', options: AZIMUTHAL_VARIANT_OPTIONS as { value: ProjectionVariant; label: string }[] },
+  { family: 'cylindrical', label: 'Цилиндрические', icon: <CylinderSurfaceIcon />, options: CYLINDRICAL_VARIANT_OPTIONS as { value: ProjectionVariant; label: string }[] },
+  { family: 'conic', label: 'Конические', icon: <ConeSurfaceIcon />, options: CONIC_VARIANT_OPTIONS as { value: ProjectionVariant; label: string }[] },
+  { family: 'azimuthalPerspective', label: 'Азимутальные перспективные', icon: <LightSourceIcon />, options: AZIMUTHAL_PERSPECTIVE_VARIANT_OPTIONS as { value: ProjectionVariant; label: string }[] },
+  { family: 'azimuthalMath', label: 'Азимутальные математические', icon: <PlaneMathIcon />, options: AZIMUTHAL_MATH_VARIANT_OPTIONS as { value: ProjectionVariant; label: string }[] },
 ];
 
 interface Props {
@@ -79,8 +83,8 @@ export default function ProjectionCatalog({ onClose, onSelect }: Props) {
         <div className="min-h-0 flex-1 overflow-auto">
           {filtered.map((group) => (
             <div key={group.family} className="mb-3">
-              <div className="sticky top-0 z-10 flex items-center gap-2 bg-panel-bg/95 px-1 py-1.5 text-xs uppercase tracking-wider text-neon-blue/60 backdrop-blur">
-                <FamilyIcon family={group.family} />
+               <div className="sticky top-0 z-10 flex items-center gap-2 bg-panel-bg/95 px-1 py-1.5 text-xs uppercase tracking-wider text-neon-blue/60 backdrop-blur">
+                {group.icon}
                 <span>{group.label}</span>
                 <span className="ml-auto text-white/25">{group.options.length}</span>
               </div>

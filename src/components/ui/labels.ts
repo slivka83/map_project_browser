@@ -1,19 +1,35 @@
-import type { ProjectionFamily, DistortionModel } from '../../store/useAppStore';
+import type {
+  ProjectionFamily,
+  DistortionModel,
+  VizMethod,
+  HeatmapType,
+  TestFigureType,
+  GraticuleStep,
+  ConeHemisphere,
+  AzimuthalLight,
+} from '../../store/useAppStore';
 import {
   CYLINDRICAL_VARIANT_OPTIONS,
   CONIC_VARIANT_OPTIONS,
-  AZIMUTHAL_VARIANT_OPTIONS,
+  AZIMUTHAL_PERSPECTIVE_VARIANT_OPTIONS,
+  AZIMUTHAL_MATH_VARIANT_OPTIONS,
   variantDef,
   type ProjectionVariant,
 } from '../../utils/projectionVariants';
 
-export { CYLINDRICAL_VARIANT_OPTIONS, CONIC_VARIANT_OPTIONS, AZIMUTHAL_VARIANT_OPTIONS };
+export {
+  CYLINDRICAL_VARIANT_OPTIONS,
+  CONIC_VARIANT_OPTIONS,
+  AZIMUTHAL_PERSPECTIVE_VARIANT_OPTIONS,
+  AZIMUTHAL_MATH_VARIANT_OPTIONS,
+};
 export { variantDef, type ProjectionVariant };
 
 const FAMILY_OPTIONS: { value: ProjectionFamily; label: string }[] = [
   { value: 'cylindrical', label: 'Цилиндрическая' },
   { value: 'conic', label: 'Коническая' },
-  { value: 'azimuthal', label: 'Азимутальная' },
+  { value: 'azimuthalPerspective', label: 'Азимутальная перспективная' },
+  { value: 'azimuthalMath', label: 'Азимутальная математическая' },
 ];
 
 const DISTORTION_OPTIONS: { value: DistortionModel; label: string }[] = [
@@ -29,3 +45,79 @@ export const FAMILY_LABEL: Record<ProjectionFamily, string> = Object.fromEntries
 export const DISTORTION_LABEL: Record<DistortionModel, string> = Object.fromEntries(
   DISTORTION_OPTIONS.map((o) => [o.value, o.label]),
 ) as Record<DistortionModel, string>;
+
+// Visualization-method labels (9 options, including "none").
+export const VIZ_METHOD_OPTIONS: { value: VizMethod; label: string }[] = [
+  { value: 'none', label: 'Нет' },
+  { value: 'normals', label: 'Перпендикулярные нормали' },
+  { value: 'particles', label: 'Капли и частицы' },
+  { value: 'magnetic', label: 'Магнитное притяжение' },
+  { value: 'peel', label: 'Снятие шкуры' },
+  { value: 'wave', label: 'Волновое проецирование' },
+  { value: 'laser', label: 'Лазерное сканирование' },
+  { value: 'construction', label: 'Геометрическое построение' },
+  { value: 'shadow', label: 'Театр теней' },
+];
+
+export const VIZ_METHOD_LABELS: Record<VizMethod, string> = Object.fromEntries(
+  VIZ_METHOD_OPTIONS.map((o) => [o.value, o.label]),
+) as Record<VizMethod, string>;
+
+export const HEATMAP_TYPE_OPTIONS: { value: HeatmapType; label: string }[] = [
+  { value: 'area', label: 'Площади' },
+  { value: 'angle', label: 'Углы' },
+  { value: 'scale', label: 'Масштаб' },
+];
+
+export const HEATMAP_TYPE_LABELS: Record<HeatmapType, string> = Object.fromEntries(
+  HEATMAP_TYPE_OPTIONS.map((o) => [o.value, o.label]),
+) as Record<HeatmapType, string>;
+
+export const TEST_FIGURE_OPTIONS: { value: TestFigureType; label: string }[] = [
+  { value: 'circles', label: 'Круги' },
+  { value: 'squares', label: 'Квадраты' },
+  { value: 'faces', label: 'Лица' },
+];
+
+export const TEST_FIGURE_LABELS: Record<TestFigureType, string> = Object.fromEntries(
+  TEST_FIGURE_OPTIONS.map((o) => [o.value, o.label]),
+) as Record<TestFigureType, string>;
+
+export const GRATICULE_STEP_OPTIONS: { value: GraticuleStep; label: string }[] = [
+  { value: 1, label: '1°' },
+  { value: 5, label: '5°' },
+  { value: 10, label: '10°' },
+  { value: 15, label: '15°' },
+  { value: 30, label: '30°' },
+];
+
+export const CYLINDER_ORIENTATION_LABELS: Record<'straight' | 'transverse' | 'oblique', string> = {
+  straight: 'Ровный',
+  transverse: 'Поперёк',
+  oblique: 'Наклон',
+};
+
+export const CONE_HEMISPHERE_OPTIONS: { value: ConeHemisphere; label: string }[] = [
+  { value: 'north', label: 'Север' },
+  { value: 'south', label: 'Юг' },
+];
+
+export const UTM_ZONE_OPTIONS: { value: string; label: string }[] = Array.from({ length: 60 }, (_, i) => {
+  const z = i + 1;
+  return { value: String(z), label: `Зона ${z}` };
+});
+
+// Azimuthal light-source labels / icons keyed by azLight mode.
+export const AZ_LIGHT_LABEL_MAP: Record<AzimuthalLight, string> = {
+  center: 'Центр Земли',
+  antipode: 'Противоположный полюс',
+  infinity: 'Бесконечность',
+  math: 'Математическая',
+};
+
+export const AZ_LIGHT_ICON_MAP: Record<AzimuthalLight, string> = {
+  center: '◎',
+  antipode: '◍',
+  infinity: '∞',
+  math: '∑',
+};
