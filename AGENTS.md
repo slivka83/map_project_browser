@@ -9,6 +9,7 @@ Run **directly from the project directory** `/mnt/d/_projects/pet_project/map_pr
 - `npm run build` — `tsc -b && vite build` (typecheck + production build)
 - `npm run lint` — ESLint
 - `npm run test` — Vitest (`vitest run`); `npm run test:watch` for watch mode
+- `npm run test:coverage` — Vitest with V8 coverage report (writes to `coverage/`, git-ignored); local-only, no CI thresholds / no Codecov upload. The 3D scene / viz-renderer components and pure style/token modules are excluded (per §9.3 they're intentionally untested), so the report reflects only the actually-exercised code.
 - `npm run preview` — preview the built app
 
 Typecheck is part of `build` (`tsc -b`); there is no separate `typecheck` script. `lint` runs before `build` in CI, so lint errors fail the build there.

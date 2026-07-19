@@ -40,6 +40,7 @@ npm run dev      # дев-сервер (http://localhost:5173)
 | `npm run build`   | `tsc -b` (проверка типов) + сборка продакшн-бандла  |
 | `npm run lint`    | ESLint                                              |
 | `npm run test`    | Vitest (`vitest run`)                               |
+| `npm run test:coverage` | Vitest с отчётом покрытия кода (V8, локально) |
 | `npm run preview` | Предпросмотр собранного приложения                  |
 
 ## Архитектура
