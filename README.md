@@ -66,7 +66,7 @@ npm run dev      # дев-сервер (http://localhost:5173)
 | `src/constants/designTokens.ts` | Общая палитра `NEON_BLUE` / `NEON_ORANGE` / `BG` и производные  |
 | `src/constants/geometry.ts`  | Общие числовые константы (`MAP_SCALE`, `VIEW_CENTER_*`, `RADIUS`, `RAY_COUNT`, …) и `standardParallelDeg` |
 | `src/store/selectors.ts`     | `useProjectionParams()` — мемоизированный селектор стора |
-| `src/components/ui/`         | Общие иконки (`icons.tsx`), стили (`styles.ts`) и подписи (`labels.ts`) |
+| `src/components/ui/`         | Общие иконки (`icons.tsx`), стили (`styles.ts`), подписи (`labels.ts`), `Badge`, `ParamSlider`, `PresetChips` |
 | `src/App.tsx`                | Компоновка из трёх панелей + загрузка геоданных при монтировании   |
 
 ### Математическое ядро

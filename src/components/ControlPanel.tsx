@@ -12,6 +12,8 @@ import Dropdown from './Dropdown';
 import CircularSlider from './CircularSlider';
 import Toggle from './Toggle';
 import Badge from './ui/Badge';
+import ParamSlider from './ui/ParamSlider';
+import PresetChips from './ui/PresetChips';
 import { FamilyIcon, ResetIcon, InfoIcon, RulerIcon, HeatmapIcon, RaysIcon, GraticuleIcon, UnfoldIcon, NorthSouthIcon } from './ui/icons';
 import {
   labelClass,
@@ -24,8 +26,6 @@ import {
   radioOption,
   radioOptionActive,
   radioOptionInactive,
-  presetChip,
-  presetChipActive,
 } from './ui/styles';
 import {
   FAMILY_LABEL,
@@ -54,60 +54,6 @@ import {
   SOM_PERIOD_MIN,
   SOM_PERIOD_MAX,
 } from '../constants/geometry';
-
-function ParamSlider({
-  label,
-  value,
-  min,
-  max,
-  step,
-  onChange,
-  suffix = '°',
-  disabled = false,
-  tooltip,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (v: number) => void;
-  suffix?: string;
-  disabled?: boolean;
-  tooltip?: string | null;
-}) {
-  return (
-    <div className={fieldRow} title={disabled && tooltip ? tooltip : undefined}>
-      {tooltip && disabled ? (
-        <span className={`${labelClass} w-44 shrink-0 cursor-help opacity-40`} title={tooltip}>
-          {label} 🔗
-        </span>
-      ) : (
-        <span className={`${labelClass} w-44 shrink-0 ${disabled ? 'opacity-40' : ''}`}>
-          {disabled ? `🔒 ${label}` : label}
-        </span>
-      )}
-      <div className="flex flex-1 items-center gap-[4px]">
-        <input
-          type="range"
-          min={min}
-          max={max}
-          step={step}
-          value={value}
-          disabled={disabled}
-          aria-label={label}
-          aria-valuetext={`${value}${suffix}`}
-          onChange={(e) => onChange(Number(e.target.value))}
-          className={sliderClass}
-        />
-        <span className={`w-12 shrink-0 text-right text-[12px] ${disabled ? 'text-gray-500' : 'text-neon-blue'}`}>
-          {value}
-          {suffix}
-        </span>
-      </div>
-    </div>
-  );
-}
 
 function StdParallel2Control({
   value,
@@ -162,34 +108,6 @@ function StdParallel2Control({
         onChange={(e) => onChange(Number(e.target.value))}
         className={sliderClass}
       />
-    </div>
-  );
-}
-
-function PresetChips({
-  presets,
-  active,
-  onSelect,
-}: {
-  presets: { label: string; phi: number; lambda: number }[];
-  active: { phi: number; lambda: number } | null;
-  onSelect: (phi: number, lambda: number) => void;
-}) {
-  return (
-    <div className="flex flex-wrap gap-1">
-      {presets.map((p) => {
-        const isActive = active != null && Math.abs(active.phi - p.phi) < 0.5 && Math.abs(active.lambda - p.lambda) < 0.5;
-        return (
-          <button
-            key={p.label}
-            type="button"
-            onClick={() => onSelect(p.phi, p.lambda)}
-            className={`${presetChip} ${isActive ? presetChipActive : ''}`}
-          >
-            {p.label}
-          </button>
-        );
-      })}
     </div>
   );
 }
