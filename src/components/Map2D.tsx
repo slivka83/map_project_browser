@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useMemo } from 'react';
 import type { CSSProperties } from 'react';
 import * as d3Geo from 'd3-geo';
 import type { FeatureCollection, Polygon } from 'geojson';
@@ -12,24 +12,8 @@ import { utmZoneToCentralMeridian, UTM_ZONE_WIDTH, EARTH_RADIUS_KM, RADIUS } fro
 import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT, NEON_YELLOW, NEON_WHITE, GRATICULE_STROKE, NEON_RED } from '../constants/designTokens';
 import { iconBtnPlain, iconGlow, glassPanel } from './ui/styles';
 import { TissotIcon, BorderIcon, DetailIcon, IntersectionIcon, HoverRayIcon } from './ui/icons';
+import useElementSize from '../hooks/useElementSize';
 import { FIT_MARGIN } from '../constants/geometry';
-
-function useElementSize() {
-  const ref = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState({ width: 0, height: 0 });
-
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const update = () => setSize({ width: el.clientWidth, height: el.clientHeight });
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  return { ref, size };
-}
 
 // Distortion heatmap cell: sample the local area-scale at a lon/lat grid and
 // colour green→red. Cheap enough to recompute on param change (memoised).
