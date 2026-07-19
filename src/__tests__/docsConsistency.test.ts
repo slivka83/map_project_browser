@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as projectionMapper from '../utils/projectionMapper';
 import * as auxSurfaceGeometry from '../utils/auxSurfaceGeometry';
+import * as tissot from '../utils/tissot';
 import * as designTokens from '../constants/designTokens';
 import { MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y, CLIP_LAT, EARTH_RADIUS_KM, UTM_ZONE_WIDTH, CIRCLE_RADIUS_MIN, CIRCLE_RADIUS_MAX } from '../constants/geometry';
 import { defaultParamsForFamily } from '../store/useAppStore';
@@ -113,6 +114,17 @@ describe('docs ↔ code: removed features are documented as removed (not as curr
     expectInDocs('CanvasTexture', 'the CanvasTexture note'); // kept only as a "NOT this" correction
     expect(docsText).toMatch(/не\s+`?CanvasTexture|NOT.*CanvasTexture|CanvasTexture.*variant/i);
   });
+  it('cylindrical gamma is documented as IGNORED (not folded into phiOrigin)', () => {
+    // The 2D cylindrical map is the unrolling of the cylinder in its OWN frame,
+    // so it is invariant under the cylinder's tilt in space. The docs must NOT
+    // claim gamma is "folded into phiOrigin" — that was the old, wrong model.
+    // Test projectionMapper.test.ts:147-174 locks the code behaviour; this test
+    // locks the documentation so the old wording can never creep back.
+    expect(docsText).not.toMatch(/gamma[^.]*folded[^.]*phiOrigin/i);
+    expect(docsText).not.toMatch(/phiOrigin\s*\+\s*gamma/i);
+    // And the correct statement must be present.
+    expect(docsText).toMatch(/cylindrical[^.]*gamma[^.]*ignored/i);
+  });
 });
 
 describe('docs ↔ code: store shape matches ProjectionParams', () => {
@@ -161,14 +173,22 @@ describe('docs ↔ code: key exports are documented', () => {
     'computeAreaDistortion',
     'fitProjectionToView',
     'FIT_SPHERE',
+    'localAreaScale',
+    'referenceAreaScale',
+    'cellAreaDistortion',
+    'makeCircleFitSphere',
+    'makeVerticalPerspective',
+    'makeTiltedPerspective',
     'computeAuxSurfaceParams',
     'computeAuxGraticule',
     'computeAuxSphereIntersections',
+    'computeAuxSphereIntersectionsLonLat',
     'auxPointToWorld',
     'computeCentralMeridianRays',
     'projectToAuxWorld',
     'computeTangentBasis',
     'lonLatToVec3',
+    'vec3ToLonLat',
     'computeConicRayEnd',
     'computePerpendicularNormals',
     'computeParticleTrajectories',
@@ -179,11 +199,14 @@ describe('docs ↔ code: key exports are documented', () => {
     'computeOrbitalPath',
     'vec3Distance',
     'vec3Normalize',
+    'computeTissotCircles',
   ];
   for (const name of exported) {
     it(`documents exported symbol ${name}`, () => {
       expect(
-        Object.prototype.hasOwnProperty.call(projectionMapper, name) || Object.prototype.hasOwnProperty.call(auxSurfaceGeometry, name),
+        Object.prototype.hasOwnProperty.call(projectionMapper, name) ||
+          Object.prototype.hasOwnProperty.call(auxSurfaceGeometry, name) ||
+          Object.prototype.hasOwnProperty.call(tissot, name),
       ).toBe(true);
       expectInDocs(name, `export ${name}`);
     });

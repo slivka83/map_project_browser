@@ -16,8 +16,14 @@ import {
 const clampScale = (s: number): number => Math.max(0, Math.min(1, s));
 
 // Geometric cylindrical projection in the CYLINDER-LOCAL frame (the cylinder
-// axis is the local y-axis; a d3 rotation of [-lambda0, -phiOrigin, -gamma]
-// brings the globe into this frame, so the tilt is absorbed BEFORE this runs).
+// axis is the local y-axis; a d3 rotation of [-lambda0, -phiOrigin, 0] brings
+// the globe into this frame). The tilt (gamma) is NOT applied here for the
+// cylindrical family — the 2D map is the projection ONTO the cylinder in the
+// cylinder's OWN frame, so it is invariant under the cylinder's tilt in space.
+// The 3D rays (see auxSurfaceGeometry.ts) are bound to the tube and rotate
+// with it, so the map still shows exactly what the rays project onto the tube
+// — in the tube's own frame. (Tests in projectionMapper.test.ts lock this in:
+// the same globe point lands at the identical pixel regardless of gamma.)
 // The cylinder is a FINITE tube of radius r = scaleFactor·R touching the globe
 // at the contact latitudes ±φ_s (φ_s = arccos(scaleFactor)) measured from the
 // cylinder axis. The projection keeps the chosen property (conformal / equal-
