@@ -296,6 +296,9 @@ describe('useAppStore', () => {
     expect(s.countries110GeoJson).not.toBeNull();
     // the 50m borders failed -> null, but the rest still loaded
     expect(s.countriesGeoJson).toBeNull();
+    // a partial failure does NOT set the friendly error message: the surviving
+    // layers still produce a usable map.
+    expect(s.geoDataError).toBeNull();
 
     vi.unstubAllGlobals();
   });
@@ -308,6 +311,37 @@ describe('useAppStore', () => {
     expect(s.land50GeoJson).toBeNull();
     expect(s.countriesGeoJson).toBeNull();
     expect(s.countries110GeoJson).toBeNull();
+    // both base land layers failed → friendly Russian error surfaced so Map2D
+    // can show "reload the page" instead of a bare «Нет геоданных».
+    expect(s.geoDataError).toBe('Не удалось загрузить карту. Проверьте подключение к интернету и перезагрузите страницу.');
+    vi.unstubAllGlobals();
+  });
+
+  it('loadGeoData clears geoDataError on a successful reload after a failure', async () => {
+    const topology = {
+      type: 'Topology',
+      transform: { scale: [1, 1], translate: [0, 0] },
+      objects: {
+        land: { type: 'GeometryCollection', geometries: [{ type: 'Polygon', arcs: [[0]] }] },
+        countries: { type: 'GeometryCollection', geometries: [{ type: 'Polygon', arcs: [[0]] }] },
+      },
+      arcs: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+    } as unknown as Topology;
+
+    // First attempt: everything fails → error set.
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
+    await useAppStore.getState().loadGeoData();
+    expect(useAppStore.getState().geoDataError).not.toBeNull();
+
+    // Second attempt: network recovered → error must clear.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(topology) }),
+    );
+    await useAppStore.getState().loadGeoData();
+    const s = useAppStore.getState();
+    expect(s.geoJsonData).not.toBeNull();
+    expect(s.geoDataError).toBeNull();
     vi.unstubAllGlobals();
   });
 

@@ -134,6 +134,12 @@ interface AppState extends ProjectionParams {
   geoLoading: boolean;
   // 110m country borders, used by the lightweight (non-detailed) 2D map.
   countries110GeoJson: FeatureCollection | null;
+  // Friendly Russian error message set when BOTH the 110m and 50m land fetches
+  // fail (so the 2D map has nothing to render). null otherwise — a partial
+  // failure (one of four files) is silent because the surviving layers still
+  // produce a usable map. `Map2D` shows this in its empty-map overlay so the
+  // user knows to reload the page instead of seeing a bare «Нет геоданных».
+  geoDataError: string | null;
   // When true the 2D map uses the detailed 50m land + country borders; otherwise the
   // lightweight 110m land (shared with the 3D globe) is drawn without borders.
   detailedMap: boolean;
@@ -225,6 +231,7 @@ export const useAppStore = create<AppState>((set) => ({
   countriesGeoJson: null,
   countries110GeoJson: null,
   geoLoading: false,
+  geoDataError: null,
   detailedMap: false,
   hoverLonLat: null,
   hoverSource: null,
@@ -341,7 +348,7 @@ export const useAppStore = create<AppState>((set) => ({
     const token = useAppStore.getState()._geoToken ?? 0;
     const next = token + 1;
     useAppStore.setState({ _geoToken: next });
-    set({ geoLoading: true });
+    set({ geoLoading: true, geoDataError: null });
 
     const load = async (url: string, object: string): Promise<FeatureCollection | null> => {
       try {
@@ -364,12 +371,20 @@ export const useAppStore = create<AppState>((set) => ({
     // Ignore stale results: if a newer load started while we were fetching, the
     // newer call owns the committed state and this one must not overwrite it.
     if (useAppStore.getState()._geoToken !== next) return;
+    // If BOTH base land layers failed the 2D map has nothing to render — surface
+    // a friendly message so the user knows to reload instead of staring at an
+    // unexplained empty panel. A partial failure (any one of the four files)
+    // leaves enough data for a usable map and stays silent.
+    const totalLandFailure = !land110 && !land50;
     set({
       geoJsonData: land110,
       land50GeoJson: land50,
       countriesGeoJson: countries,
       countries110GeoJson: countries110,
       geoLoading: false,
+      geoDataError: totalLandFailure
+        ? 'Не удалось загрузить карту. Проверьте подключение к интернету и перезагрузите страницу.'
+        : null,
     });
   },
 

@@ -130,6 +130,7 @@ export default function Map2D() {
   const countries110GeoJson = useAppStore((s) => s.countries110GeoJson);
   const geoJsonData = useAppStore((s) => s.geoJsonData);
   const geoLoading = useAppStore((s) => s.geoLoading);
+  const geoDataError = useAppStore((s) => s.geoDataError);
   const hoverLonLat = useAppStore((s) => s.hoverLonLat);
   const hoverSource = useAppStore((s) => s.hoverSource);
   const setHoverLonLat = useAppStore((s) => s.setHoverLonLat);
@@ -249,8 +250,13 @@ export default function Map2D() {
   return (
     <div ref={ref} style={containerStyle}>
       {!baseLand && (
-        <div className={`${glassPanel} absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 px-3 py-1.5 text-[12px] text-neon-blue`}>
-          {geoLoading ? 'Загрузка геоданных…' : 'Нет геоданных'}
+        <div
+          className={`${glassPanel} absolute left-1/2 top-1/2 z-10 max-w-md -translate-x-1/2 -translate-y-1/2 px-4 py-2 text-center text-[12px] text-neon-blue`}
+          data-testid="geo-empty-overlay"
+        >
+          {geoLoading
+            ? 'Загрузка геоданных…'
+            : (geoDataError ?? 'Нет геоданных')}
         </div>
       )}
       {baseLand && (

@@ -148,6 +148,7 @@ describe('docs ↔ code: store shape matches ProjectionParams', () => {
     'countries110GeoJson',
     'detailedMap',
     'geoLoading',
+    'geoDataError',
     'hoverLonLat',
     'hoverSource',
     'showHoverRay',
