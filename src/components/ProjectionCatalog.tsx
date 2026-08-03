@@ -5,6 +5,7 @@ import {
   CONIC_VARIANT_OPTIONS,
   AZIMUTHAL_PERSPECTIVE_VARIANT_OPTIONS,
   AZIMUTHAL_MATH_VARIANT_OPTIONS,
+  variantDef,
   type ProjectionVariant,
 } from '../utils/projectionVariants';
 import type { ProjectionFamily } from '../store/useAppStore';
@@ -31,6 +32,16 @@ interface Props {
   onSelect: (family: ProjectionFamily, variant: ProjectionVariant) => void;
 }
 
+// Table columns: name, what the projection preserves / its property, where it
+// is used, and the developable surface (already conveyed by the family group
+// header icon, so the column stays narrow).
+const COLUMNS: { key: 'label' | 'propertyLabel' | 'applicationLabel' | 'surfaceTypeLabel'; header: string; width: string }[] = [
+  { key: 'label', header: 'Название', width: '34%' },
+  { key: 'propertyLabel', header: 'Свойства', width: '27%' },
+  { key: 'applicationLabel', header: 'Применение', width: '27%' },
+  { key: 'surfaceTypeLabel', header: 'Поверхность', width: '12%' },
+];
+
 export default function ProjectionCatalog({ onClose, onSelect }: Props) {
   const [query, setQuery] = useState('');
 
@@ -48,7 +59,14 @@ export default function ProjectionCatalog({ onClose, onSelect }: Props) {
     return ALL_GROUPS
       .map((g) => ({
         ...g,
-        options: g.options.filter((o) => o.label.toLowerCase().includes(q)),
+        options: g.options.filter((o) => {
+          const def = variantDef(o.value);
+          return (
+            o.label.toLowerCase().includes(q) ||
+            def.propertyLabel.toLowerCase().includes(q) ||
+            (def.applicationLabel ?? '').toLowerCase().includes(q)
+          );
+        }),
       }))
       .filter((g) => g.options.length > 0);
   }, [query]);
@@ -56,7 +74,7 @@ export default function ProjectionCatalog({ onClose, onSelect }: Props) {
   return createPortal(
     <div className={modalOverlay} onClick={onClose}>
       <div
-        className={`${modalShell} h-[80vh] w-[620px]`}
+        className={`${modalShell} h-[80vh] w-[860px]`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
@@ -83,27 +101,47 @@ export default function ProjectionCatalog({ onClose, onSelect }: Props) {
         <div className="min-h-0 flex-1 overflow-auto">
           {filtered.map((group) => (
             <div key={group.family} className="mb-3">
-               <div className="sticky top-0 z-10 flex items-center gap-2 bg-panel-bg/95 px-1 py-1.5 text-xs uppercase tracking-wider text-neon-blue/60 backdrop-blur">
+              <div className="sticky top-0 z-10 flex items-center gap-2 bg-panel-bg/95 px-1 py-1.5 text-xs uppercase tracking-wider text-neon-blue/60 backdrop-blur">
                 {group.icon}
                 <span>{group.label}</span>
                 <span className="ml-auto text-white/25">{group.options.length}</span>
               </div>
-              <div className="flex flex-col">
-                {group.options.map((opt) => (
-                  <button
-                    key={opt.value as string}
-                    type="button"
-                    onClick={() => {
-                      onSelect(group.family, opt.value);
-                      onClose();
-                    }}
-                    className="flex items-center gap-2 rounded px-3 py-2 text-left text-sm text-white/80 transition hover:bg-neon-blue/10 hover:text-neon-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70"
-                  >
-                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-neon-blue/40" />
-                    <span className="truncate">{opt.label}</span>
-                  </button>
-                ))}
-              </div>
+              <table className="w-full table-fixed border-collapse text-sm">
+                <colgroup>
+                  {COLUMNS.map((c) => (
+                    <col key={c.key} style={{ width: c.width }} />
+                  ))}
+                </colgroup>
+                <thead>
+                  <tr className="text-left text-xs uppercase tracking-wider text-neon-blue/50">
+                    {COLUMNS.map((c) => (
+                      <th key={c.key} className="whitespace-nowrap px-3 py-1.5 font-medium">
+                        {c.header}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {group.options.map((opt) => {
+                    const def = variantDef(opt.value);
+                    return (
+                      <tr
+                        key={opt.value as string}
+                        onClick={() => {
+                          onSelect(group.family, opt.value);
+                          onClose();
+                        }}
+                        className="cursor-pointer align-top text-white/80 transition hover:bg-neon-blue/10 hover:text-neon-blue"
+                      >
+                        <td className="px-3 py-2 text-neon-blue">{opt.label}</td>
+                        <td className="px-3 py-2">{def.propertyLabel}</td>
+                        <td className="px-3 py-2 text-white/60">{def.applicationLabel ?? '—'}</td>
+                        <td className="whitespace-nowrap px-3 py-2 text-white/60">{def.surfaceTypeLabel}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           ))}
           {filtered.length === 0 && (
