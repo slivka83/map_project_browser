@@ -154,16 +154,22 @@ describe('useAppStore', () => {
     }
   });
 
-  it('resetParams restores the current family defaults', () => {
-    useAppStore.setState({ family: 'conic', distortion: 'conformal', lambda0: 90, phiOrigin: 45, scaleFactor: 1.1 });
+  it('resetParams restores the current variant defaults without switching the projection', () => {
+    // A non-default conic variant: reset must keep the projection itself and
+    // only restore its own default parameter values.
+    useAppStore.getState().setVariant('albers');
+    useAppStore.getState().setParam('lambda0', 90);
+    useAppStore.getState().setParam('phiOrigin', 45);
     useAppStore.getState().resetParams();
     const s = useAppStore.getState();
-    expect(s.distortion).toBe('conformal');
+    // The projection itself is untouched.
+    expect(s.variant).toBe('albers');
+    expect(s.family).toBe('conic');
+    // Params restored to the variant's own defaults.
+    expect(s.distortion).toBe('equalArea');
     expect(s.lambda0).toBe(0);
     expect(s.phiOrigin).toBe(0);
     expect(s.scaleFactor).toBe(1);
-    // family preserved
-    expect(s.family).toBe('conic');
   });
 
   it('loadGeoData fetches the topojson and stores a FeatureCollection', async () => {
@@ -208,9 +214,8 @@ describe('useAppStore', () => {
   });
 
   it('applyPreset merges partial fields and preserves the rest', () => {
+    useAppStore.getState().setVariant('equidistantConic');
     useAppStore.setState({
-      family: 'conic',
-      distortion: 'equidistant',
       lambda0: 90,
       phiOrigin: 45,
       scaleFactor: 1.1,

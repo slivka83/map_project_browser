@@ -295,7 +295,9 @@ export const useAppStore = create<AppState>((set) => ({
       falseNorthing: s.falseNorthing,
     })),
   resetParams: () => set((s) => {
-    const v = defaultVariant(s.family);
+    // Reset the params of the CURRENTLY selected projection: keep the variant
+    // (the projection itself) and only restore its default parameter values.
+    const v = s.variant ?? defaultVariant(s.family);
     const def = variantDef(v);
     return {
       variant: v,
