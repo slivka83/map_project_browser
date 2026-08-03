@@ -22,12 +22,12 @@ describe('ProjectionHeader', () => {
     });
   });
 
-  it('renders the projection selection button with current family and variant', () => {
+  it('renders the projection selection button with current variant', () => {
     render(<ProjectionHeader />);
     const btn = screen.getByRole('button', { name: 'Выбрать проекцию' });
     expect(btn).toBeTruthy();
-    expect(btn.textContent).toMatch(/Цилиндрическая/);
     expect(btn.textContent).toMatch(/Меркатор/);
+    expect(btn.textContent).not.toMatch(/Цилиндрическая/);
   });
 
   it('resets params to the current family defaults via the reset button', () => {
