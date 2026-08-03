@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import * as d3Geo from 'd3-geo';
 import type { FeatureCollection, Polygon } from 'geojson';
@@ -11,7 +11,8 @@ import { variantDef } from '../utils/projectionVariants';
 import { utmZoneToCentralMeridian, UTM_ZONE_WIDTH, EARTH_RADIUS_KM, RADIUS } from '../constants/geometry';
 import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT, NEON_YELLOW, NEON_WHITE, GRATICULE_STROKE, NEON_RED } from '../constants/designTokens';
 import { iconBtnPlain, iconGlow, glassPanel } from './ui/styles';
-import { TissotIcon, BorderIcon, DetailIcon, IntersectionIcon, HoverRayIcon } from './ui/icons';
+import { TissotIcon, BorderIcon, DetailIcon, IntersectionIcon, HoverRayIcon, InfoIcon } from './ui/icons';
+import ProjectionSummary from './ProjectionSummary';
 import useElementSize from '../hooks/useElementSize';
 import { FIT_MARGIN } from '../constants/geometry';
 
@@ -118,6 +119,7 @@ export default function Map2D() {
   const hoverLonLat = useAppStore((s) => s.hoverLonLat);
   const hoverSource = useAppStore((s) => s.hoverSource);
   const setHoverLonLat = useAppStore((s) => s.setHoverLonLat);
+  const [showSummary, setShowSummary] = useState(false);
 
   // Detailed 2D map (50m land + 50m country borders) when enabled; otherwise the
   // lightweight 110m land shared with the 3D globe, drawn with 110m borders.
@@ -321,7 +323,11 @@ export default function Map2D() {
         <button title="Луч проекции по курсору (показывать при наведении на карту)" aria-label="Луч проекции по курсору (показывать при наведении на карту)" onClick={() => setShowHoverRay(!showHoverRay)} aria-pressed={showHoverRay} className={iconBtnPlain} style={{ color: showHoverRay ? NEON_BLUE : undefined, filter: iconGlow(showHoverRay) }}>
           <HoverRayIcon />
         </button>
+        <button title="Точные параметры проекции" aria-label="Точные параметры проекции" onClick={() => setShowSummary(true)} className={iconBtnPlain}>
+          <InfoIcon />
+        </button>
       </div>
+      {showSummary && <ProjectionSummary params={params} onClose={() => setShowSummary(false)} />}
       <div
         data-testid="area-distortion-label"
         role="status"

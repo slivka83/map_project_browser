@@ -125,15 +125,6 @@ describe('ControlPanel', () => {
     expect(useAppStore.getState().stdParallel2).toBeNull();
   });
 
-  it('opens the geodesic summary panel with the projection class', () => {
-    useAppStore.setState({ family: 'cylindrical', distortion: 'conformal', lambda0: 30, gamma: 0 });
-    render(<ControlPanel />);
-    expect(screen.queryByText('Точные параметры проекции')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Точные параметры проекции' }));
-    // The modal owns an ARIA dialog role — verify it actually opened.
-    expect(screen.getByRole('dialog', { name: 'Точные параметры проекции' })).toBeTruthy();
-  });
-
   it('shows context-driven controls per variant (3 representative cases)', () => {
     // Mercator (cylindrical) → UTM zone hidden, touch-point presets hidden.
     useAppStore.getState().setVariant('mercator');

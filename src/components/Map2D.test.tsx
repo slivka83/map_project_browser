@@ -104,7 +104,7 @@ describe('Map2D', () => {
     expect(link.getAttribute('rel')).toContain('noopener');
   });
 
-  it('shows all five overlay buttons in a row, always visible', () => {
+  it('shows all six overlay buttons in a row, always visible', () => {
     const { getByRole, container } = render(<Map2D />);
     const tissot = getByRole('button', { name: 'Индикатрисы Тиссо' });
     const detail = getByRole('button', { name: 'Детализация карты' });
@@ -113,13 +113,15 @@ describe('Map2D', () => {
     const hoverRay = getByRole('button', {
       name: 'Луч проекции по курсору (показывать при наведении на карту)',
     });
+    const summary = getByRole('button', { name: 'Точные параметры проекции' });
     expect(tissot).toBeTruthy();
     expect(detail).toBeTruthy();
     expect(borders).toBeTruthy();
     expect(intersection).toBeTruthy();
     expect(hoverRay).toBeTruthy();
-    // Five buttons total, rendered as a single horizontal row.
-    expect(container.querySelectorAll('button').length).toBe(5);
+    expect(summary).toBeTruthy();
+    // Six buttons total, rendered as a single horizontal row.
+    expect(container.querySelectorAll('button').length).toBe(6);
     expect(useAppStore.getState().detailedMap).toBe(false);
     expect(useAppStore.getState().showBorders).toBe(false);
 
@@ -258,5 +260,17 @@ describe('Map2D', () => {
     await waitFor(() => {
       expect(getByTestId('utm-mask')).toBeTruthy();
     });
+  });
+
+  it('opens the geodesic summary modal from the map toolbar button', async () => {
+    useAppStore.setState({ family: 'cylindrical', distortion: 'conformal', lambda0: 30, gamma: 0 });
+    const { container, getByRole, queryByRole } = render(<Map2D />);
+    await waitFor(() => {
+      expect(container.querySelector('svg[data-map="true"]')).not.toBeNull();
+    });
+    expect(queryByRole('dialog', { name: 'Точные параметры проекции' })).toBeNull();
+    fireEvent.click(getByRole('button', { name: 'Точные параметры проекции' }));
+    // The modal owns an ARIA dialog role — verify it actually opened.
+    expect(getByRole('dialog', { name: 'Точные параметры проекции' })).toBeTruthy();
   });
 });

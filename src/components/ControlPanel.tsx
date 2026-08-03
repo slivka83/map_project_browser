@@ -7,14 +7,13 @@ import {
   defaultVariant,
 } from '../utils/projectionVariants';
 import ProjectionCatalog from './ProjectionCatalog';
-import ProjectionSummary from './ProjectionSummary';
 import Dropdown from './Dropdown';
 import CircularSlider from './CircularSlider';
 import Toggle from './Toggle';
 import Badge from './ui/Badge';
 import ParamSlider from './ui/ParamSlider';
 import PresetChips from './ui/PresetChips';
-import { FamilyIcon, ResetIcon, InfoIcon, RulerIcon, HeatmapIcon, RaysIcon, GraticuleIcon, UnfoldIcon, NorthSouthIcon } from './ui/icons';
+import { FamilyIcon, ResetIcon, RulerIcon, HeatmapIcon, RaysIcon, GraticuleIcon, UnfoldIcon, NorthSouthIcon } from './ui/icons';
 import {
   labelClass,
   activeTab,
@@ -384,7 +383,6 @@ function familyIsCylOrConic(f: ProjectionFamily): boolean {
 
 export default function ControlPanel() {
   const [catalogOpen, setCatalogOpen] = useState(false);
-  const [showSummary, setShowSummary] = useState(false);
   const params = useProjectionParams();
   const { variant, family } = params;
   const setVariant = useAppStore((s) => s.setVariant);
@@ -405,9 +403,6 @@ export default function ControlPanel() {
             {FAMILY_LABEL[family as keyof typeof FAMILY_LABEL]} — {def.label}
           </span>
         </button>
-        <button title="Точные параметры проекции" aria-label="Точные параметры проекции" onClick={() => setShowSummary(true)} className={iconBtn}>
-          <InfoIcon />
-        </button>
         <button title="Сбросить параметры" aria-label="Сбросить параметры" onClick={() => useAppStore.getState().resetParams()} className={iconBtn}>
           <ResetIcon />
         </button>
@@ -427,7 +422,6 @@ export default function ControlPanel() {
           onSelect={(_f, v) => setVariant(v)}
         />
       )}
-      {showSummary && <ProjectionSummary params={params} onClose={() => setShowSummary(false)} />}
     </div>
   );
 }
