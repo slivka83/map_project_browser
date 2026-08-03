@@ -27,7 +27,7 @@ export default function ProjectionHeader() {
 
   return (
     <>
-      <div className="flex h-9 items-stretch overflow-hidden rounded border border-neon-blue/50 bg-panel-bg">
+      <div className="flex h-9 w-full items-stretch overflow-hidden rounded-t-lg border border-neon-blue/50 bg-panel-bg">
         <button
           title="Выбрать проекцию"
           aria-label="Выбрать проекцию"
