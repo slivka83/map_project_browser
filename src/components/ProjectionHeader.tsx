@@ -5,14 +5,17 @@ import { variantDef, defaultVariant } from '../utils/projectionVariants';
 import { NEON_DIVIDER, NEON_DIVIDER_GLOW } from '../constants/designTokens';
 import ProjectionCatalog from './ProjectionCatalog';
 import { FamilyIcon, ResetIcon } from './ui/icons';
-import { iconBtn } from './ui/styles';
 import { FAMILY_LABEL } from './ui/labels';
 
-// Slim top header of the left column: one strip split by a vertical divider
-// into two clickable zones — the left one selects the projection (opens the
-// full catalog, shows the current family — variant) and the right, narrow one
-// resets the parameters. It owns the catalog modal state so the control panel
-// below stays focused on parameter sliders.
+const zoneClass =
+  'flex h-full items-center justify-center text-neon-blue transition hover:bg-neon-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70';
+
+// Slim top header of the left column: the area itself, with no surrounding
+// box, is split by a vertical divider into two clickable zones — the wide left
+// one selects the projection (opens the full catalog, shows the current
+// family — variant) and the narrow right one resets the parameters. It owns
+// the catalog modal state so the control panel below stays focused on
+// parameter sliders.
 export default function ProjectionHeader() {
   const [catalogOpen, setCatalogOpen] = useState(false);
   const params = useProjectionParams();
@@ -21,11 +24,9 @@ export default function ProjectionHeader() {
 
   const def = useMemo(() => variantDef(variant ?? defaultVariant(family)), [variant, family]);
 
-  const zoneClass = `${iconBtn} h-full w-auto justify-center border-0 bg-transparent shadow-none`;
-
   return (
     <>
-      <div className="flex h-9 items-stretch overflow-hidden rounded border border-neon-blue/50 bg-panel-bg">
+      <div className="flex h-9 items-stretch">
         <button
           title="Выбрать проекцию"
           aria-label="Выбрать проекцию"
