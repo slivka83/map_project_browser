@@ -55,7 +55,7 @@ export default function App() {
               filling the entire lower part. All dividers are solid lines
               spanning the panel edge to edge. */}
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className="shrink-0 pb-3">
+            <div className="shrink-0">
               <ProjectionHeader />
             </div>
             <div className="-mx-3 h-px shrink-0" style={{ background: NEON_DIVIDER, boxShadow: NEON_DIVIDER_GLOW }} />
