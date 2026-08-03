@@ -51,10 +51,12 @@ export default function App() {
             <ControlPanel />
           </div>
           <div className="h-px" style={{ background: NEON_DIVIDER, boxShadow: NEON_DIVIDER_GLOW }} />
-          <div className="min-h-0 flex-1 pt-3">
-            <ErrorBoundary fallback={<GlobeSceneFallback />}>
-              <GlobeScene />
-            </ErrorBoundary>
+          <div className="flex min-h-0 flex-1 items-center justify-center pt-3">
+            <div className="h-full max-w-full" style={{ aspectRatio: '1 / 1' }}>
+              <ErrorBoundary fallback={<GlobeSceneFallback />}>
+                <GlobeScene />
+              </ErrorBoundary>
+            </div>
           </div>
         </div>
       </div>
