@@ -47,16 +47,17 @@ export default function App() {
             boxShadow: NEON_UNDERLAY_GLOW,
           }}
         >
-          <div className="pb-3">
-            <ControlPanel />
+          {/* The 3D scene spans the full width of the left column and is a true
+              square (height = width via aspect-ratio), so it is the dominant
+              element on top; the control panel scrolls below it. */}
+          <div className="relative w-full shrink-0 overflow-hidden" style={{ aspectRatio: '1 / 1' }}>
+            <ErrorBoundary fallback={<GlobeSceneFallback />}>
+              <GlobeScene />
+            </ErrorBoundary>
           </div>
-          <div className="h-px" style={{ background: NEON_DIVIDER, boxShadow: NEON_DIVIDER_GLOW }} />
-          <div className="flex min-h-0 flex-1 items-center justify-center pt-3" style={{ containerType: 'size' }}>
-            <div className="relative" style={{ width: 'min(100cqw, 100cqh)', height: 'min(100cqw, 100cqh)' }}>
-              <ErrorBoundary fallback={<GlobeSceneFallback />}>
-                <GlobeScene />
-              </ErrorBoundary>
-            </div>
+          <div className="my-3 h-px shrink-0" style={{ background: NEON_DIVIDER, boxShadow: NEON_DIVIDER_GLOW }} />
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <ControlPanel />
           </div>
         </div>
       </div>
