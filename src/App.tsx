@@ -47,17 +47,17 @@ export default function App() {
             boxShadow: NEON_UNDERLAY_GLOW,
           }}
         >
-          {/* The 3D scene spans the full width of the left column and is a true
-              square (height = width via aspect-ratio), so it is the dominant
-              element on top; the control panel scrolls below it. */}
-          <div className="relative w-full shrink-0 overflow-hidden" style={{ aspectRatio: '1 / 1' }}>
+          {/* The control panel scrolls in its own area on top; the 3D scene
+              sits at the bottom, spanning the full width of the left column as
+              a true square (height = width via aspect-ratio). */}
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <ControlPanel />
+          </div>
+          <div className="my-3 h-px shrink-0" style={{ background: NEON_DIVIDER, boxShadow: NEON_DIVIDER_GLOW }} />
+          <div className="relative w-full shrink-0" style={{ aspectRatio: '1 / 1' }}>
             <ErrorBoundary fallback={<GlobeSceneFallback />}>
               <GlobeScene />
             </ErrorBoundary>
-          </div>
-          <div className="my-3 h-px shrink-0" style={{ background: NEON_DIVIDER, boxShadow: NEON_DIVIDER_GLOW }} />
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <ControlPanel />
           </div>
         </div>
       </div>
