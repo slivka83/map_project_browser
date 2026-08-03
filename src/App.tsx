@@ -4,7 +4,6 @@ import ControlPanel from './components/ControlPanel';
 import Map2D from './components/Map2D';
 import GlobeScene from './components/GlobeScene';
 import ErrorBoundary from './components/ErrorBoundary';
-import useElementSize from './hooks/useElementSize';
 import { NEON_DIVIDER, NEON_DIVIDER_GLOW, NEON_UNDERLAY_BORDER, NEON_UNDERLAY_BG, NEON_UNDERLAY_GLOW } from './constants/designTokens';
 
 // Fallback for the 3D scene when WebGL is unavailable (old browser, GPU
@@ -32,15 +31,10 @@ function GlobeSceneFallback() {
 
 export default function App() {
   const loadGeoData = useAppStore((s) => s.loadGeoData);
-  const { ref: sceneAreaRef, size: sceneAreaSize } = useElementSize();
 
   useEffect(() => {
     void loadGeoData();
   }, [loadGeoData]);
-
-  // The 3D scene is always square: its side is the smaller of the available
-  // area's width and height (so it fits any column proportions and centering).
-  const sceneSide = Math.max(0, Math.min(sceneAreaSize.width, sceneAreaSize.height));
 
   return (
     <div className="relative flex h-full w-full flex-col p-3 lg:flex-row">
@@ -57,13 +51,11 @@ export default function App() {
             <ControlPanel />
           </div>
           <div className="h-px" style={{ background: NEON_DIVIDER, boxShadow: NEON_DIVIDER_GLOW }} />
-          <div className="min-h-0 flex-1 pt-3">
-            <div ref={sceneAreaRef} className="flex h-full min-h-0 items-center justify-center">
-              <div className="relative" style={{ width: sceneSide, height: sceneSide }}>
-                <ErrorBoundary fallback={<GlobeSceneFallback />}>
-                  <GlobeScene />
-                </ErrorBoundary>
-              </div>
+          <div className="flex min-h-0 flex-1 items-center justify-center pt-3" style={{ containerType: 'size' }}>
+            <div className="relative" style={{ width: 'min(100cqw, 100cqh)', height: 'min(100cqw, 100cqh)' }}>
+              <ErrorBoundary fallback={<GlobeSceneFallback />}>
+                <GlobeScene />
+              </ErrorBoundary>
             </div>
           </div>
         </div>
