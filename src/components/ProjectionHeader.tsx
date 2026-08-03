@@ -32,10 +32,10 @@ export default function ProjectionHeader() {
           title="Выбрать проекцию"
           aria-label="Выбрать проекцию"
           onClick={() => setCatalogOpen(true)}
-          className={`${zoneClass} flex-1 justify-start px-3`}
+          className={`${zoneClass} min-w-0 flex-1 justify-start px-3`}
         >
           <FamilyIcon family={family} />
-          <span className="truncate text-[12px]">
+          <span className="min-w-0 truncate text-[12px]">
             {FAMILY_LABEL[family as keyof typeof FAMILY_LABEL]} — {def.label}
           </span>
         </button>

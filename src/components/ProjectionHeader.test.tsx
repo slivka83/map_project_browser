@@ -50,4 +50,13 @@ describe('ProjectionHeader', () => {
     expect(s.family).toBe('azimuthalPerspective');
     expect(s.variant).toBe('gnomonic');
   });
+
+  it('keeps the reset button usable with a long projection name', () => {
+    useAppStore.getState().setVariant('verticalPerspective');
+    render(<ProjectionHeader />);
+    expect(screen.getByRole('button', { name: 'Выбрать проекцию' }).textContent).toMatch(/Вертикальная перспектива/);
+    useAppStore.getState().setParam('lambda0', 60);
+    fireEvent.click(screen.getByRole('button', { name: 'Сбросить параметры' }));
+    expect(useAppStore.getState().lambda0).toBe(0);
+  });
 });
