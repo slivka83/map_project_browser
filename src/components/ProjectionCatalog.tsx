@@ -12,19 +12,27 @@ import type { ProjectionFamily } from '../store/useAppStore';
 import { CylinderSurfaceIcon, ConeSurfaceIcon, LightSourceIcon, PlaneMathIcon } from './ui/icons';
 import { modalOverlay, modalShell } from './ui/styles';
 import type { ReactNode } from 'react';
+import { FAMILY_LABEL } from './ui/labels';
 
-interface GroupedOptions {
+interface CatalogRow {
   family: ProjectionFamily;
-  label: string;
-  icon: ReactNode;
-  options: { value: ProjectionVariant; label: string }[];
+  familyLabel: string;
+  familyIcon: ReactNode;
+  variant: ProjectionVariant;
 }
 
-const ALL_GROUPS: GroupedOptions[] = [
-  { family: 'cylindrical', label: 'Цилиндрические', icon: <CylinderSurfaceIcon />, options: CYLINDRICAL_VARIANT_OPTIONS as { value: ProjectionVariant; label: string }[] },
-  { family: 'conic', label: 'Конические', icon: <ConeSurfaceIcon />, options: CONIC_VARIANT_OPTIONS as { value: ProjectionVariant; label: string }[] },
-  { family: 'azimuthalPerspective', label: 'Азимутальные перспективные', icon: <LightSourceIcon />, options: AZIMUTHAL_PERSPECTIVE_VARIANT_OPTIONS as { value: ProjectionVariant; label: string }[] },
-  { family: 'azimuthalMath', label: 'Азимутальные математические', icon: <PlaneMathIcon />, options: AZIMUTHAL_MATH_VARIANT_OPTIONS as { value: ProjectionVariant; label: string }[] },
+const FAMILY_ICONS: Record<ProjectionFamily, ReactNode> = {
+  cylindrical: <CylinderSurfaceIcon />,
+  conic: <ConeSurfaceIcon />,
+  azimuthalPerspective: <LightSourceIcon />,
+  azimuthalMath: <PlaneMathIcon />,
+};
+
+const ALL_ROWS: CatalogRow[] = [
+  ...CYLINDRICAL_VARIANT_OPTIONS.map((o) => ({ family: 'cylindrical' as const, familyLabel: FAMILY_LABEL.cylindrical, familyIcon: FAMILY_ICONS.cylindrical, variant: o.value })),
+  ...CONIC_VARIANT_OPTIONS.map((o) => ({ family: 'conic' as const, familyLabel: FAMILY_LABEL.conic, familyIcon: FAMILY_ICONS.conic, variant: o.value })),
+  ...AZIMUTHAL_PERSPECTIVE_VARIANT_OPTIONS.map((o) => ({ family: 'azimuthalPerspective' as const, familyLabel: FAMILY_LABEL.azimuthalPerspective, familyIcon: FAMILY_ICONS.azimuthalPerspective, variant: o.value })),
+  ...AZIMUTHAL_MATH_VARIANT_OPTIONS.map((o) => ({ family: 'azimuthalMath' as const, familyLabel: FAMILY_LABEL.azimuthalMath, familyIcon: FAMILY_ICONS.azimuthalMath, variant: o.value })),
 ];
 
 interface Props {
@@ -32,14 +40,15 @@ interface Props {
   onSelect: (family: ProjectionFamily, variant: ProjectionVariant) => void;
 }
 
-// Table columns: name, what the projection preserves / its property, where it
-// is used, and the developable surface (already conveyed by the family group
-// header icon, so the column stays narrow).
-const COLUMNS: { key: 'label' | 'propertyLabel' | 'applicationLabel' | 'surfaceTypeLabel'; header: string; width: string }[] = [
-  { key: 'label', header: 'Название', width: '34%' },
-  { key: 'propertyLabel', header: 'Свойства', width: '27%' },
-  { key: 'applicationLabel', header: 'Применение', width: '27%' },
-  { key: 'surfaceTypeLabel', header: 'Поверхность', width: '12%' },
+// One table for all 14 projections. Columns: family (icon + label), the
+// projection name, what it preserves / its property, where it is used, and
+// the developable surface.
+const COLUMNS: { key: 'family' | 'label' | 'propertyLabel' | 'applicationLabel' | 'surfaceTypeLabel'; header: string; width: string }[] = [
+  { key: 'family', header: 'Семейство', width: '18%' },
+  { key: 'label', header: 'Название', width: '29%' },
+  { key: 'propertyLabel', header: 'Свойства', width: '23%' },
+  { key: 'applicationLabel', header: 'Применение', width: '23%' },
+  { key: 'surfaceTypeLabel', header: 'Поверхность', width: '7%' },
 ];
 
 export default function ProjectionCatalog({ onClose, onSelect }: Props) {
@@ -54,21 +63,17 @@ export default function ProjectionCatalog({ onClose, onSelect }: Props) {
   }, [onClose]);
 
   const filtered = useMemo(() => {
-    if (!query.trim()) return ALL_GROUPS;
+    if (!query.trim()) return ALL_ROWS;
     const q = query.toLowerCase();
-    return ALL_GROUPS
-      .map((g) => ({
-        ...g,
-        options: g.options.filter((o) => {
-          const def = variantDef(o.value);
-          return (
-            o.label.toLowerCase().includes(q) ||
-            def.propertyLabel.toLowerCase().includes(q) ||
-            (def.applicationLabel ?? '').toLowerCase().includes(q)
-          );
-        }),
-      }))
-      .filter((g) => g.options.length > 0);
+    return ALL_ROWS.filter((row) => {
+      const def = variantDef(row.variant);
+      return (
+        row.familyLabel.toLowerCase().includes(q) ||
+        def.label.toLowerCase().includes(q) ||
+        def.propertyLabel.toLowerCase().includes(q) ||
+        (def.applicationLabel ?? '').toLowerCase().includes(q)
+      );
+    });
   }, [query]);
 
   return createPortal(
@@ -99,51 +104,48 @@ export default function ProjectionCatalog({ onClose, onSelect }: Props) {
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto">
-          {filtered.map((group) => (
-            <div key={group.family} className="mb-3">
-              <div className="sticky top-0 z-10 flex items-center gap-2 bg-panel-bg/95 px-1 py-1.5 text-xs uppercase tracking-wider text-neon-blue/60 backdrop-blur">
-                {group.icon}
-                <span>{group.label}</span>
-                <span className="ml-auto text-white/25">{group.options.length}</span>
-              </div>
-              <table className="w-full table-fixed border-collapse text-sm">
-                <colgroup>
-                  {COLUMNS.map((c) => (
-                    <col key={c.key} style={{ width: c.width }} />
-                  ))}
-                </colgroup>
-                <thead>
-                  <tr className="text-left text-xs uppercase tracking-wider text-neon-blue/50">
-                    {COLUMNS.map((c) => (
-                      <th key={c.key} className="whitespace-nowrap px-3 py-1.5 font-medium">
-                        {c.header}
-                      </th>
-                    ))}
+          <table className="w-full table-fixed border-collapse text-sm">
+            <colgroup>
+              {COLUMNS.map((c) => (
+                <col key={c.key} style={{ width: c.width }} />
+              ))}
+            </colgroup>
+            <thead className="sticky top-0 z-10 bg-panel-bg/95 backdrop-blur">
+              <tr className="text-left text-xs uppercase tracking-wider text-neon-blue/50">
+                {COLUMNS.map((c) => (
+                  <th key={c.key} className="whitespace-nowrap px-3 py-2 font-medium">
+                    {c.header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((row) => {
+                const def = variantDef(row.variant);
+                return (
+                  <tr
+                    key={row.variant as string}
+                    onClick={() => {
+                      onSelect(row.family, row.variant);
+                      onClose();
+                    }}
+                    className="cursor-pointer align-top text-white/80 transition hover:bg-neon-blue/10 hover:text-neon-blue"
+                  >
+                    <td className="whitespace-nowrap px-3 py-2 text-white/60">
+                      <span className="inline-flex items-center gap-1.5">
+                        {row.familyIcon}
+                        {row.familyLabel}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-neon-blue">{def.label}</td>
+                    <td className="px-3 py-2">{def.propertyLabel}</td>
+                    <td className="px-3 py-2 text-white/60">{def.applicationLabel ?? '—'}</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-white/60">{def.surfaceTypeLabel}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {group.options.map((opt) => {
-                    const def = variantDef(opt.value);
-                    return (
-                      <tr
-                        key={opt.value as string}
-                        onClick={() => {
-                          onSelect(group.family, opt.value);
-                          onClose();
-                        }}
-                        className="cursor-pointer align-top text-white/80 transition hover:bg-neon-blue/10 hover:text-neon-blue"
-                      >
-                        <td className="px-3 py-2 text-neon-blue">{opt.label}</td>
-                        <td className="px-3 py-2">{def.propertyLabel}</td>
-                        <td className="px-3 py-2 text-white/60">{def.applicationLabel ?? '—'}</td>
-                        <td className="whitespace-nowrap px-3 py-2 text-white/60">{def.surfaceTypeLabel}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ))}
+                );
+              })}
+            </tbody>
+          </table>
           {filtered.length === 0 && (
             <div className="py-8 text-center text-white/40">Ничего не найдено</div>
           )}
