@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useAppStore } from './store/useAppStore';
+import ProjectionHeader from './components/ProjectionHeader';
 import ControlPanel from './components/ControlPanel';
 import Map2D from './components/Map2D';
 import GlobeScene from './components/GlobeScene';
@@ -47,14 +48,23 @@ export default function App() {
             boxShadow: NEON_UNDERLAY_GLOW,
           }}
         >
-          {/* The control panel scrolls in its own area on top; the 3D scene
-              sits at the bottom, spanning the full width of the left column as
-              a true square (height = width via aspect-ratio). */}
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <ControlPanel />
+          {/* Left column split into three parts: a slim header for projection
+              selection, the scrolling control panel, and — in the bottom half
+              (the middle divider sits exactly at the panel's vertical centre:
+              both the top block and the scene are flex-1) — the 3D scene
+              filling the entire lower part. All dividers are solid lines
+              spanning the panel edge to edge. */}
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="shrink-0 pb-3">
+              <ProjectionHeader />
+            </div>
+            <div className="-mx-3 h-px shrink-0" style={{ background: NEON_DIVIDER, boxShadow: NEON_DIVIDER_GLOW }} />
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <ControlPanel />
+            </div>
           </div>
-          <div className="my-3 h-px shrink-0" style={{ background: NEON_DIVIDER, boxShadow: NEON_DIVIDER_GLOW }} />
-          <div className="relative w-full shrink-0" style={{ aspectRatio: '1 / 1' }}>
+          <div className="-mx-3 h-px shrink-0" style={{ background: NEON_DIVIDER, boxShadow: NEON_DIVIDER_GLOW }} />
+          <div className="relative min-h-0 flex-1">
             <ErrorBoundary fallback={<GlobeSceneFallback />}>
               <GlobeScene />
             </ErrorBoundary>

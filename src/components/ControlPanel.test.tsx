@@ -23,14 +23,6 @@ describe('ControlPanel', () => {
     });
   });
 
-  it('renders the projection selection button with current family and variant', () => {
-    render(<ControlPanel />);
-    const btn = screen.getByRole('button', { name: 'Выбрать проекцию' });
-    expect(btn).toBeTruthy();
-    expect(btn.textContent).toMatch(/Цилиндрическая/);
-    expect(btn.textContent).toMatch(/Меркатор/);
-  });
-
   it('updates store.lambda0 when the meridian slider changes', () => {
     render(<ControlPanel />);
     const slider = screen.getByRole('slider', { name: 'Долгота (λ₀)' }) as HTMLInputElement;
@@ -52,21 +44,10 @@ describe('ControlPanel', () => {
     useAppStore.getState().setFamily('conic');
     useAppStore.getState().setParam('lambda0', 60);
     render(<ControlPanel />);
+    // The reset button lives in the ProjectionHeader above the panel, so the
+    // panel alone cannot reset the params.
+    expect(screen.queryByRole('button', { name: 'Сбросить параметры' })).toBeNull();
     expect(useAppStore.getState().lambda0).toBe(60);
-    fireEvent.click(screen.getByRole('button', { name: 'Сбросить параметры' }));
-    const s = useAppStore.getState();
-    expect(s.family).toBe('conic');
-    expect(s.distortion).toBe('conformal');
-    expect(s.lambda0).toBe(0);
-  });
-
-  it('selects a projection from the catalog modal', () => {
-    render(<ControlPanel />);
-    fireEvent.click(screen.getByRole('button', { name: 'Выбрать проекцию' }));
-    fireEvent.click(screen.getByText('Гномоническая'));
-    const s = useAppStore.getState();
-    expect(s.family).toBe('azimuthalPerspective');
-    expect(s.variant).toBe('gnomonic');
   });
 
   it('updates store.phiOrigin when the central-latitude slider changes (conic family)', () => {

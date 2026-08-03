@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import type { ProjectionFamily } from '../store/useAppStore';
 import { useProjectionParams, useVisualizationParams } from '../store/selectors';
@@ -6,14 +6,13 @@ import {
   variantDef,
   defaultVariant,
 } from '../utils/projectionVariants';
-import ProjectionCatalog from './ProjectionCatalog';
 import Dropdown from './Dropdown';
 import CircularSlider from './CircularSlider';
 import Toggle from './Toggle';
 import Badge from './ui/Badge';
 import ParamSlider from './ui/ParamSlider';
 import PresetChips from './ui/PresetChips';
-import { FamilyIcon, ResetIcon, RulerIcon, HeatmapIcon, RaysIcon, GraticuleIcon, UnfoldIcon, NorthSouthIcon } from './ui/icons';
+import { RulerIcon, HeatmapIcon, RaysIcon, GraticuleIcon, UnfoldIcon, NorthSouthIcon } from './ui/icons';
 import {
   labelClass,
   activeTab,
@@ -27,7 +26,6 @@ import {
   radioOptionInactive,
 } from './ui/styles';
 import {
-  FAMILY_LABEL,
   VIZ_METHOD_OPTIONS,
   HEATMAP_TYPE_OPTIONS,
   TEST_FIGURE_OPTIONS,
@@ -382,32 +380,13 @@ function familyIsCylOrConic(f: ProjectionFamily): boolean {
 }
 
 export default function ControlPanel() {
-  const [catalogOpen, setCatalogOpen] = useState(false);
   const params = useProjectionParams();
   const { variant, family } = params;
-  const setVariant = useAppStore((s) => s.setVariant);
 
   const def = useMemo(() => variantDef(variant ?? defaultVariant(family)), [variant, family]);
 
   return (
     <div className="flex flex-col gap-3.5 px-3 py-3">
-      <div className="flex items-center gap-1">
-        <button
-          title="Выбрать проекцию"
-          aria-label="Выбрать проекцию"
-          onClick={() => setCatalogOpen(true)}
-          className={`${iconBtn} flex-auto justify-start gap-2 px-3`}
-        >
-          <FamilyIcon family={family} />
-          <span className="truncate text-[12px]">
-            {FAMILY_LABEL[family as keyof typeof FAMILY_LABEL]} — {def.label}
-          </span>
-        </button>
-        <button title="Сбросить параметры" aria-label="Сбросить параметры" onClick={() => useAppStore.getState().resetParams()} className={iconBtn}>
-          <ResetIcon />
-        </button>
-      </div>
-
       <div className="flex flex-wrap gap-1.5">
         <Badge label={def.surfaceTypeLabel} icon={<NorthSouthIcon />} />
         <Badge label={def.propertyLabel} />
@@ -415,13 +394,6 @@ export default function ControlPanel() {
 
       <ProjectionParamsSection def={def} />
       <VisualizationSection def={def} />
-
-      {catalogOpen && (
-        <ProjectionCatalog
-          onClose={() => setCatalogOpen(false)}
-          onSelect={(_f, v) => setVariant(v)}
-        />
-      )}
     </div>
   );
 }
