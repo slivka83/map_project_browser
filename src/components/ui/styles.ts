@@ -34,9 +34,10 @@ export const modalShell =
 // A labelled section inside the control panel.
 export const fieldRow = 'flex items-center gap-[12px]';
 
-// Slider track styling (accent + accessible focus ring).
+// Slider track styling (accent + accessible focus ring). `min-w-0` lets the
+// range input shrink below its intrinsic ~129px so rows never overflow.
 export const sliderClass =
-  'h-1 flex-1 cursor-pointer rounded-full bg-white/10 accent-neon-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70 disabled:opacity-40';
+  'h-1 min-w-0 flex-1 cursor-pointer rounded-full bg-white/10 accent-neon-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70 disabled:opacity-40';
 
 // ---- Badge + toggle + radio + misc design-system additions (new spec) ----
 

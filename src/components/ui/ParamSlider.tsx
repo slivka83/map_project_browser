@@ -31,15 +31,15 @@ export default function ParamSlider({
   return (
     <div className={fieldRow} title={disabled && tooltip ? tooltip : undefined}>
       {tooltip && disabled ? (
-        <span className={`${labelClass} w-44 shrink-0 cursor-help opacity-40`} title={tooltip}>
+        <span className={`${labelClass} w-36 shrink-0 cursor-help opacity-40`} title={tooltip}>
           {label} 🔗
         </span>
       ) : (
-        <span className={`${labelClass} w-44 shrink-0 ${disabled ? 'opacity-40' : ''}`}>
+        <span className={`${labelClass} w-36 shrink-0 ${disabled ? 'opacity-40' : ''}`}>
           {disabled ? `🔒 ${label}` : label}
         </span>
       )}
-      <div className="flex flex-1 items-center gap-[4px]">
+      <div className="flex min-w-0 flex-1 items-center gap-[4px]">
         <input
           type="range"
           min={min}

@@ -71,8 +71,8 @@ function StdParallel2Control({
   if (disabled) {
     return (
       <div className={fieldRow} title={tooltip ?? undefined}>
-        <span className={`${labelClass} w-44 shrink-0 cursor-help opacity-40`}>🔗 Параллель 2</span>
-        <div className="flex flex-1 items-center gap-[4px]">
+        <span className={`${labelClass} w-36 shrink-0 cursor-help opacity-40`}>🔗 Параллель 2</span>
+        <div className="flex min-w-0 flex-1 items-center gap-[4px]">
           <input type="range" min={0} max={90} step={1} value={value ?? 30} disabled className={sliderClass} />
           <span className="w-9 shrink-0 text-right text-[12px] text-gray-500">—</span>
         </div>
@@ -82,7 +82,7 @@ function StdParallel2Control({
 
   return (
     <div className={fieldRow}>
-      <span className={`${labelClass} w-44 shrink-0`}>Параллель 2</span>
+      <span className={`${labelClass} w-36 shrink-0`}>Параллель 2</span>
       <button
         type="button"
         aria-pressed={secant}
@@ -121,7 +121,7 @@ function ProjectionParamsSection({ def }: { def: ReturnType<typeof variantDef> }
     <div className="flex flex-col gap-2.5">
       {def.showCylinderOrientation && (
         <div className={fieldRow}>
-          <span className={`${labelClass} w-44 shrink-0`}>Ориентация цилиндра</span>
+          <span className={`${labelClass} w-36 shrink-0`}>Ориентация цилиндра</span>
           <span className="text-[12px] text-neon-blue">{CYLINDER_ORIENTATION_LABELS[def.cylinderOrientation ?? 'straight']}</span>
         </div>
       )}
@@ -129,7 +129,7 @@ function ProjectionParamsSection({ def }: { def: ReturnType<typeof variantDef> }
       {def.showUtmZone && (
         <>
           <div className={fieldRow}>
-            <span className={`${labelClass} w-44 shrink-0`}>Зона UTM</span>
+            <span className={`${labelClass} w-36 shrink-0`}>Зона UTM</span>
             <Dropdown
               value={utmZone != null ? String(utmZone) : ''}
               options={UTM_ZONE_OPTIONS}
@@ -178,7 +178,7 @@ function ProjectionParamsSection({ def }: { def: ReturnType<typeof variantDef> }
 
       {def.showNorthSouth && (
         <div className={fieldRow}>
-          <span className={`${labelClass} w-44 shrink-0`}>Полушарие</span>
+          <span className={`${labelClass} w-36 shrink-0`}>Полушарие</span>
           <div className={radioGroup}>
             {CONE_HEMISPHERE_OPTIONS.map((o) => (
               <button
@@ -205,7 +205,7 @@ function ProjectionParamsSection({ def }: { def: ReturnType<typeof variantDef> }
 
       {def.showAzAzimuth && (
         <div className={fieldRow}>
-          <span className={`${labelClass} w-44 shrink-0`}>Азимут камеры</span>
+          <span className={`${labelClass} w-36 shrink-0`}>Азимут камеры</span>
           <CircularSlider value={azAzimuthDeg} min={0} max={360} step={1} onChange={(v) => useAppStore.getState().setAzAzimuthDeg(v)} />
         </div>
       )}
@@ -273,7 +273,7 @@ function ProjectionParamsSection({ def }: { def: ReturnType<typeof variantDef> }
 
       {(family === 'azimuthalPerspective' || family === 'azimuthalMath') && (
         <div className={fieldRow}>
-          <span className={`${labelClass} w-44 shrink-0 ${def.lockedLight ? 'opacity-40' : ''}`}>
+          <span className={`${labelClass} w-36 shrink-0 ${def.lockedLight ? 'opacity-40' : ''}`}>
             {def.lockedLight ? '🔒 Источник света' : 'Источник света'}
           </span>
           <span className="text-[12px] text-gray-400">
@@ -314,7 +314,7 @@ function VisualizationSection({ def }: { def: ReturnType<typeof variantDef> }) {
       <span className={labelClass}>Визуализация</span>
 
       <div className={fieldRow}>
-        <span className={`${labelClass} w-44 shrink-0`}>Метод</span>
+        <span className={`${labelClass} w-36 shrink-0`}>Метод</span>
         <Dropdown
           value={viz.vizMethod}
           options={VIZ_METHOD_OPTIONS}
@@ -345,7 +345,7 @@ function VisualizationSection({ def }: { def: ReturnType<typeof variantDef> }) {
       </div>
 
       <div className={fieldRow}>
-        <span className={`${labelClass} w-44 shrink-0`}>Тестовые фигуры</span>
+        <span className={`${labelClass} w-36 shrink-0`}>Тестовые фигуры</span>
         <Dropdown
           value={viz.testFigureType ?? ''}
           allLabel="Нет"
