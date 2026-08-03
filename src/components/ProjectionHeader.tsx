@@ -31,7 +31,7 @@ export default function ProjectionHeader() {
           title="Выбрать проекцию"
           aria-label="Выбрать проекцию"
           onClick={() => setCatalogOpen(true)}
-          className={`${zoneClass} min-w-0 flex-1 justify-start gap-3 px-3`}
+          className={`${zoneClass} min-w-0 flex-1 justify-start gap-[9px] px-3`}
         >
           <FamilyIcon family={family} />
           <span className="min-w-0 truncate text-[12px]">{def.label}</span>
