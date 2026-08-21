@@ -169,13 +169,7 @@ function ProjectionParamsSection({ def }: { def: ReturnType<typeof variantDef> }
         </div>
       )}
 
-      {def.poleDistortionLabel && (
-        <div className="text-[11px] text-neon-blue/50 italic">Искажение полюсов: {def.poleDistortionLabel}</div>
-      )}
-      {def.applicationLabel && (
-        <div className="text-[11px] text-neon-blue/40 italic">Применение: {def.applicationLabel}</div>
-      )}
-    </div>
+      </div>
   );
 }
 

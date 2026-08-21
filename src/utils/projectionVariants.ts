@@ -23,8 +23,6 @@ export interface VariantDef {
   label: string;
   surfaceTypeLabel: string;
   propertyLabel: string;
-  poleDistortionLabel: string | null;
-  applicationLabel: string | null;
 
   // Context-driven control visibility flags.
   showParallel1: boolean;
@@ -55,8 +53,6 @@ const DEFAULT_CYL: Partial<VariantDef> = {
   lockedLight: true,
   surfaceTypeLabel: 'Цилиндр',
   propertyLabel: 'Компромиссная',
-  poleDistortionLabel: 'Искажение растёт к полюсам',
-  applicationLabel: null,
   showParallel1: true,
   showParallel2: false,
   parallel2Editable: false,
@@ -86,8 +82,6 @@ export const CYLINDRICAL_VARIANTS: Record<CylindricalVariant, VariantDef> = {
     lockedStdParallel2: null,
     lockedLight: true,
     propertyLabel: 'Сохраняет углы',
-    poleDistortionLabel: 'Полюса = линии',
-    applicationLabel: 'Морская навигация, веб-карты',
     showParallel1: true,
     },
 };
@@ -107,8 +101,6 @@ export const CONIC_VARIANTS: Record<ConicVariant, VariantDef> = {
     label: 'Ламберта конформная',
     surfaceTypeLabel: 'Конус',
     propertyLabel: 'Сохраняет углы (формы)',
-    poleDistortionLabel: 'Растяжение площадей к полюсу',
-    applicationLabel: 'Авиация, средние широты',
     showParallel1: true,
     showParallel2: true,
     parallel2Editable: true,
@@ -130,8 +122,6 @@ export const CONIC_VARIANTS: Record<ConicVariant, VariantDef> = {
     label: 'Альберса равновеликая',
     surfaceTypeLabel: 'Конус',
     propertyLabel: 'Сохраняет площади',
-    poleDistortionLabel: 'Искажение формы к полюсу',
-    applicationLabel: 'Статистические карты площадей',
     showParallel1: true,
     showParallel2: true,
     parallel2Editable: true,
@@ -156,8 +146,6 @@ export const AZIMUTHAL_PERSPECTIVE_VARIANTS: Record<AzimuthalPerspectiveVariant,
     label: 'Гномоническая',
     surfaceTypeLabel: 'Плоскость',
     propertyLabel: 'Ортодромии = прямые линии',
-    poleDistortionLabel: 'Бесконечность',
-    applicationLabel: 'Кратчайшие дуги (навигация)',
     showParallel1: false,
     showParallel2: false,
     parallel2Editable: false,
@@ -179,8 +167,6 @@ export const AZIMUTHAL_PERSPECTIVE_VARIANTS: Record<AzimuthalPerspectiveVariant,
     label: 'Стереографическая',
     surfaceTypeLabel: 'Плоскость',
     propertyLabel: 'Сохраняет углы',
-    poleDistortionLabel: 'Точка антипода уходит в бесконечность',
-    applicationLabel: 'Полярные карты, геология',
     showParallel1: false,
     showParallel2: false,
     parallel2Editable: false,
@@ -202,8 +188,6 @@ export const AZIMUTHAL_PERSPECTIVE_VARIANTS: Record<AzimuthalPerspectiveVariant,
     label: 'Ортографическая',
     surfaceTypeLabel: 'Плоскость',
     propertyLabel: 'Вид сферы из бесконечности',
-    poleDistortionLabel: 'Сильное сжатие к краям',
-    applicationLabel: 'Глобальные обзорные карты',
     showParallel1: false,
     showParallel2: false,
     parallel2Editable: false,
