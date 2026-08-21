@@ -1,4 +1,4 @@
-import type { ProjectionFamily, DistortionModel, AzimuthalLight, VizMethod } from '../store/useAppStore';
+import type { ProjectionFamily, DistortionModel, AzimuthalLight } from '../store/useAppStore';
 
 export type CylindricalVariant = 'equirectangular' | 'mercator';
 export type ConicVariant = 'lambertConformal' | 'albers';
@@ -33,7 +33,6 @@ export interface VariantDef {
   showNorthSouth: boolean;
   showTouchPointPresets: boolean;
 
-  recommendedVizMethod: VizMethod;
   touchPointPresets: { label: string; phi: number; lambda: number }[] | null;
 }
 
@@ -63,7 +62,6 @@ const DEFAULT_CYL: Partial<VariantDef> = {
   parallel2Editable: false,
   showNorthSouth: false,
   showTouchPointPresets: false,
-  recommendedVizMethod: 'peel',
   touchPointPresets: null,
 };
 
@@ -78,8 +76,7 @@ export const CYLINDRICAL_VARIANTS: Record<CylindricalVariant, VariantDef> = {
     lockedLight: true,
     propertyLabel: 'Сохраняет расстояния по меридианам и параллелям',
     showParallel1: true,
-    recommendedVizMethod: 'peel',
-  },
+    },
   mercator: {
     ...DEFAULT_CYL as VariantDef,
     label: 'Меркатор',
@@ -92,8 +89,7 @@ export const CYLINDRICAL_VARIANTS: Record<CylindricalVariant, VariantDef> = {
     poleDistortionLabel: 'Полюса = линии',
     applicationLabel: 'Морская навигация, веб-карты',
     showParallel1: true,
-    recommendedVizMethod: 'particles',
-  },
+    },
 };
 
 export const CONIC_VARIANTS: Record<ConicVariant, VariantDef> = {
@@ -118,8 +114,7 @@ export const CONIC_VARIANTS: Record<ConicVariant, VariantDef> = {
     parallel2Editable: true,
     showNorthSouth: true,
     showTouchPointPresets: false,
-    recommendedVizMethod: 'normals',
-    touchPointPresets: null,
+      touchPointPresets: null,
   },
   albers: {
     family: 'conic',
@@ -142,8 +137,7 @@ export const CONIC_VARIANTS: Record<ConicVariant, VariantDef> = {
     parallel2Editable: true,
     showNorthSouth: true,
     showTouchPointPresets: false,
-    recommendedVizMethod: 'normals',
-    touchPointPresets: null,
+      touchPointPresets: null,
   },
 };
 
@@ -169,8 +163,7 @@ export const AZIMUTHAL_PERSPECTIVE_VARIANTS: Record<AzimuthalPerspectiveVariant,
     parallel2Editable: false,
     showNorthSouth: false,
     showTouchPointPresets: true,
-    recommendedVizMethod: 'shadow',
-    touchPointPresets: TOUCH_PRESETS,
+      touchPointPresets: TOUCH_PRESETS,
   },
   stereographic: {
     family: 'azimuthalPerspective',
@@ -193,8 +186,7 @@ export const AZIMUTHAL_PERSPECTIVE_VARIANTS: Record<AzimuthalPerspectiveVariant,
     parallel2Editable: false,
     showNorthSouth: false,
     showTouchPointPresets: true,
-    recommendedVizMethod: 'construction',
-    touchPointPresets: TOUCH_PRESETS,
+      touchPointPresets: TOUCH_PRESETS,
   },
   orthographic: {
     family: 'azimuthalPerspective',
@@ -217,8 +209,7 @@ export const AZIMUTHAL_PERSPECTIVE_VARIANTS: Record<AzimuthalPerspectiveVariant,
     parallel2Editable: false,
     showNorthSouth: false,
     showTouchPointPresets: true,
-    recommendedVizMethod: 'shadow',
-    touchPointPresets: TOUCH_PRESETS,
+      touchPointPresets: TOUCH_PRESETS,
   },
 };
 

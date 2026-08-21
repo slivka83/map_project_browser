@@ -27,7 +27,3 @@ export const NEON_UNDERLAY_GLOW = '0 0 22px rgba(0, 229, 255, 0.18), inset 0 0 1
 // markers and cut line. Kept in sync with the 2D map and the 3D scene.
 export const NEON_GREEN = '#00ff66'; // touch-point / tangency marker
 export const NEON_RED = '#ff3333'; // cut line
-export const PARTICLE_COLOR = '#ffe600'; // particles
-export const WAVE_COLOR = 'rgba(0, 229, 255, 0.15)';
-export const LASER_COLOR = '#ff00ff'; // laser scanner
-export const NORMAL_COLOR = 'rgba(255, 255, 255, 0.6)';

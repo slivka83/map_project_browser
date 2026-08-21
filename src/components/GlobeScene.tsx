@@ -11,7 +11,6 @@ import LightSource from './LightSource';
 import Rays from './Rays';
 import TouchPointPin from './TouchPointPin';
 import CutLine from './CutLine';
-import VizMethodRenderer from './VizMethodRenderer';
 import { computeAuxSurfaceParams, lonLatToVec3, vec3ToLonLat } from '../utils/auxSurfaceGeometry';
 import { RADIUS } from '../constants/geometry';
 import { NEON_YELLOW } from '../constants/designTokens';
@@ -82,7 +81,6 @@ export default function GlobeScene() {
         </>
       )}
       <Rays params={params} />
-      <VizMethodRenderer method={viz.vizMethod} surface={surface} params={params} />
       <mesh onPointerMove={handleGlobeMove} onPointerOut={() => setHoverLonLat(null)}>
         <sphereGeometry args={[RADIUS, 48, 48]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />

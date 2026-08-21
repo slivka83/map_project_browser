@@ -13,17 +13,8 @@ export type DistortionModel = 'conformal' | 'equalArea' | 'equidistant';
 // stereographic, `infinity` → orthographic (parallel beams).
 export type AzimuthalLight = 'center' | 'antipode' | 'infinity';
 
-// The visualization method shown in the 3D scene (section 13 of the plan).
-export type VizMethod =
-  | 'none'
-  | 'normals'
-  | 'particles'
-  | 'magnetic'
-  | 'peel'
-  | 'wave'
-  | 'laser'
-  | 'construction'
-  | 'shadow';
+// Cone hemisphere selector (north / south).
+export type ConeHemisphere = 'north' | 'south';
 
 // Distortion heatmap colouring mode.
 export type HeatmapType = 'area' | 'angle' | 'scale';
@@ -33,9 +24,6 @@ export type TestFigureType = 'circles' | 'squares' | 'faces';
 
 // Graticule step in degrees.
 export type GraticuleStep = 1 | 5 | 10 | 15 | 30;
-
-// Cone hemisphere selector (north / south).
-export type ConeHemisphere = 'north' | 'south';
 
 // Default distortion per family: cylindrical → conformal, conic → equidistant,
 // azimuthal perspective → conformal.
@@ -129,7 +117,6 @@ interface AppState extends ProjectionParams {
   setShowHoverRay: (value: boolean) => void;
 
   // --- Non-parametric visualization / interaction state ---
-  vizMethod: VizMethod;
   showHeatmap: boolean;
   heatmapType: HeatmapType;
   graticuleStep: GraticuleStep;
@@ -137,7 +124,6 @@ interface AppState extends ProjectionParams {
   testFigureType: TestFigureType | null;
   showRays: boolean;
   rulerActive: boolean;
-  unfoldTrigger: boolean;
 
   setParam: <K extends keyof ProjectionParams>(key: K, value: ProjectionParams[K]) => void;
   setVariant: (v: ProjectionVariant) => void;
@@ -148,9 +134,8 @@ interface AppState extends ProjectionParams {
   setFamily: (family: ProjectionFamily) => void;
   resetParams: () => void;
   loadGeoData: () => Promise<void>;
-  applyPreset: (preset: Partial<ProjectionParams & { vizMethod?: VizMethod }>) => void;
+  applyPreset: (preset: Partial<ProjectionParams>) => void;
 
-  setVizMethod: (v: VizMethod) => void;
   setShowHeatmap: (value: boolean) => void;
   setHeatmapType: (value: HeatmapType) => void;
   setGraticuleStep: (value: GraticuleStep) => void;
@@ -162,8 +147,6 @@ interface AppState extends ProjectionParams {
   setRulerPoint1: (value: [number, number] | null) => void;
   setRulerPoint2: (value: [number, number] | null) => void;
   setConeHemisphere: (value: ConeHemisphere) => void;
-  startUnfold: () => void;
-  finishUnfold: () => void;
 }
 
 // The full set of new (variant-defaultable) fields reset by setVariant /
@@ -192,7 +175,6 @@ export const useAppStore = create<AppState>((set) => ({
   hoverLonLat: null,
   hoverSource: null,
   showHoverRay: false,
-  vizMethod: 'none',
   showHeatmap: false,
   heatmapType: 'area',
   graticuleStep: 15,
@@ -200,7 +182,6 @@ export const useAppStore = create<AppState>((set) => ({
   testFigureType: null,
   showRays: true,
   rulerActive: false,
-  unfoldTrigger: false,
   setHoverLonLat: (v, source) => set({ hoverLonLat: v, hoverSource: source ?? null }),
   setShowHoverRay: (value) => set({ showHoverRay: value }),
 
@@ -221,7 +202,6 @@ export const useAppStore = create<AppState>((set) => ({
       family: def.family,
       distortion: def.distortion,
       azLight: def.azLight,
-      vizMethod: def.recommendedVizMethod,
       gamma: def.lockedGamma ?? 0,
       scaleFactor: def.lockedScaleFactor ?? 1,
       phiOrigin: 0,
@@ -338,7 +318,6 @@ export const useAppStore = create<AppState>((set) => ({
     });
   },
 
-  setVizMethod: (v) => set({ vizMethod: v }),
   setShowHeatmap: (value) => set({ showHeatmap: value }),
   setHeatmapType: (value) => set({ heatmapType: value }),
   setGraticuleStep: (value) => set({ graticuleStep: value }),
@@ -350,6 +329,4 @@ export const useAppStore = create<AppState>((set) => ({
   setRulerPoint1: (value) => set({ rulerPoint1: value }),
   setRulerPoint2: (value) => set({ rulerPoint2: value }),
   setConeHemisphere: (value) => set({ coneHemisphere: value }),
-  startUnfold: () => set({ unfoldTrigger: true }),
-  finishUnfold: () => set({ unfoldTrigger: false }),
 }));

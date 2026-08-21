@@ -21,10 +21,6 @@ import {
   coneAxialHeight,
   computeAzimuthalLightLamp,
   coneApexWorld,
-  computePerpendicularNormals,
-  computeParticleTrajectories,
-  computeMagneticFieldLines,
-  computeLaserScanRing,
   computeCutLine,
   vec3Distance,
   vec3Normalize,
@@ -990,57 +986,6 @@ describe('rays always land on the rendered aux surface (no empty space)', () => 
       }
     });
   }
-});
-
-describe('computePerpendicularNormals', () => {
-  it('возвращает непустой массив нормалей для цилиндрической поверхности', () => {
-    const surface = computeAuxSurfaceParams('cylindrical', 0, 0, 1)!;
-    const normals = computePerpendicularNormals(surface, defaultParamsForFamily('cylindrical'), 30);
-    expect(normals.length).toBeGreaterThan(0);
-    for (const n of normals) {
-      expect(n.globePoint).toHaveLength(3);
-      expect(n.surfacePoint).toHaveLength(3);
-    }
-  });
-  it('работает для конической поверхности', () => {
-    const surface = computeAuxSurfaceParams('conic', 0, 45, 1)!;
-    expect(computePerpendicularNormals(surface, defaultParamsForFamily('cylindrical'), 30).length).toBeGreaterThan(0);
-  });
-  it('работает для плоскости', () => {
-    const surface = computeAuxSurfaceParams('azimuthalPerspective', 0, 30, 1)!;
-    expect(computePerpendicularNormals(surface, defaultParamsForFamily('cylindrical'), 30).length).toBeGreaterThan(0);
-  });
-});
-
-describe('computeParticleTrajectories', () => {
-  it('содержит globePoint, surfacePoint и controlPoints для каждого трека', () => {
-    const surface = computeAuxSurfaceParams('cylindrical', 0, 0, 1)!;
-    const trajs = computeParticleTrajectories(surface, defaultParamsForFamily('cylindrical'), 30);
-    expect(trajs.length).toBeGreaterThan(0);
-    for (const tr of trajs) {
-      expect(tr.globePoint).toHaveLength(3);
-      expect(tr.surfacePoint).toHaveLength(3);
-      expect(tr.controlPoints).toHaveLength(3);
-    }
-  });
-});
-
-describe('computeMagneticFieldLines', () => {
-  it('возвращает numLines линий', () => {
-    const surface = computeAuxSurfaceParams('cylindrical', 0, 0, 1)!;
-    const lines = computeMagneticFieldLines(surface, 'cylindrical', 8);
-    expect(lines).toHaveLength(8);
-  });
-});
-
-describe('computeLaserScanRing', () => {
-  it('возвращает кольцо + проекцию для заданной широты', () => {
-    const surface = computeAuxSurfaceParams('cylindrical', 0, 0, 1)!;
-    const frame = computeLaserScanRing(surface, 0, defaultParamsForFamily('cylindrical'), 32);
-    expect(frame.ringPoints.length).toBeGreaterThan(0);
-    expect(frame.projectedPoints.length).toBeGreaterThan(0);
-    expect(frame.latitude).toBe(0);
-  });
 });
 
 describe('computeCutLine', () => {

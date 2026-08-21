@@ -386,22 +386,6 @@ describe('useAppStore', () => {
     expect(s.coneHemisphere).toBe('north');
   });
 
-  it('setVariant auto-selects the recommended visualization method', () => {
-    const cases: Array<[string, string]> = [
-      ['mercator', 'particles'],
-      ['equirectangular', 'peel'],
-      ['lambertConformal', 'normals'],
-      ['albers', 'normals'],
-      ['stereographic', 'construction'],
-      ['orthographic', 'shadow'],
-      ['gnomonic', 'shadow'],
-    ];
-    for (const [variant, method] of cases) {
-      useAppStore.getState().setVariant(variant as never);
-      expect(useAppStore.getState().vizMethod).toBe(method);
-    }
-  });
-
   it('DEFAULT_DISTORTION covers the three families', () => {
     expect(DEFAULT_DISTORTION.cylindrical).toBe('conformal');
     expect(DEFAULT_DISTORTION.conic).toBe('equidistant');

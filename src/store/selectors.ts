@@ -28,7 +28,6 @@ export const useProjectionParams = (): ProjectionParams =>
 export function useVisualizationParams() {
   return useAppStore(
     useShallow((s) => ({
-      vizMethod: s.vizMethod,
       showHeatmap: s.showHeatmap,
       heatmapType: s.heatmapType,
       graticuleStep: s.graticuleStep,
@@ -36,7 +35,6 @@ export function useVisualizationParams() {
       testFigureType: s.testFigureType,
       showRays: s.showRays,
       rulerActive: s.rulerActive,
-      unfoldTrigger: s.unfoldTrigger,
     })),
   );
 }

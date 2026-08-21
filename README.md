@@ -57,7 +57,7 @@ npm run dev      # дев-сервер (http://localhost:5173)
 | `src/components/Map2D.tsx`   | Адаптивная SVG-карта: проекция подгоняется под контейнер (`fitProjectionToView`), чтобы глобус всегда заполнял доступную площадь с небольшими отступами; гратула, берега, индикатрисы Тиссо |
 | `src/components/ControlPanel.tsx` | Панель управления: параметры проекции и визуализации, слайдеры, пресеты точки касания |
 | `src/components/Dropdown.tsx` | Кастомный тёмный дропдаун (варианты `button` / `inline`)            |
-| `src/components/GlobeScene.tsx` | 3D-сцена, компонует `Globe` / `AuxSurface` / `IntersectionDisks` / `LightSource` / `Rays` и методы визуализации (`VizMethodRenderer`, `CutLine`, `TouchPointPin`, `Toggle`) |
+| `src/components/GlobeScene.tsx` | 3D-сцена, компонует `Globe` / `AuxSurface` / `IntersectionDisks` / `LightSource` / `Rays`, `CutLine`, `TouchPointPin` и `Toggle` |
 | `src/components/Globe.tsx`   | Прозрачный глобус с неоновыми 3D-линиями берегов и гратулы          |
 | `src/components/AuxSurface.tsx` | Вспомогательная поверхность — прозрачный неоновый каркас (цилиндр / конус / плоскость) |
 | `src/components/IntersectionDisks.tsx` | Полые белые неоновые кольца в местах реального пересечения поверхности с глобусом (0, 1 или 2 окружности) |
@@ -130,10 +130,6 @@ object-fit: contain), поэтому глобус всегда заполняе�
 - `NEON_WHITE` `#ffffff` — диски пересечения вспомогательной поверхности с глобусом
 - `NEON_GREEN` `#00ff66` — маркер точки касания / линия касания
 - `NEON_RED` `#ff3333` — линия разреза поверхности
-- `PARTICLE_COLOR` `#ffe600` — частицы
-- `WAVE_COLOR` `rgba(0, 229, 255, 0.15)` — волновая проекция
-- `LASER_COLOR` `#ff00ff` — лазерный сканер
-- `NORMAL_COLOR` `rgba(255, 255, 255, 0.6)` — перпендикулярные нормали
 - `NEON_BLUE_LINE` / `NEON_ORANGE_SOFT` — альфа-варианты неона
 - Стеклянные панели: `bg-panel-bg` (CSS-переменная `--color-panel-bg`) + `backdrop-blur` + тонкая рамка
 

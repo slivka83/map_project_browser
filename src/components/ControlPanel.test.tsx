@@ -172,14 +172,4 @@ describe('ControlPanel', () => {
     render(<ControlPanel />);
     expect(screen.getByRole('switch', { name: 'Лучи света' })).toBeTruthy();
   });
-
-  it('visualization method dropdown changes vizMethod', () => {
-    useAppStore.getState().setVizMethod('none');
-    render(<ControlPanel />);
-    // open the method dropdown (its trigger shows the current value "Нет" — the
-    // first of the two "Нет" matches is the Method dropdown, before the figures one)
-    fireEvent.click(screen.getAllByText('Нет')[0]);
-    fireEvent.click(screen.getByText('Перпендикулярные нормали'));
-    expect(useAppStore.getState().vizMethod).toBe('normals');
-  });
 });

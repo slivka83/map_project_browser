@@ -1,7 +1,6 @@
 import type {
   ProjectionFamily,
   DistortionModel,
-  VizMethod,
   HeatmapType,
   TestFigureType,
   GraticuleStep,
@@ -42,23 +41,6 @@ export const FAMILY_LABEL: Record<ProjectionFamily, string> = Object.fromEntries
 export const DISTORTION_LABEL: Record<DistortionModel, string> = Object.fromEntries(
   DISTORTION_OPTIONS.map((o) => [o.value, o.label]),
 ) as Record<DistortionModel, string>;
-
-// Visualization-method labels (9 options, including "none").
-export const VIZ_METHOD_OPTIONS: { value: VizMethod; label: string }[] = [
-  { value: 'none', label: 'Нет' },
-  { value: 'normals', label: 'Перпендикулярные нормали' },
-  { value: 'particles', label: 'Капли и частицы' },
-  { value: 'magnetic', label: 'Магнитное притяжение' },
-  { value: 'peel', label: 'Снятие шкуры' },
-  { value: 'wave', label: 'Волновое проецирование' },
-  { value: 'laser', label: 'Лазерное сканирование' },
-  { value: 'construction', label: 'Геометрическое построение' },
-  { value: 'shadow', label: 'Театр теней' },
-];
-
-export const VIZ_METHOD_LABELS: Record<VizMethod, string> = Object.fromEntries(
-  VIZ_METHOD_OPTIONS.map((o) => [o.value, o.label]),
-) as Record<VizMethod, string>;
 
 export const HEATMAP_TYPE_OPTIONS: { value: HeatmapType; label: string }[] = [
   { value: 'area', label: 'Площади' },

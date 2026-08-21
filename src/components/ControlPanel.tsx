@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import type { ProjectionFamily } from '../store/useAppStore';
+
 import { useProjectionParams, useVisualizationParams } from '../store/selectors';
 import {
   variantDef,
@@ -10,12 +10,11 @@ import Dropdown from './Dropdown';
 import Toggle from './Toggle';
 import ParamSlider from './ui/ParamSlider';
 import PresetChips from './ui/PresetChips';
-import { RulerIcon, HeatmapIcon, RaysIcon, GraticuleIcon, UnfoldIcon } from './ui/icons';
+import { RulerIcon, HeatmapIcon, RaysIcon, GraticuleIcon } from './ui/icons';
 import {
   labelClass,
   activeTab,
   inactiveTab,
-  iconBtn,
   sliderClass,
   fieldRow,
   radioGroup,
@@ -24,7 +23,6 @@ import {
   radioOptionInactive,
 } from './ui/styles';
 import {
-  VIZ_METHOD_OPTIONS,
   HEATMAP_TYPE_OPTIONS,
   TEST_FIGURE_OPTIONS,
   GRATICULE_STEP_OPTIONS,
@@ -187,11 +185,10 @@ function ProjectionParamsSection({ def }: { def: ReturnType<typeof variantDef> }
   );
 }
 
-// Universal visualization panel (rays, heatmap, graticule, figures, methods).
+// Universal visualization panel (rays, heatmap, graticule, figures).
 function VisualizationSection({ def }: { def: ReturnType<typeof variantDef> }) {
   const viz = useVisualizationParams();
   const store = useAppStore();
-  const setVizMethod = store.setVizMethod;
   const setShowHeatmap = store.setShowHeatmap;
   const setHeatmapType = store.setHeatmapType;
   const setGraticuleStep = store.setGraticuleStep;
@@ -199,20 +196,10 @@ function VisualizationSection({ def }: { def: ReturnType<typeof variantDef> }) {
   const setTestFigureType = store.setTestFigureType;
   const setShowRays = store.setShowRays;
   const setRulerActive = store.setRulerActive;
-  const startUnfold = store.startUnfold;
 
   return (
     <div className="flex flex-col gap-2.5 border-t border-white/10 pt-3">
       <span className={labelClass}>Визуализация</span>
-
-      <div className={fieldRow}>
-        <span className={`${labelClass} w-36 shrink-0`}>Метод</span>
-        <Dropdown
-          value={viz.vizMethod}
-          options={VIZ_METHOD_OPTIONS}
-          onChange={(v) => setVizMethod(v as typeof viz.vizMethod)}
-        />
-      </div>
 
       <Toggle label="Индикатрисы Тиссо" checked={store.showTissot} onChange={store.setShowTissot} icon={<span className="w-4 text-center text-neon-blue/80">◎</span>} />
 
@@ -250,25 +237,9 @@ function VisualizationSection({ def }: { def: ReturnType<typeof variantDef> }) {
         <Toggle label="Лучи света" checked={viz.showRays} onChange={setShowRays} icon={<RaysIcon />} />
       )}
 
-      {(familyIsCylOrConic(def.family)) && (
-        <button
-          type="button"
-          onClick={() => startUnfold()}
-          className={`${iconBtn} justify-start gap-2 px-3`}
-          title="Развернуть вспомогательную поверхность"
-        >
-          <UnfoldIcon />
-          <span className="text-[12px]">Развернуть</span>
-        </button>
-      )}
-
       <Toggle label="Линейка" checked={viz.rulerActive} onChange={setRulerActive} icon={<RulerIcon />} />
     </div>
   );
-}
-
-function familyIsCylOrConic(f: ProjectionFamily): boolean {
-  return f === 'cylindrical' || f === 'conic';
 }
 
 export default function ControlPanel() {
