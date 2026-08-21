@@ -129,9 +129,8 @@ export default function ProjectionCatalog({ onClose, onSelect }: Props) {
                     className="cursor-pointer align-top text-white/80 transition hover:bg-neon-blue/10 hover:text-neon-blue"
                   >
                     <td className="whitespace-nowrap px-3 py-2 text-white/60">
-                      <span className="inline-flex items-center gap-1.5">
+                      <span className="inline-flex items-center" title={row.familyLabel}>
                         {row.familyIcon}
-                        {row.familyLabel}
                       </span>
                     </td>
                     <td className="px-3 py-2 text-neon-blue">{def.label}</td>
