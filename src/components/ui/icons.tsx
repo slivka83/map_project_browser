@@ -125,34 +125,3 @@ export function UnfoldIcon() {
   );
 }
 
-
-
-
-// Catalog-group surface icons.
-export function CylinderSurfaceIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-      <ellipse cx="12" cy="6" rx="7" ry="3" />
-      <path d="M5 6v12M19 6v12M5 18a7 3 0 0 0 14 0" />
-    </svg>
-  );
-}
-
-export function ConeSurfaceIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-      <path d="M12 4 18 19H6Z" />
-      <path d="M6 19a6 2 0 0 0 12 0" />
-    </svg>
-  );
-}
-
-export function LightSourceIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4" />
-    </svg>
-  );
-}
-

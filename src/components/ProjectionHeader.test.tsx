@@ -22,12 +22,37 @@ describe('ProjectionHeader', () => {
     });
   });
 
-  it('renders the projection selection button with current variant', () => {
+  it('renders a projection dropdown with the current variant selected', () => {
     render(<ProjectionHeader />);
-    const btn = screen.getByRole('button', { name: 'Выбрать проекцию' });
-    expect(btn).toBeTruthy();
-    expect(btn.textContent).toMatch(/Меркатор/);
-    expect(btn.textContent).not.toMatch(/Цилиндрическая/);
+    const sel = screen.getByRole('combobox', { name: 'Выбрать проекцию' });
+    expect(sel).toBeTruthy();
+    expect((sel as HTMLSelectElement).value).toBe('mercator');
+    expect(sel.textContent).toMatch(/Меркатор/);
+  });
+
+  it('lists all 7 projections grouped by family', () => {
+    render(<ProjectionHeader />);
+    const sel = screen.getByRole('combobox', { name: 'Выбрать проекцию' }) as HTMLSelectElement;
+    const labels = Array.from(sel.options).map((o) => o.textContent);
+    expect(labels).toEqual([
+      'Равнопромежуточная',
+      'Меркатор',
+      'Ламберта конформная',
+      'Альберса равновеликая',
+      'Гномоническая',
+      'Стереографическая',
+      'Ортографическая',
+    ]);
+  });
+
+  it('switches the projection from the dropdown', () => {
+    render(<ProjectionHeader />);
+    fireEvent.change(screen.getByRole('combobox', { name: 'Выбрать проекцию' }), {
+      target: { value: 'gnomonic' },
+    });
+    const s = useAppStore.getState();
+    expect(s.family).toBe('azimuthalPerspective');
+    expect(s.variant).toBe('gnomonic');
   });
 
   it('resets params to the current family defaults via the reset button', () => {
@@ -42,19 +67,12 @@ describe('ProjectionHeader', () => {
     expect(s.lambda0).toBe(0);
   });
 
-  it('selects a projection from the catalog modal', () => {
-    render(<ProjectionHeader />);
-    fireEvent.click(screen.getByRole('button', { name: 'Выбрать проекцию' }));
-    fireEvent.click(screen.getByText('Гномоническая'));
-    const s = useAppStore.getState();
-    expect(s.family).toBe('azimuthalPerspective');
-    expect(s.variant).toBe('gnomonic');
-  });
-
   it('keeps the reset button usable with a long projection name', () => {
     useAppStore.getState().setVariant('stereographic');
     render(<ProjectionHeader />);
-    expect(screen.getByRole('button', { name: 'Выбрать проекцию' }).textContent).toMatch(/Стереографическая/);
+    const sel = screen.getByRole('combobox', { name: 'Выбрать проекцию' });
+    expect((sel as HTMLSelectElement).value).toBe('stereographic');
+    expect(sel.textContent).toMatch(/Стереографическая/);
     useAppStore.getState().setParam('lambda0', 60);
     fireEvent.click(screen.getByRole('button', { name: 'Сбросить параметры' }));
     expect(useAppStore.getState().lambda0).toBe(0);
