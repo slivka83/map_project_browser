@@ -10,17 +10,7 @@ import {
   VIEW_CENTER_X,
   VIEW_CENTER_Y,
   CLIP_LAT,
-  utmZoneToCentralMeridian,
-  centralMeridianToUtmZone,
-  circleRadiusToScale,
-  scaleToCircleRadius,
-  k0ToStandardParallel,
-  standardParallelToK0,
-  EARTH_HALF_CIRCUM_KM,
   EARTH_RADIUS_KM,
-  UTM_ZONE_WIDTH,
-  CIRCLE_RADIUS_MIN,
-  CIRCLE_RADIUS_MAX,
 } from './geometry';
 
 describe('standardParallelDeg', () => {
@@ -88,45 +78,8 @@ describe('geometry constants are self-consistent', () => {
   });
 });
 
-describe('utmZoneToCentralMeridian', () => {
-  it('zone 1 = -177', () => expect(utmZoneToCentralMeridian(1)).toBe(-177));
-  it('zone 60 = 177', () => expect(utmZoneToCentralMeridian(60)).toBe(177));
-  it('zone 31 = 3 (центральная Европа)', () => expect(utmZoneToCentralMeridian(31)).toBe(3));
-});
-
-describe('centralMeridianToUtmZone', () => {
-  it('0° = зона 31', () => expect(centralMeridianToUtmZone(0)).toBe(31));
-  it('-177° = зона 1', () => expect(centralMeridianToUtmZone(-177)).toBe(1));
-  it('177° = зона 60', () => expect(centralMeridianToUtmZone(177)).toBe(60));
-});
-
-describe('circleRadiusToScale / scaleToCircleRadius', () => {
-  it('полуокружность → scale ≈ 1', () => {
-    expect(circleRadiusToScale(EARTH_HALF_CIRCUM_KM)).toBeCloseTo(1, 3);
-  });
-  it('round-trip', () => {
-    expect(scaleToCircleRadius(circleRadiusToScale(10000))).toBeCloseTo(10000, 0);
-  });
-});
-
-describe('k0ToStandardParallel / standardParallelToK0', () => {
-  it('k0=1 → parallel ≈ 0°', () => expect(k0ToStandardParallel(1)).toBeCloseTo(0, 1));
-  it('parallel=0 → k0=1', () => expect(standardParallelToK0(0)).toBe(1));
-  it('k0=0.7 → parallel ≈ 45.6°', () => expect(k0ToStandardParallel(0.7)).toBeCloseTo(45.6, 0));
-  it('round-trip', () => {
-    expect(standardParallelToK0(k0ToStandardParallel(0.8))).toBeCloseTo(0.8, 3);
-  });
-});
-
-describe('Earth / circle-radius constants', () => {
-  it('half circumference = π·R', () => {
-    expect(EARTH_HALF_CIRCUM_KM).toBeCloseTo(Math.PI * EARTH_RADIUS_KM, 6);
-  });
-  it('UTM zone width is 6°', () => {
-    expect(UTM_ZONE_WIDTH).toBe(6);
-  });
-  it('circle radius bounds bracket the half circumference', () => {
-    expect(CIRCLE_RADIUS_MIN).toBeGreaterThan(0);
-    expect(CIRCLE_RADIUS_MAX).toBeCloseTo(EARTH_HALF_CIRCUM_KM, 6);
+describe('Earth radius constant', () => {
+  it('spherical Earth radius = 6371 km (ruler distance math)', () => {
+    expect(EARTH_RADIUS_KM).toBe(6371);
   });
 });

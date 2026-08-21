@@ -16,12 +16,11 @@ const latLabel = (deg: number): string => {
 function describeProjection(p: ProjectionParams): string {
   const fam = FAMILY_LABEL[p.family];
   const dist = DISTORTION_LABEL[p.distortion];
-  if (p.family === 'azimuthalPerspective' || p.family === 'azimuthalMath') {
+  if (p.family === 'azimuthalPerspective') {
     const az: Record<AzimuthalLight, string> = {
       center: 'Гномоническая',
       antipode: 'Стереографическая',
       infinity: 'Ортографическая',
-      math: dist,
     };
     return `${az[p.azLight]} (азимутальная)`;
   }
@@ -50,13 +49,7 @@ export default function ProjectionSummary({ params, onClose }: { params: Project
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  const utm = params.utmZone != null ? `Зона ${params.utmZone}` : '—';
-  const isCylindrical = params.family === 'cylindrical';
   const isConic = params.family === 'conic';
-  const isAzimuthalPerspective = params.family === 'azimuthalPerspective';
-  const isAzimuthalMath = params.family === 'azimuthalMath';
-  const isSatellite = isAzimuthalPerspective && (params.variant === 'verticalPerspective' || params.variant === 'tiltedPerspective');
-  const isObliqueMercator = params.variant === 'obliqueMercator';
 
   return createPortal(
     <div
@@ -90,24 +83,8 @@ export default function ProjectionSummary({ params, onClose }: { params: Project
             />
           )}
           <Row k="Масштабный коэффициент" v={params.scaleFactor.toFixed(2)} />
-          <Row k="Наклон (γ)" v={`${params.gamma}°`} />
-          {isCylindrical && params.variant === 'transverseMercator' && <Row k="Зона UTM" v={utm} />}
-          {isSatellite && <Row k="Высота источника (км)" v={`${params.azHeight}`} />}
-          {params.variant === 'tiltedPerspective' && (
-            <>
-              <Row k="Наклон камеры" v={`${params.azTiltDeg}°`} />
-              <Row k="Азимут камеры" v={`${params.azAzimuthDeg}°`} />
-            </>
-          )}
+          {params.family === 'azimuthalPerspective' && <Row k="Наклон (γ)" v={`${params.gamma}°`} />}
           {isConic && <Row k="Полушарие конуса" v={params.coneHemisphere === 'south' ? 'Юг' : 'Север'} />}
-          {isAzimuthalMath && <Row k="Радиус круга (км)" v={`${params.circleRadiusKm}`} />}
-          {isObliqueMercator && (
-            <>
-              <Row k="Наклонение SOM" v={`${params.somInclination}°`} />
-              <Row k="Период SOM (мин)" v={`${params.somPeriod}`} />
-              <Row k="Долгота узла SOM" v={`${params.somNodeLongitude}°`} />
-            </>
-          )}
           <Row k="Смещение восток (falseEasting)" v={`${params.falseEasting}`} />
           <Row k="Смещение север (falseNorthing)" v={`${params.falseNorthing}`} />
           <Row k="Класс проекции" v={describeProjection(params)} />

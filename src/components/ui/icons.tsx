@@ -35,15 +35,6 @@ export function FamilyIcon({ family }: { family: ProjectionFamily }) {
   );
 }
 
-export function EpsgIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" />
-      <ellipse cx="12" cy="12" rx="4" ry="9" />
-      <path d="M3 12h18" />
-    </svg>
-  );
-}
 
 export function TissotIcon() {
   return (
@@ -130,14 +121,6 @@ export function HeatmapIcon() {
   );
 }
 
-export function FiguresIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-      <circle cx="8" cy="8" r="3" />
-      <rect x="13" y="13" width="6" height="6" rx="1" />
-    </svg>
-  );
-}
 
 export function RaysIcon() {
   return (
@@ -166,33 +149,8 @@ export function UnfoldIcon() {
   );
 }
 
-export function NorthSouthIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
-      <path d="M12 21V3" />
-      <path d="M9 6l3-3 3 3M9 18l3 3 3-3" />
-    </svg>
-  );
-}
 
-export function SatelliteIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-      <path d="M5 13l4 4M9 17l-2 2M11 9l4 4" />
-      <rect x="13" y="3" width="5" height="4" rx="1" transform="rotate(45 15.5 5)" />
-      <path d="M14 14l4 4M18 18a4 4 0 0 1-4 4" opacity="0.6" />
-    </svg>
-  );
-}
 
-export function PinIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z" />
-      <circle cx="12" cy="10" r="2.4" />
-    </svg>
-  );
-}
 
 // Catalog-group surface icons.
 export function CylinderSurfaceIcon() {
@@ -222,11 +180,3 @@ export function LightSourceIcon() {
   );
 }
 
-export function PlaneMathIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 3a9 9 0 0 0 0 18M12 3a9 9 0 0 1 0 18" opacity="0.6" />
-    </svg>
-  );
-}

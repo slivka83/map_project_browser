@@ -32,8 +32,7 @@ describe('useAppStore', () => {
     expect(s.falseEasting).toBe(0);
     expect(s.falseNorthing).toBe(0);
     expect(s.gamma).toBe(0);
-    // mercator is a secant cylinder → std parallel 2 locked to 0
-    expect(s.stdParallel2).toBe(0);
+    expect(s.stdParallel2).toBeNull();
     expect(s.azLight).toBe('center');
     expect(s.showTissot).toBe(false);
     expect(s.showBorders).toBe(false);
@@ -130,10 +129,9 @@ describe('useAppStore', () => {
 
   it('sets the family default params via setFamily', () => {
     const cases: [ProjectionFamily, DistortionModel, string, number | null][] = [
-      ['cylindrical', 'conformal', 'center', 0],
-      ['conic', 'conformal', 'math', null],
+      ['cylindrical', 'conformal', 'center', null],
+      ['conic', 'conformal', 'center', null],
       ['azimuthalPerspective', 'conformal', 'center', null],
-      ['azimuthalMath', 'equalArea', 'math', null],
     ];
     for (const [family, distortion, azLight, sp2] of cases) {
       useAppStore.setState({ family: 'cylindrical', distortion: 'equalArea', lambda0: 90, phiOrigin: 45, scaleFactor: 1.1, falseEasting: 100, falseNorthing: -50 });
@@ -214,7 +212,7 @@ describe('useAppStore', () => {
   });
 
   it('applyPreset merges partial fields and preserves the rest', () => {
-    useAppStore.getState().setVariant('equidistantConic');
+    useAppStore.getState().setVariant('albers');
     useAppStore.setState({
       lambda0: 90,
       phiOrigin: 45,
@@ -227,7 +225,7 @@ describe('useAppStore', () => {
     expect(s.lambda0).toBe(10);
     // unspecified fields untouched
     expect(s.family).toBe('conic');
-    expect(s.distortion).toBe('equidistant');
+    expect(s.distortion).toBe('equalArea');
     expect(s.phiOrigin).toBe(45);
     expect(s.scaleFactor).toBe(1.1);
     expect(s.falseEasting).toBe(100);
@@ -374,66 +372,29 @@ describe('useAppStore', () => {
 
   it('exercises the new parameter actions', () => {
     const store = useAppStore.getState();
-    store.setUtmZone(31);
-    store.setAzHeight(1000);
-    store.setAzTiltDeg(30);
-    store.setAzAzimuthDeg(120);
     store.setConeHemisphere('south');
-    store.setCircleRadiusKm(15000);
-    const s = useAppStore.getState();
-    expect(s.utmZone).toBe(31);
-    expect(s.azHeight).toBe(1000);
-    expect(s.azTiltDeg).toBe(30);
-    expect(s.azAzimuthDeg).toBe(120);
-    expect(s.coneHemisphere).toBe('south');
-    expect(s.circleRadiusKm).toBe(15000);
+    expect(useAppStore.getState().coneHemisphere).toBe('south');
   });
 
   it('setVariant resets the new fields to the variant defaults', () => {
-    useAppStore.setState({ utmZone: 31, azHeight: 2000, circleRadiusKm: 15000, coneHemisphere: 'south' });
-    useAppStore.getState().setVariant('verticalPerspective');
-    let s = useAppStore.getState();
-    expect(s.variant).toBe('verticalPerspective');
+    useAppStore.setState({ coneHemisphere: 'south' });
+    useAppStore.getState().setVariant('stereographic');
+    const s = useAppStore.getState();
+    expect(s.variant).toBe('stereographic');
     expect(s.family).toBe('azimuthalPerspective');
-    expect(s.utmZone).toBeNull();
-    expect(s.azHeight).toBe(400);
-    expect(s.circleRadiusKm).toBe(10000);
-    // switching to a maths azimuthal clears the perspective height
-    useAppStore.getState().setVariant('lambertAzimuthalEqualArea');
-    s = useAppStore.getState();
-    expect(s.family).toBe('azimuthalMath');
-    expect(s.azLight).toBe('math');
-  });
-
-  it('resetParams resets the new fields for every family', () => {
-    useAppStore.getState().setVariant('azimuthalEquidistant');
-    useAppStore.setState({ circleRadiusKm: 18000, somInclination: 50 });
-    useAppStore.getState().resetParams();
-    const s = useAppStore.getState();
-    expect(s.circleRadiusKm).toBe(10000);
-    expect(s.somInclination).toBe(98);
-  });
-
-  it('applyPreset accepts the new optional fields', () => {
-    useAppStore.getState().applyPreset({ variant: 'verticalPerspective', family: 'azimuthalPerspective', azHeight: 800 });
-    const s = useAppStore.getState();
-    expect(s.variant).toBe('verticalPerspective');
-    expect(s.azHeight).toBe(800);
+    expect(s.azLight).toBe('antipode');
+    expect(s.coneHemisphere).toBe('north');
   });
 
   it('setVariant auto-selects the recommended visualization method', () => {
     const cases: Array<[string, string]> = [
       ['mercator', 'particles'],
-      ['transverseMercator', 'normals'],
       ['equirectangular', 'peel'],
       ['lambertConformal', 'normals'],
+      ['albers', 'normals'],
       ['stereographic', 'construction'],
       ['orthographic', 'shadow'],
       ['gnomonic', 'shadow'],
-      ['verticalPerspective', 'shadow'],
-      ['tiltedPerspective', 'shadow'],
-      ['lambertAzimuthalEqualArea', 'normals'],
-      ['azimuthalEquidistant', 'wave'],
     ];
     for (const [variant, method] of cases) {
       useAppStore.getState().setVariant(variant as never);
@@ -441,10 +402,9 @@ describe('useAppStore', () => {
     }
   });
 
-  it('DEFAULT_DISTORTION covers the four families', () => {
+  it('DEFAULT_DISTORTION covers the three families', () => {
     expect(DEFAULT_DISTORTION.cylindrical).toBe('conformal');
     expect(DEFAULT_DISTORTION.conic).toBe('equidistant');
     expect(DEFAULT_DISTORTION.azimuthalPerspective).toBe('conformal');
-    expect(DEFAULT_DISTORTION.azimuthalMath).toBe('equalArea');
   });
 });

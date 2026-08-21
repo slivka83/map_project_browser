@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import * as d3Geo from 'd3-geo';
-import type { FeatureCollection, Polygon } from 'geojson';
+import type { FeatureCollection } from 'geojson';
 import { useAppStore } from '../store/useAppStore';
 import { useProjectionParams, useVisualizationParams } from '../store/selectors';
-import { getD3Projection, fitProjectionToView, makeCircleFitSphere, computeAreaDistortion, referenceAreaScale, cellAreaDistortion, isPointerOverGlobe } from '../utils/projectionMapper';
+import { getD3Projection, fitProjectionToView, computeAreaDistortion, referenceAreaScale, cellAreaDistortion, isPointerOverGlobe } from '../utils/projectionMapper';
 import { computeTissotCircles } from '../utils/tissot';
 import { computeAuxSphereIntersectionsLonLat } from '../utils/auxSurfaceGeometry';
 import { variantDef } from '../utils/projectionVariants';
-import { utmZoneToCentralMeridian, UTM_ZONE_WIDTH, EARTH_RADIUS_KM, RADIUS } from '../constants/geometry';
+import { EARTH_RADIUS_KM, RADIUS } from '../constants/geometry';
 import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT, NEON_YELLOW, NEON_WHITE, GRATICULE_STROKE, NEON_RED } from '../constants/designTokens';
 import { iconBtnPlain, iconGlow, glassPanel } from './ui/styles';
 import { TissotIcon, BorderIcon, DetailIcon, IntersectionIcon, HoverRayIcon, InfoIcon } from './ui/icons';
@@ -79,26 +79,10 @@ function TestFiguresOverlay({ proj, type }: { proj: d3Geo.GeoProjection; type: '
   );
 }
 
-// UTM zone mask: dim everything outside the active 6° zone (Transverse Mercator).
-function UTMZoneMask({ proj, zone }: { proj: d3Geo.GeoProjection; zone: number }) {
-  const meridian = utmZoneToCentralMeridian(zone);
-  const lonMin = meridian - UTM_ZONE_WIDTH / 2;
-  const lonMax = meridian + UTM_ZONE_WIDTH / 2;
-  const inside: [number, number][] = [
-    [lonMin, -85], [lonMax, -85], [lonMax, 85], [lonMin, 85], [lonMin, -85],
-  ].map(([lo, la]) => (proj([lo, la]) ?? [0, 0]) as [number, number]);
-  const d = inside.length === 5 ? `M ${inside[0][0]} ${inside[0][1]} L ${inside[1][0]} ${inside[1][1]} L ${inside[2][0]} ${inside[2][1]} L ${inside[3][0]} ${inside[3][1]} Z` : '';
-  return (
-    <g data-testid="utm-mask">
-      <path d={d} fill="none" stroke={NEON_YELLOW} strokeWidth={0.8} strokeDasharray="4 3" opacity={0.7} />
-    </g>
-  );
-}
-
 export default function Map2D() {
   const params = useProjectionParams();
   const viz = useVisualizationParams();
-  const { scaleFactor, family, lambda0, phiOrigin, stdParallel2, utmZone } = params;
+  const { scaleFactor, family, lambda0, phiOrigin, stdParallel2 } = params;
   const { graticuleStep, showHeatmap, showGraticule, testFigureType, rulerActive } = viz;
   const showTissot = useAppStore((s) => s.showTissot);
   const setShowTissot = useAppStore((s) => s.setShowTissot);
@@ -135,16 +119,7 @@ export default function Map2D() {
 
   const pathGenerator = useMemo(() => {
     const proj = getD3Projection(params);
-    // The azimuthal-math auxiliary plane is sized by circleRadiusKm; fit the 2D
-    // map to that same cap so the 2D view tracks the 3D plane as the radius
-    // changes (otherwise fitProjectionToView would always show ±85° and 2D/3D
-    // would diverge).
-    let fitTarget: Polygon | null = null;
-    if (params.family === 'azimuthalMath') {
-      const capDeg = (params.circleRadiusKm / EARTH_RADIUS_KM) * (180 / Math.PI);
-      fitTarget = makeCircleFitSphere(params.lambda0, params.phiOrigin, capDeg);
-    }
-    fitProjectionToView(proj, width, height, FIT_MARGIN, fitTarget);
+    fitProjectionToView(proj, width, height, FIT_MARGIN);
     return d3Geo.geoPath().projection(proj);
   }, [params, width, height]);
 
@@ -204,7 +179,7 @@ export default function Map2D() {
       return;
     }
     const def = variantDef(params.variant);
-    if (def?.showTouchPointPresets && (family === 'azimuthalPerspective' || family === 'azimuthalMath')) {
+    if (def?.showTouchPointPresets && family === 'azimuthalPerspective') {
       store.setParam('phiOrigin', inv[1]);
       store.setParam('lambda0', inv[0]);
     }
@@ -281,7 +256,6 @@ export default function Map2D() {
             />
           ))}
           {testFigureType && projRef && <TestFiguresOverlay proj={projRef} type={testFigureType} />}
-          {family === 'cylindrical' && utmZone != null && projRef && <UTMZoneMask proj={projRef} zone={utmZone} />}
           {p1 && <circle cx={p1[0]} cy={p1[1]} r={4} fill="none" stroke={NEON_RED} strokeWidth={1.5} data-testid="ruler-point-1" />}
           {p2 && <circle cx={p2[0]} cy={p2[1]} r={4} fill="none" stroke={NEON_RED} strokeWidth={1.5} data-testid="ruler-point-2" />}
           {p1 && p2 && (

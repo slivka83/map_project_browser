@@ -9,8 +9,6 @@ import {
   CLIP_LAT,
   FIT_MARGIN,
   signedStandardParallelDeg,
-  utmZoneToCentralMeridian,
-  circleRadiusToScale,
 } from '../constants/geometry';
 
 const clampScale = (s: number): number => Math.max(0, Math.min(1, s));
@@ -86,141 +84,8 @@ function makeCylindricalProjection(
   return proj;
 }
 
-// Vertical (Near-Sided) perspective projection. The observer is at height
-// `heightKm` km above the point of tangency, looking straight down. A globe
-// point at angular distance c from the centre projects (in the unit sphere of
-// Earth radius 1) to radius ρ = h·sin c / (h + 1 − cos c), where h = H/R is the
-// observer height in Earth radii. As H → ∞ (h → ∞) this tends to ρ = sin c, i.e.
-// the orthographic projection. The inverse is the exact central-projection /
-// ray–sphere intersection, so forward∘invert = identity for every visible point.
-export function makeVerticalPerspective(heightKm: number, earthRadiusKm = 6371): GeoProjection {
-  const R = earthRadiusKm;
-  const H = Math.max(0, heightKm);
-  const h = H / R; // observer height in Earth radii
-  type RawProjection = ((λ: number, φ: number) => [number, number]) & {
-    invert?: (x: number, y: number) => [number, number];
-  };
-  // The raw input is the d3-rotated coordinate in RADIANS (projection centre at
-  // 0,0); d3 handles the degree↔radian conversion, so use λ/φ directly.
-  const cOf = (λ: number, φ: number): number =>
-    Math.acos(Math.max(-1, Math.min(1, Math.cos(φ) * Math.cos(λ))));
-  const azOf = (λ: number, φ: number): number =>
-    Math.atan2(Math.cos(φ) * Math.sin(λ), Math.sin(φ));
-  const raw: RawProjection = ((λ: number, φ: number): [number, number] => {
-    const c = cOf(λ, φ);
-    const az = azOf(λ, φ);
-    const rho = (h * Math.sin(c)) / (h + 1 - Math.cos(c));
-    return [rho * Math.sin(az), rho * Math.cos(az)];
-  }) as RawProjection;
-  raw.invert = (x: number, y: number): [number, number] => {
-    // Ray–sphere intersection. Earth has radius 1 (unit), centre at the origin,
-    // tangent point T at (1,0,0), observer at O = (1+h, 0, 0). The screen point
-    // S = (1, x, y) lies on the tangent plane; the ray O→S meets the sphere at
-    // the front intersection P, which is the projected globe point.
-    const m = 1 + h;
-    const rho2 = x * x + y * y;
-    if (rho2 < 1e-12) return [0, 0]; // exact touch point (projection centre)
-    const disc = m * m * h * h - (h * h + rho2) * (h * h + 2 * h);
-    if (disc < 0) return [0, 0]; // behind the horizon — clamp to the centre
-    // The far (plus) root is the front globe intersection along the ray O→S.
-    const t = (m * h + Math.sqrt(disc)) / (h * h + rho2);
-    const Px = m - t * h;
-    const Py = t * y;
-    const Pz = t * x;
-    // d3 multiplies the returned radians by `degrees` itself, so return radians.
-    const lat = Math.asin(Math.max(-1, Math.min(1, Py)));
-    const lon = Math.atan2(Pz, Px);
-    return [lon, lat];
-  };
-  const proj = d3Geo.geoProjection(raw);
-  proj.precision(0.1);
-  return proj;
-}
-
-// Tilted (oblique) near-sided perspective. The observer is offset from the
-// vertical above the touch point by `tiltDeg` in the direction `azimuthDeg`.
-// We reuse the exact vertical-perspective forward/inverse (c = angular distance
-// from the touch point, in d3 unit-sphere coordinates) and then apply an
-// invertible in-plane tilt: rotate the camera-plane image by `-azimuth` so the
-// tilt axis aligns with Y, foreshorten Y by `cos(tilt)` (the lean), then rotate
-// back. The map stays exactly invertible (the touch point maps to the origin)
-// and the tilted/satellite azimuth sliders genuinely change the rendered map
-// instead of reproducing the vertical case.
-export function makeTiltedPerspective(
-  heightKm: number,
-  tiltDeg: number,
-  azimuthDeg: number,
-  earthRadiusKm = 6371,
-): GeoProjection {
-  // A zero tilt is exactly the vertical (near-sided) perspective, which is
-  // cheaper and numerically cleaner — avoid building the heavier tilt map.
-  if (tiltDeg < 0.01) return makeVerticalPerspective(heightKm, earthRadiusKm);
-  const R = earthRadiusKm;
-  const H = Math.max(0, heightKm);
-  const h = H / R; // observer height in Earth radii
-  const tilt = (tiltDeg * Math.PI) / 180;
-  const az = (azimuthDeg * Math.PI) / 180;
-  const cosTilt = Math.cos(Math.max(0, Math.min(Math.PI / 2 - 1e-3, tilt)));
-  const cA = Math.cos(az);
-  const sA = Math.sin(az);
-  type RawProjection = ((λ: number, φ: number) => [number, number]) & {
-    invert?: (x: number, y: number) => [number, number];
-  };
-  // The raw input is the d3-rotated coordinate in RADIANS (projection centre at
-  // 0,0); d3 handles the degree↔radian conversion, so use λ/φ directly.
-  const cOf = (λ: number, φ: number): number =>
-    Math.acos(Math.max(-1, Math.min(1, Math.cos(φ) * Math.cos(λ))));
-  const azOf = (λ: number, φ: number): number =>
-    Math.atan2(Math.cos(φ) * Math.sin(λ), Math.sin(φ));
-  // Invertible tilt map on unit-sphere camera coords (xv, yv).
-  const tiltForward = (xv: number, yv: number): [number, number] => {
-    const u = xv * cA + yv * sA;
-    const v = -xv * sA + yv * cA;
-    const yc = v * cosTilt;
-    return [u * cA - yc * sA, u * sA + yc * cA];
-  };
-  const tiltInverse = (x: number, y: number): [number, number] => {
-    const u = x * cA + y * sA;
-    const v = (-x * sA + y * cA) / cosTilt;
-    return [u * cA - v * sA, u * sA + v * cA];
-  };
-  const raw: RawProjection = ((λ: number, φ: number): [number, number] => {
-    const c = cOf(λ, φ);
-    const a = azOf(λ, φ);
-    // Same near-sided-perspective radial law as the vertical case (unit sphere,
-    // h = H/R): ρ = h·sin c / (h + 1 − cos c).
-    const rho = (h * Math.sin(c)) / (h + 1 - Math.cos(c));
-    return tiltForward(rho * Math.sin(a), rho * Math.cos(a));
-  }) as RawProjection;
-  raw.invert = (x: number, y: number): [number, number] => {
-    // Undo the in-plane tilt to recover the untilted camera coords (xv, yv).
-    const [xv, yv] = tiltInverse(x, y);
-    // Exactly invert the vertical perspective (ray–sphere intersection).
-    const m = 1 + h;
-    const rho2 = xv * xv + yv * yv;
-    if (rho2 < 1e-12) return [0, 0]; // exact touch point (projection centre)
-    const disc = m * m * h * h - (h * h + rho2) * (h * h + 2 * h);
-    if (disc < 0) return [0, 0]; // behind the horizon — clamp to the centre
-    // The far (plus) root is the front globe intersection along the ray O→S.
-    const t = (m * h + Math.sqrt(disc)) / (h * h + rho2);
-    const Px = m - t * h; // = cos c
-    const Py = t * yv; // = sin c · cos a
-    const Pz = t * xv; // = sin c · sin a
-    // d3 multiplies the returned radians by `degrees` itself, so return radians.
-    const lat = Math.asin(Math.max(-1, Math.min(1, Py)));
-    const lon = Math.atan2(Pz, Px);
-    return [lon, lat];
-  };
-  const proj = d3Geo.geoProjection(raw);
-  proj.precision(0.1);
-  return proj;
-}
-
 export const getD3Projection = (state: ProjectionParams): GeoProjection => {
-  const { family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, azLight, utmZone, azHeight, azTiltDeg, azAzimuthDeg, circleRadiusKm } = state;
-
-  // Effective central meridian: UTM overrides for transverse Mercator.
-  const effLambda0 = family === 'cylindrical' && utmZone != null ? utmZoneToCentralMeridian(utmZone) : lambda0;
+  const { family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, azLight } = state;
 
   let proj: GeoProjection;
 
@@ -234,7 +99,7 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
     }
     const rotZ = 0;
     proj
-      .rotate([-(effLambda0), -phiOrigin, rotZ])
+      .rotate([-lambda0, -phiOrigin, rotZ])
       .scale(MAP_SCALE * scaleFactor)
       .translate([VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing]);
     return proj;
@@ -252,36 +117,21 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
     proj = (proj as GeoConicProjection).parallels([phi1, phi2]);
     const rotZ = -gamma;
     proj
-      .rotate([-(effLambda0), -phiOrigin, rotZ])
+      .rotate([-lambda0, -phiOrigin, rotZ])
       .scale(MAP_SCALE * scaleFactor)
       .translate([VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing]);
     return proj;
   }
 
-  if (family === 'azimuthalPerspective') {
-    if (state.variant === 'verticalPerspective') {
-      proj = makeVerticalPerspective(azHeight);
-    } else if (state.variant === 'tiltedPerspective') {
-      proj = makeTiltedPerspective(azHeight, azTiltDeg, azAzimuthDeg);
-    } else if (azLight === 'center') proj = d3Geo.geoGnomonic();
-    else if (azLight === 'antipode') proj = d3Geo.geoStereographic();
-    else if (azLight === 'infinity') proj = d3Geo.geoOrthographic();
-    else proj = d3Geo.geoGnomonic();
-    const rotZ = -gamma;
-    proj
-      .rotate([-(effLambda0), -phiOrigin, rotZ])
-      .scale(MAP_SCALE * scaleFactor)
-      .translate([VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing]);
-    return proj;
-  }
-
-  // azimuthalMath
-  const mathScale = circleRadiusToScale(circleRadiusKm) * MAP_SCALE * scaleFactor;
-  if (distortion === 'equalArea') proj = d3Geo.geoAzimuthalEqualArea();
-  else proj = d3Geo.geoAzimuthalEquidistant();
+  // azimuthalPerspective: the light-source position defines the projection
+  // (center → gnomonic, antipode → stereographic, infinity → orthographic).
+  if (azLight === 'center') proj = d3Geo.geoGnomonic();
+  else if (azLight === 'antipode') proj = d3Geo.geoStereographic();
+  else proj = d3Geo.geoOrthographic();
+  const rotZ = -gamma;
   proj
-    .rotate([-(effLambda0), -phiOrigin, -gamma])
-    .scale(mathScale)
+    .rotate([-lambda0, -phiOrigin, rotZ])
+    .scale(MAP_SCALE * scaleFactor)
     .translate([VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing]);
   return proj;
 };
@@ -517,23 +367,4 @@ export function fitProjectionToView(
     fitTarget ?? FIT_SPHERE,
   );
   return proj;
-}
-
-// Fit target for the azimuthal-math family: a spherical cap of angular radius
-// `capDeg` centred on (lambda0, phiOrigin). The 2D map then shows exactly the
-// region covered by the 3D auxiliary plane (which is sized by `circleRadiusKm`),
-// so the two views stay in agreement as the circle radius changes.
-export function makeCircleFitSphere(lambda0: number, phiOrigin: number, capDeg: number): Polygon {
-  const cap = Math.max(0, Math.min(180, capDeg));
-  const ring: [number, number][] = [];
-  const steps = 72;
-  for (let i = 0; i <= steps; i++) {
-    const az = (i / steps) * 2 * Math.PI;
-    const lat = Math.asin(
-      Math.max(-1, Math.min(1, Math.sin((phiOrigin * Math.PI) / 180) * Math.cos((cap * Math.PI) / 180) + Math.cos((phiOrigin * Math.PI) / 180) * Math.sin((cap * Math.PI) / 180) * Math.cos(az))),
-    );
-    const lon = lambda0 + (Math.atan2(Math.sin(az) * Math.sin((cap * Math.PI) / 180) * Math.cos((phiOrigin * Math.PI) / 180), Math.cos((cap * Math.PI) / 180) - Math.sin((phiOrigin * Math.PI) / 180) * Math.sin((lat * Math.PI) / 180)) * 180) / Math.PI;
-    ring.push([lon, (lat * 180) / Math.PI]);
-  }
-  return { type: 'Polygon', coordinates: [ring] };
 }

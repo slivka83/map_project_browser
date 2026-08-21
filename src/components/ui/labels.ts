@@ -12,7 +12,6 @@ import {
   CYLINDRICAL_VARIANT_OPTIONS,
   CONIC_VARIANT_OPTIONS,
   AZIMUTHAL_PERSPECTIVE_VARIANT_OPTIONS,
-  AZIMUTHAL_MATH_VARIANT_OPTIONS,
   variantDef,
   type ProjectionVariant,
 } from '../../utils/projectionVariants';
@@ -21,15 +20,13 @@ export {
   CYLINDRICAL_VARIANT_OPTIONS,
   CONIC_VARIANT_OPTIONS,
   AZIMUTHAL_PERSPECTIVE_VARIANT_OPTIONS,
-  AZIMUTHAL_MATH_VARIANT_OPTIONS,
 };
 export { variantDef, type ProjectionVariant };
 
 const FAMILY_OPTIONS: { value: ProjectionFamily; label: string }[] = [
   { value: 'cylindrical', label: 'Цилиндрическая' },
   { value: 'conic', label: 'Коническая' },
-  { value: 'azimuthalPerspective', label: 'Азимутальная перспективная' },
-  { value: 'azimuthalMath', label: 'Азимутальная математическая' },
+  { value: 'azimuthalPerspective', label: 'Азимутальная' },
 ];
 
 const DISTORTION_OPTIONS: { value: DistortionModel; label: string }[] = [
@@ -91,33 +88,20 @@ export const GRATICULE_STEP_OPTIONS: { value: GraticuleStep; label: string }[] =
   { value: 30, label: '30°' },
 ];
 
-export const CYLINDER_ORIENTATION_LABELS: Record<'straight' | 'transverse' | 'oblique', string> = {
-  straight: 'Ровный',
-  transverse: 'Поперёк',
-  oblique: 'Наклон',
-};
-
 export const CONE_HEMISPHERE_OPTIONS: { value: ConeHemisphere; label: string }[] = [
   { value: 'north', label: 'Север' },
   { value: 'south', label: 'Юг' },
 ];
-
-export const UTM_ZONE_OPTIONS: { value: string; label: string }[] = Array.from({ length: 60 }, (_, i) => {
-  const z = i + 1;
-  return { value: String(z), label: `Зона ${z}` };
-});
 
 // Azimuthal light-source labels / icons keyed by azLight mode.
 export const AZ_LIGHT_LABEL_MAP: Record<AzimuthalLight, string> = {
   center: 'Центр Земли',
   antipode: 'Противоположный полюс',
   infinity: 'Бесконечность',
-  math: 'Математическая',
 };
 
 export const AZ_LIGHT_ICON_MAP: Record<AzimuthalLight, string> = {
   center: '◎',
   antipode: '◍',
   infinity: '∞',
-  math: '∑',
 };

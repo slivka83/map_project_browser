@@ -26,8 +26,6 @@ import {
   computeMagneticFieldLines,
   computeLaserScanRing,
   computeCutLine,
-  computeSatellitePosition,
-  computeOrbitalPath,
   vec3Distance,
   vec3Normalize,
 } from './auxSurfaceGeometry';
@@ -83,7 +81,7 @@ const base = {
   falseNorthing: 0,
   gamma: 0,
   stdParallel2: null,
-  azLight: 'math' as const,
+  azLight: 'center' as const,
 };
 
 describe('lonLatToVec3', () => {
@@ -147,8 +145,8 @@ describe('computeAuxSurfaceParams', () => {
     }
   });
   it('cylinder height depends on the distortion (Тип искажения)', () => {
-    const conformal = computeAuxSurfaceParams('cylindrical', 0, 0, 1, RADIUS, null, 0, 'conformal', 'math')!;
-    const equalArea = computeAuxSurfaceParams('cylindrical', 0, 0, 1, RADIUS, null, 0, 'equalArea', 'math')!;
+    const conformal = computeAuxSurfaceParams('cylindrical', 0, 0, 1, RADIUS, null, 0, 'conformal', 'center')!;
+    const equalArea = computeAuxSurfaceParams('cylindrical', 0, 0, 1, RADIUS, null, 0, 'equalArea', 'center')!;
     expect(conformal.kind).toBe('cylinder');
     expect(equalArea.kind).toBe('cylinder');
     if (conformal.kind === 'cylinder' && equalArea.kind === 'cylinder') {
@@ -209,7 +207,7 @@ describe('computeAuxGraticule', () => {
     // The cylinder is drawn as an open wireframe tube — the top/bottom end caps
     // are intentionally NOT rendered, so the pole-ray landing sits at the open
     // end of the tube. Assert there are no cap spokes (centre → rim at ±h/2).
-    const p = computeAuxSurfaceParams('cylindrical', 0, 0, 1, RADIUS, null, 0, 'conformal', 'math')!;
+    const p = computeAuxSurfaceParams('cylindrical', 0, 0, 1, RADIUS, null, 0, 'conformal', 'center')!;
     if (p.kind !== 'cylinder') throw new Error('expected cylinder');
     const { meridians, parallels } = computeAuxGraticule(p);
     const halfH = p.height / 2;
@@ -291,7 +289,7 @@ describe('computeCentralMeridianRays', () => {
     // top).
     for (const distortion of ['conformal', 'equalArea', 'equidistant'] as const) {
       const segs = computeCentralMeridianRays({ ...base, family: 'cylindrical', distortion, gamma: 0 });
-      const surface = computeAuxSurfaceParams('cylindrical', 0, 0, 1, RADIUS, null, 0, distortion, 'math')!;
+      const surface = computeAuxSurfaceParams('cylindrical', 0, 0, 1, RADIUS, null, 0, distortion, 'center')!;
       if (surface.kind !== 'cylinder') throw new Error('expected cylinder');
       const top = segs[segs.length - 1];
       const bot = segs[0];
@@ -313,7 +311,7 @@ describe('computeCentralMeridianRays', () => {
     const ref = computeCentralMeridianRays({ ...base, family: 'cylindrical', phiOrigin: 0 });
     for (const phi of [0, 30, -45]) {
       const segs = computeCentralMeridianRays({ ...base, family: 'cylindrical', phiOrigin: phi });
-      const surface = computeAuxSurfaceParams('cylindrical', 0, phi, 1, RADIUS, null, 0, 'equalArea', 'math')!;
+      const surface = computeAuxSurfaceParams('cylindrical', 0, phi, 1, RADIUS, null, 0, 'equalArea', 'center')!;
       if (surface.kind !== 'cylinder') throw new Error('expected cylinder');
       const axis: [number, number, number] = [surface.orient[1], surface.orient[4], surface.orient[7]];
       for (let i = 0; i < segs.length; i++) {
@@ -336,7 +334,7 @@ describe('computeCentralMeridianRays', () => {
     // land at the top/bottom cap, matching the (clamped) high-latitude rays.
     for (const lambda0 of [0, 45, 90, -45]) {
       const segs = computeCentralMeridianRays({ ...base, family: 'cylindrical', lambda0, gamma: 0 });
-      const surface = computeAuxSurfaceParams('cylindrical', lambda0, 0, 1, RADIUS, null, 0, 'conformal', 'math')!;
+      const surface = computeAuxSurfaceParams('cylindrical', lambda0, 0, 1, RADIUS, null, 0, 'conformal', 'center')!;
       if (surface.kind !== 'cylinder') throw new Error('expected cylinder');
       const cap = surface.height / 2;
       const north = segs[segs.length - 1]; // lat = +90
@@ -353,7 +351,7 @@ describe('computeCentralMeridianRays', () => {
     for (const distortion of ['conformal', 'equalArea', 'equidistant'] as const) {
       for (const gamma of [0, 30, -45, 90]) {
         const segs = computeCentralMeridianRays({ ...base, family: 'cylindrical', distortion, gamma });
-        const surface = computeAuxSurfaceParams('cylindrical', 0, 0, 1, RADIUS, null, gamma, distortion, 'math')!;
+        const surface = computeAuxSurfaceParams('cylindrical', 0, 0, 1, RADIUS, null, gamma, distortion, 'center')!;
         if (surface.kind !== 'cylinder') throw new Error('expected cylinder');
         // Axis of the rendered cylinder in world space = orient · Y.
         const axis: [number, number, number] = [surface.orient[1], surface.orient[4], surface.orient[7]];
@@ -369,7 +367,7 @@ describe('computeCentralMeridianRays', () => {
         // auxPointToWorld and confirm it matches the fan (single source of truth).
         // The on-axis-pole override must be mirrored here so the rebuild agrees
         // with the fan.
-        const proj = getD3Projection(makeTestParams({ distortion, scaleFactor: 1, azLight: 'math', variant: 'mercator' }));
+        const proj = getD3Projection(makeTestParams({ distortion, scaleFactor: 1, azLight: 'center', variant: 'mercator' }));
         segs.forEach((seg, i) => {
           const lat = -90 + (i * 180) / (segs.length - 1);
           const local = cylinderLocalEndWithPole(proj, 0, lat, surface);
@@ -495,7 +493,7 @@ describe('gamma tilt (oblique / transverse)', () => {
     // Axis of the rendered (tilted) cylinder in world space = orient · Y. Tilting
     // the cylinder is a shift of its central latitude, so orient = geoRotation of
     // (lambda0, gamma, 0); the axis is read from that same matrix.
-    const surface = computeAuxSurfaceParams('cylindrical', 0, 0, sf, RADIUS, null, g, 'conformal', 'math')!;
+    const surface = computeAuxSurfaceParams('cylindrical', 0, 0, sf, RADIUS, null, g, 'conformal', 'center')!;
     if (surface.kind !== 'cylinder') throw new Error('expected cylinder');
     const axisDir: [number, number, number] = [surface.orient[1], surface.orient[4], surface.orient[7]];
     for (const { end } of segs) {
@@ -574,8 +572,8 @@ describe('azimuthal light-source modes', () => {
   const phi = 25;
   const center = lonLatToVec3(lam, phi, RADIUS);
 
-  it("'center' / 'math' beams emanate from the globe centre", () => {
-    for (const mode of ['center', 'math'] as const) {
+  it("'center' beams emanate from the globe centre", () => {
+    for (const mode of ['center'] as const) {
       const segs = computeCentralMeridianRays({ ...base, family: 'azimuthalPerspective', lambda0: lam, phiOrigin: phi, azLight: mode });
       for (const { start } of segs) expect(start).toEqual([0, 0, 0]);
     }
@@ -607,7 +605,6 @@ describe('light-source geometry (new_spec §3)', () => {
     const c = lonLatToVec3(10, 20, RADIUS);
     expect(computeAzimuthalLightLamp('antipode', 10, 20, RADIUS)).toEqual([-c[0], -c[1], -c[2]]);
     expect(computeAzimuthalLightLamp('infinity', 10, 20, RADIUS)).toBeNull();
-    expect(computeAzimuthalLightLamp('math', 10, 20, RADIUS)).toBeNull();
   });
 
   it('conic apex marker sits at the cone tip (along the axis, outside the globe)', () => {
@@ -957,7 +954,7 @@ describe('rays always land on the rendered aux surface (no empty space)', () => 
     { family: 'azimuthalPerspective', distortion: 'equalArea', azLight: 'center' },
     { family: 'azimuthalPerspective', distortion: 'equalArea', azLight: 'antipode' },
     { family: 'azimuthalPerspective', distortion: 'equalArea', azLight: 'infinity' },
-    { family: 'azimuthalPerspective', distortion: 'equalArea', azLight: 'math' },
+    { family: 'azimuthalPerspective', distortion: 'equalArea', azLight: 'center' },
   ];
 
   for (const c of cases) {
@@ -1064,30 +1061,6 @@ describe('computeCutLine', () => {
   });
 });
 
-describe('computeSatellitePosition', () => {
-  it('позиция вне глобуса (дальше RADIUS от центра)', () => {
-    const pos = computeSatellitePosition(0, 0, 400, 6371, RADIUS);
-    expect(Math.hypot(pos[0], pos[1], pos[2])).toBeGreaterThan(RADIUS);
-  });
-  it('направление совпадает с нормалью точки касания', () => {
-    const pos = computeSatellitePosition(0, 0, 400, 6371, RADIUS);
-    const touch = lonLatToVec3(0, 0, RADIUS);
-    const n = vec3Normalize(touch);
-    const dir = vec3Normalize(pos);
-    expect(Math.abs(n[0] * dir[0] + n[1] * dir[1] + n[2] * dir[2])).toBeCloseTo(1, 6);
-  });
-});
-
-describe('computeOrbitalPath', () => {
-  it('орбита периодична: t=0 и t=1 дают одну точку', () => {
-    const a = computeOrbitalPath(0, 98, 0);
-    const b = computeOrbitalPath(1, 98, 0);
-    expect(a[0]).toBeCloseTo(b[0], 6);
-    expect(a[1]).toBeCloseTo(b[1], 6);
-    expect(a[2]).toBeCloseTo(b[2], 6);
-  });
-});
-
 describe('vec3Distance', () => {
   it('расстояние от (0,0,0) до (3,4,0) = 5', () => {
     expect(vec3Distance([0, 0, 0], [3, 4, 0])).toBe(5);
@@ -1107,8 +1080,5 @@ describe('computeAuxSurfaceParams для новых семейств', () => {
     if (surface.kind !== 'plane') throw new Error('expected plane');
     expect(surface.size).toBeGreaterThan(0);
   });
-  it('azimuthalMath: плоскость касания', () => {
-    const surface = computeAuxSurfaceParams('azimuthalMath', 0, 30, 1, RADIUS, null, 0, 'equalArea', 'math', 'lambertAzimuthalEqualArea', 400, 10000)!;
-    expect(surface.kind).toBe('plane');
-  });
+
 });

@@ -19,15 +19,7 @@ export const useProjectionParams = (): ProjectionParams =>
       rulerMode: s.rulerMode,
       rulerPoint1: s.rulerPoint1,
       rulerPoint2: s.rulerPoint2,
-      utmZone: s.utmZone,
-      azHeight: s.azHeight,
-      azTiltDeg: s.azTiltDeg,
-      azAzimuthDeg: s.azAzimuthDeg,
       coneHemisphere: s.coneHemisphere,
-      somInclination: s.somInclination,
-      somPeriod: s.somPeriod,
-      somNodeLongitude: s.somNodeLongitude,
-      circleRadiusKm: s.circleRadiusKm,
     })),
   );
 

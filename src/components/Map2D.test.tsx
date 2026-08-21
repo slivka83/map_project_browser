@@ -251,17 +251,6 @@ describe('Map2D', () => {
     });
   });
 
-  it('renders the UTM zone mask for transverse Mercator with utmZone=31', async () => {
-    act(() => {
-      useAppStore.getState().setVariant('transverseMercator');
-      useAppStore.getState().setUtmZone(31);
-    });
-    const { getByTestId } = render(<Map2D />);
-    await waitFor(() => {
-      expect(getByTestId('utm-mask')).toBeTruthy();
-    });
-  });
-
   it('opens the geodesic summary modal from the map toolbar button', async () => {
     useAppStore.setState({ family: 'cylindrical', distortion: 'conformal', lambda0: 30, gamma: 0 });
     const { container, getByRole, queryByRole } = render(<Map2D />);

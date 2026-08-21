@@ -39,19 +39,11 @@ function projParams(
     falseNorthing: 0,
     gamma: 0,
     stdParallel2: null,
-    azLight: 'math',
+    azLight: 'center',
     rulerMode: 'off',
     rulerPoint1: null,
     rulerPoint2: null,
-    utmZone: null,
-    azHeight: 400,
-    azTiltDeg: 0,
-    azAzimuthDeg: 0,
     coneHemisphere: 'north',
-    somInclination: 98,
-    somPeriod: 100,
-    somNodeLongitude: 0,
-    circleRadiusKm: 10000,
     ...over,
   };
 }
@@ -414,10 +406,8 @@ export function computeAuxSurfaceParams(
   stdParallel2: number | null = null,
   gamma = 0,
   distortion: ProjectionParams['distortion'] = 'equalArea',
-  azLight: ProjectionParams['azLight'] = 'math',
+  azLight: ProjectionParams['azLight'] = 'center',
   variant?: ProjectionParams['variant'],
-  azHeight = 400,
-  circleRadiusKm = 10000,
 ): AuxSurfaceParams {
   const v = variant ?? defaultVariant(family);
   if (family === 'cylindrical') {
@@ -429,7 +419,7 @@ export function computeAuxSurfaceParams(
     // rotates the rigid tube and must not resize it, and the rays are built from
     // the same untilted (φ₀ = 0) projection so the tube + rays always stay in
     // sync (they are bound to each other, not to the obliquely-rotated 2D map).
-    const proj = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin: 0, scaleFactor, gamma: 0, stdParallel2, azLight, variant: v, azHeight, circleRadiusKm }));
+    const proj = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin: 0, scaleFactor, gamma: 0, stdParallel2, azLight, variant: v }));
     const yTop = proj([lambda0, CLIP_LAT])?.[1] ?? 0;
     const yBot = proj([lambda0, -CLIP_LAT])?.[1] ?? 0;
     const band = Math.abs(yTop - yBot) * worldPerPixel(radius);
@@ -443,14 +433,12 @@ export function computeAuxSurfaceParams(
     return { kind: 'cylinder', radius: radius * scaleFactor, height, orient, orientInv: matTranspose(orient), positionY: 0 };
   }
 
-  if (family === 'azimuthalPerspective' || family === 'azimuthalMath') {
+  if (family === 'azimuthalPerspective') {
     const { center, normal } = computeTangentBasis(lambda0, phiOrigin, radius);
     // Size the tangent-plane disk to contain the fitted ±CLIP_LAT band of the
     // projection, so every ray lands on the visible disk (capped for gnomonic,
-    // where the projection runs to infinity). For vertical/tilted perspective the
-    // projection scale depends on azHeight; for azimuthalMath on circleRadiusKm.
-    const familyForProj: ProjectionParams['family'] = family === 'azimuthalMath' ? 'azimuthalMath' : 'azimuthalPerspective';
-    const proj = getD3Projection(projParams(familyForProj, distortion, { lambda0, phiOrigin, scaleFactor, gamma, stdParallel2, azLight, variant: v, azHeight, circleRadiusKm }));
+    // where the projection runs to infinity).
+    const proj = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, gamma, stdParallel2, azLight, variant: v }));
     const c = proj([lambda0, phiOrigin]);
     let maxR = 0;
     for (let lat = -CLIP_LAT; lat <= CLIP_LAT; lat += 10) {
@@ -459,9 +447,6 @@ export function computeAuxSurfaceParams(
         maxR = Math.max(maxR, Math.hypot(p[0] - c[0], p[1] - c[1]));
       }
     }
-    // For vertical/tilted perspective the disk must also reach the horizon at the
-    // angular radius that the satellite (height azHeight) can see. That horizon
-    // half-angle ~ acos(R/(R+H)), which maps onto the fitted projection above.
     const size = Math.min(AUX_LENGTH * radius * AUX_SIZE_CAP, Math.max(AUX_LENGTH * radius * 0.5, 2 * maxR * worldPerPixel(radius)));
     return { kind: 'plane', center, normal, size, tilt: gamma };
   }
@@ -532,7 +517,7 @@ export function computeAuxSphereIntersections(
   radius = RADIUS,
   stdParallel2: number | null = null,
 ): Vec3[][] {
-  if (family === 'azimuthalPerspective' || family === 'azimuthalMath') {
+  if (family === 'azimuthalPerspective') {
     // The tangent plane touches the sphere at a single point. Mark it with a
     // small circle drawn ON the sphere surface (a spherical cap ring) around
     // the tangent point, so the marker hugs the globe instead of floating in
@@ -608,7 +593,7 @@ export function computeAuxSphereIntersectionsLonLat(
   stdParallel2: number | null = null,
   gamma = 0,
   distortion: ProjectionParams['distortion'] = 'equidistant',
-  azLight: ProjectionParams['azLight'] = 'math',
+  azLight: ProjectionParams['azLight'] = 'center',
   variant?: ProjectionParams['variant'],
 ): [number, number][][] {
   const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, variant)!;
@@ -764,51 +749,6 @@ export function computeCutLine(
   return pts;
 }
 
-// World-space position of the perspective observer (satellite) at height
-// `heightKm` km above the touch point, scaled into model units (modelRadius).
-export function computeSatellitePosition(
-  phi0: number,
-  lambda0: number,
-  heightKm: number,
-  earthRadiusKm = 6371,
-  modelRadius = RADIUS,
-): Vec3 {
-  const scale = modelRadius / earthRadiusKm;
-  const touch = lonLatToVec3(lambda0, phi0, modelRadius);
-  const n = vec3Normalize(touch);
-  const h = heightKm * scale;
-  return [touch[0] + n[0] * h, touch[1] + n[1] * h, touch[2] + n[2] * h];
-}
-
-// Point on a sun-synchronous orbit at time `t` (0…1, one full revolution). The
-// orbit is a circle of radius `orbitRadius` inclined by `inclination` deg, with
-// ascending node at `nodeLongitude`. `modelRadius` maps km → model units. The
-// orbital period is a property of the real SOM and is configured in the store;
-// this pure geometry helper only needs the instantaneous position, so the period
-// is intentionally NOT a parameter here (the old unused `period` argument has
-// been removed — see errors.md §2.2).
-export function computeOrbitalPath(
-  t: number,
-  inclination: number,
-  nodeLongitude: number,
-  modelRadius = RADIUS,
-  orbitRadius?: number,
-): Vec3 {
-  const r = orbitRadius ?? modelRadius * 1.6;
-  const inc = (inclination * Math.PI) / 180;
-  const node = (nodeLongitude * Math.PI) / 180;
-  const ang = t * 2 * Math.PI;
-  // Inclined circular orbit in its own plane, then rotated by the node longitude.
-  const x0 = r * Math.cos(ang);
-  const y0 = r * Math.sin(ang) * Math.cos(inc);
-  const z0 = r * Math.sin(ang) * Math.sin(inc);
-  const x = x0 * Math.cos(node) - z0 * Math.sin(node);
-  const z = x0 * Math.sin(node) + z0 * Math.cos(node);
-  return [x, y0, z];
-}
-
-// axial height of latitude `latRad` on the developable cone (tangent at sp)
-
 // A single projection ray: from the light `start`, through the point `globe`
 // on the sphere, to its shadow `end` on the auxiliary (developable) surface.
 // The auxiliary surface, unrolled, IS the 2D map — so `end` is exactly where
@@ -849,12 +789,11 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
     gamma,
     stdParallel2,
     azLight,
-    azHeight,
     radius = RADIUS,
     rayCount = RAY_COUNT,
   } = params;
 
-  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, params.variant, azHeight)!;
+  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, params.variant)!;
   const cy = VIEW_CENTER_Y;
   const wpp = worldPerPixel(radius);
   const PARALLEL_LEN = parallelBeamLength(radius);
@@ -864,8 +803,8 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
   // fan with the cylinder (via auxPointToWorld) — it does not re-land the rays or
   // bend the fan. This keeps the rays attached to the tube (synchronous rotation).
   // Conic / azimuthal keep the same untilted projection for the fan too.
-  const projFlat = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin: 0, scaleFactor, gamma: 0, stdParallel2, azLight, variant: params.variant, azHeight }));
-  const proj = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight, variant: params.variant, azHeight }));
+  const projFlat = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin: 0, scaleFactor, gamma: 0, stdParallel2, azLight, variant: params.variant }));
+  const proj = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight, variant: params.variant }));
 
   const { center, normal } = computeTangentBasis(lambda0, phiOrigin, radius);
   // The conic cone keeps phiOrigin's sign (like the 3D aux surface) so a
@@ -903,10 +842,7 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
       // disc coords (east, north); the in-plane gamma rotation is applied by
       // `auxPointToWorld` → the endpoints always lie on the tangent plane.
       localEnd = [dx * wpp, -dy * wpp, 0];
-      if (family === 'azimuthalPerspective' && (params.variant === 'verticalPerspective' || params.variant === 'tiltedPerspective')) {
-        // The observer is the satellite at height azHeight above the touch point.
-        start = computeSatellitePosition(phiOrigin, lambda0, azHeight ?? 400);
-      } else if (azLight === 'antipode') {
+      if (azLight === 'antipode') {
         start = [-center[0], -center[1], -center[2]];
       } else {
         start = [0, 0, 0];
@@ -919,7 +855,6 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
       localEnd = [radCone, localY, 0];
       start = coneApexWorld(surface as Extract<AuxSurfaceParams, { kind: 'cone' }>, gamma);
     } else {
-      // azimuthalMath / pseudocylindrical / mathematical — no rays
       continue;
     }
 
@@ -973,16 +908,16 @@ export function computeConicRayEnd(
 // 2D map (the auxiliary surface unrolled). Returns null when the projection
 // clips the point (e.g. the back hemisphere of an orthographic projection).
 export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: number, radius = RADIUS): RaySegment | null {
-  const { family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight, azHeight } = params;
+  const { family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight } = params;
 
-  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, params.variant, azHeight)!;
-  const proj = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight, variant: params.variant, azHeight }));
+  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, params.variant)!;
+  const proj = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight, variant: params.variant }));
   // The UNTILTED, phiOrigin=0 projection. For the cylindrical family the central
   // latitude and the tilt do not enter the projection rotation at all (rotZ = 0,
   // and rotate only sees lambda0/phiOrigin), so `projNoShift` would be identical
   // to `projFlat` here — `projFlat` is the single untilted projection used by the
   // landing math for every family.
-  const projFlat = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin: 0, scaleFactor, gamma: 0, stdParallel2, azLight, variant: params.variant, azHeight }));
+  const projFlat = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin: 0, scaleFactor, gamma: 0, stdParallel2, azLight, variant: params.variant }));
   const cy = VIEW_CENTER_Y;
   const wpp = worldPerPixel(radius);
   const PARALLEL_LEN = parallelBeamLength(radius);
@@ -1025,9 +960,7 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
     const dx = p[0] - c[0];
     const dy = p[1] - c[1];
     localEnd = [dx * wpp, -dy * wpp, 0];
-    if (family === 'azimuthalPerspective' && (params.variant === 'verticalPerspective' || params.variant === 'tiltedPerspective')) {
-      start = computeSatellitePosition(phiOrigin, lambda0, azHeight);
-    } else if (azLight === 'antipode') start = [-center[0], -center[1], -center[2]];
+    if (azLight === 'antipode') start = [-center[0], -center[1], -center[2]];
     else start = [0, 0, 0];
   } else if (family === 'conic') {
     const p = proj([lon, lat]);
@@ -1042,7 +975,6 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
     localEnd = [radCone * Math.cos(theta), localY, radCone * Math.sin(theta)];
     start = coneApexWorld(surface as Extract<AuxSurfaceParams, { kind: 'cone' }>, gamma);
   } else {
-    // azimuthalMath / pseudocylindrical / mathematical — no developable surface, no rays
     return null;
   }
 

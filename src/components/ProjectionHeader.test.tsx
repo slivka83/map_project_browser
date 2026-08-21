@@ -15,7 +15,7 @@ describe('ProjectionHeader', () => {
       falseNorthing: 0,
       gamma: 0,
       stdParallel2: null,
-      azLight: 'math',
+      azLight: 'center',
       showTissot: false,
       geoJsonData: null,
       variant: 'mercator',
@@ -52,9 +52,9 @@ describe('ProjectionHeader', () => {
   });
 
   it('keeps the reset button usable with a long projection name', () => {
-    useAppStore.getState().setVariant('verticalPerspective');
+    useAppStore.getState().setVariant('stereographic');
     render(<ProjectionHeader />);
-    expect(screen.getByRole('button', { name: 'Выбрать проекцию' }).textContent).toMatch(/Вертикальная перспектива/);
+    expect(screen.getByRole('button', { name: 'Выбрать проекцию' }).textContent).toMatch(/Стереографическая/);
     useAppStore.getState().setParam('lambda0', 60);
     fireEvent.click(screen.getByRole('button', { name: 'Сбросить параметры' }));
     expect(useAppStore.getState().lambda0).toBe(0);

@@ -3,7 +3,7 @@ import * as d3Geo from 'd3-geo';
 import { getD3Projection, fitProjectionToView, FIT_SPHERE, computeAreaDistortion, isPointerOverGlobe } from './projectionMapper';
 import type { ProjectionParams, ProjectionFamily, DistortionModel } from '../store/useAppStore';
 import type { ProjectionVariant } from '../utils/projectionVariants';
-import { circleRadiusToScale, EARTH_HALF_CIRCUM_KM } from '../constants/geometry';
+
 
 const makeState = (over: Partial<ProjectionParams> = {}): ProjectionParams => ({
   family: 'cylindrical',
@@ -15,16 +15,8 @@ const makeState = (over: Partial<ProjectionParams> = {}): ProjectionParams => ({
   falseNorthing: 0,
   gamma: 0,
   stdParallel2: null,
-  azLight: 'math',
-  utmZone: null,
-  azHeight: 400,
-  azTiltDeg: 0,
-  azAzimuthDeg: 0,
+  azLight: 'center',
   coneHemisphere: 'north',
-  somInclination: 98,
-  somPeriod: 100,
-  somNodeLongitude: 0,
-  circleRadiusKm: 10000,
   variant: 'mercator',
   rulerMode: 'off',
   rulerPoint1: null,
@@ -71,12 +63,6 @@ describe('getD3Projection (spec §9.2)', () => {
     expect(p([0, 0])).toEqual(ref([0, 0]));
   });
 
-  it('returns azimuthal equal-area for azimuthalMath + equalArea', () => {
-    const p = getD3Projection(makeState({ family: 'azimuthalMath', distortion: 'equalArea' }));
-    const ref = d3Geo.geoAzimuthalEqualArea().rotate([0, 0]).scale(100).translate([400, 300]);
-    expect(p([0, 0])).toEqual(ref([0, 0]));
-  });
-
   it('cylindrical + equidistant equals geoEquirectangular at scaleFactor = 1 (tangent, φ_s = 0)', () => {
     const p = getD3Projection(makeState({ family: 'cylindrical', distortion: 'equidistant', scaleFactor: 1 }));
     const ref = d3Geo.geoEquirectangular().rotate([0, 0]).scale(100).translate([400, 300]);
@@ -118,11 +104,6 @@ describe('getD3Projection (spec §9.2)', () => {
     expect(p([0, 0])).toEqual(ref([0, 0]));
   });
 
-  it('returns geoAzimuthalEquidistant for azimuthalMath + equidistant', () => {
-    const p = getD3Projection(makeState({ family: 'azimuthalMath', distortion: 'equidistant' }));
-    const ref = d3Geo.geoAzimuthalEquidistant().rotate([0, 0]).scale(100).translate([400, 300]);
-    expect(p([0, 0])).toEqual(ref([0, 0]));
-  });
 });
 
 describe('getD3Projection — light source & visual params (spec концепт)', () => {
@@ -245,7 +226,6 @@ describe('isPointerOverGlobe (reject off-map hovers)', () => {
 describe('computeAreaDistortion', () => {
   it('is ~0% for equal-area projections', () => {
     expect(computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'equalArea' }))).toBeCloseTo(0, 1);
-    expect(computeAreaDistortion(makeState({ family: 'azimuthalMath', distortion: 'equalArea' }))).toBeCloseTo(0, 1);
     expect(
       computeAreaDistortion(makeState({ family: 'conic', distortion: 'equalArea', phiOrigin: 40 })),
     ).toBeCloseTo(0, 1);
@@ -282,7 +262,7 @@ describe('computeAreaDistortion', () => {
   });
 
   it('is invariant to a true zoom (scaleFactor) for conic/azimuthal families', () => {
-    for (const family of ['conic', 'azimuthalPerspective', 'azimuthalMath'] as const) {
+    for (const family of ['conic', 'azimuthalPerspective'] as const) {
       const base = makeState({ family, distortion: 'conformal', phiOrigin: family === 'conic' ? 40 : 0 });
       const a = computeAreaDistortion(base);
       const b = computeAreaDistortion({ ...base, scaleFactor: 1.1 });
@@ -355,7 +335,7 @@ describe('fitProjectionToView (map always fills the viewport)', () => {
   const W = 900;
   const H = 600;
   const M = 16;
-  const families: ProjectionFamily[] = ['cylindrical', 'conic', 'azimuthalPerspective', 'azimuthalMath'];
+  const families: ProjectionFamily[] = ['cylindrical', 'conic', 'azimuthalPerspective'];
   const distortions: DistortionModel[] = ['conformal', 'equalArea', 'equidistant'];
 
   const fitBounds = (p: d3Geo.GeoProjection) => d3Geo.geoPath(p).bounds(FIT_SPHERE);
@@ -484,7 +464,7 @@ describe('getD3Projection parameter boundaries', () => {
   });
 
   it('all 4 families × distortion combinations yield a callable, finite projection', () => {
-    const fams: ProjectionFamily[] = ['cylindrical', 'conic', 'azimuthalPerspective', 'azimuthalMath'];
+    const fams: ProjectionFamily[] = ['cylindrical', 'conic', 'azimuthalPerspective'];
     const dists: DistortionModel[] = ['conformal', 'equalArea', 'equidistant'];
     for (const family of fams) {
       for (const distortion of dists) {
@@ -499,16 +479,13 @@ describe('getD3Projection parameter boundaries', () => {
 });
 
 describe('computeAreaDistortion edge cases', () => {
-  const fams: ProjectionFamily[] = ['cylindrical', 'conic', 'azimuthalPerspective', 'azimuthalMath'];
+  const fams: ProjectionFamily[] = ['cylindrical', 'conic', 'azimuthalPerspective'];
   const dists: DistortionModel[] = ['conformal', 'equalArea', 'equidistant'];
 
   it('stays ~0% for equal-area across scaleFactor extremes', () => {
     for (const sf of [0.9, 1, 1.1]) {
       expect(
         computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'equalArea', scaleFactor: sf })),
-      ).toBeCloseTo(0, 1);
-      expect(
-        computeAreaDistortion(makeState({ family: 'azimuthalMath', distortion: 'equalArea', scaleFactor: sf })),
       ).toBeCloseTo(0, 1);
     }
   });
@@ -645,41 +622,9 @@ describe('isPointerOverGlobe', () => {
   }
 });
 
-describe('makeVerticalPerspective', () => {
-  it('на высоте 400 км проекция конечна (центр проецируется)', () => {
-    const p = getD3Projection(makeState({ variant: 'verticalPerspective', family: 'azimuthalPerspective', azLight: 'center', azHeight: 400 }));
-    const c = p([0, 0]);
-    expect(c).not.toBeNull();
-    expect(Number.isFinite(c![0])).toBe(true);
-  });
-  it('на высоте 1 500 000 км приближается к ортографической', () => {
-    const vp = getD3Projection(makeState({ variant: 'verticalPerspective', family: 'azimuthalPerspective', azLight: 'center', azHeight: 1500000 }));
-    const ortho = getD3Projection(makeState({ variant: 'orthographic', family: 'azimuthalPerspective', azLight: 'infinity' }));
-    const a = vp([30, 30]);
-    const b = ortho([30, 30]);
-    expect(a).not.toBeNull();
-    expect(b).not.toBeNull();
-    expect(Math.abs(a![0] - b![0])).toBeLessThan(5);
-  });
-});
-
-describe('UTM zone round-trip', () => {
-  it('UTM зона 31 → центральный меридиан 3°', () => {
-    const p = getD3Projection(makeState({ variant: 'transverseMercator', family: 'cylindrical', utmZone: 31 }));
-    expect(p.rotate()).toBeDefined();
-  });
-});
-
-describe('circleRadiusToScale (azMath scale)', () => {
-  it('circleRadiusToScale возвращает scaleFactor для azMath', () => {
-    const s = circleRadiusToScale(EARTH_HALF_CIRCUM_KM);
-    expect(s).toBeCloseTo(1, 3);
-  });
-});
-
-describe('все 14 вариантов разрешаются в конечную проекцию', () => {
-  it('все 14 вариантов дают конечную проекцию в центре', () => {
-    const variants: ProjectionVariant[] = ['equirectangular', 'mercator', 'transverseMercator', 'obliqueMercator', 'lambertConformal', 'albers', 'equidistantConic', 'gnomonic', 'stereographic', 'orthographic', 'verticalPerspective', 'tiltedPerspective', 'lambertAzimuthalEqualArea', 'azimuthalEquidistant'];
+describe('все 7 вариантов разрешаются в конечную проекцию', () => {
+  it('все 7 вариантов дают конечную проекцию в центре', () => {
+    const variants: ProjectionVariant[] = ['equirectangular', 'mercator', 'lambertConformal', 'albers', 'gnomonic', 'stereographic', 'orthographic'];
     for (const v of variants) {
       const p = getD3Projection(makeState({ variant: v as ProjectionVariant }));
       const c = p([0, 0]);

@@ -4,12 +4,11 @@ import {
   CYLINDRICAL_VARIANT_OPTIONS,
   CONIC_VARIANT_OPTIONS,
   AZIMUTHAL_PERSPECTIVE_VARIANT_OPTIONS,
-  AZIMUTHAL_MATH_VARIANT_OPTIONS,
   variantDef,
   type ProjectionVariant,
 } from '../utils/projectionVariants';
 import type { ProjectionFamily } from '../store/useAppStore';
-import { CylinderSurfaceIcon, ConeSurfaceIcon, LightSourceIcon, PlaneMathIcon } from './ui/icons';
+import { CylinderSurfaceIcon, ConeSurfaceIcon, LightSourceIcon } from './ui/icons';
 import { modalOverlay, modalShell } from './ui/styles';
 import type { ReactNode } from 'react';
 import { FAMILY_LABEL } from './ui/labels';
@@ -25,14 +24,12 @@ const FAMILY_ICONS: Record<ProjectionFamily, ReactNode> = {
   cylindrical: <CylinderSurfaceIcon />,
   conic: <ConeSurfaceIcon />,
   azimuthalPerspective: <LightSourceIcon />,
-  azimuthalMath: <PlaneMathIcon />,
 };
 
 const ALL_ROWS: CatalogRow[] = [
   ...CYLINDRICAL_VARIANT_OPTIONS.map((o) => ({ family: 'cylindrical' as const, familyLabel: FAMILY_LABEL.cylindrical, familyIcon: FAMILY_ICONS.cylindrical, variant: o.value })),
   ...CONIC_VARIANT_OPTIONS.map((o) => ({ family: 'conic' as const, familyLabel: FAMILY_LABEL.conic, familyIcon: FAMILY_ICONS.conic, variant: o.value })),
   ...AZIMUTHAL_PERSPECTIVE_VARIANT_OPTIONS.map((o) => ({ family: 'azimuthalPerspective' as const, familyLabel: FAMILY_LABEL.azimuthalPerspective, familyIcon: FAMILY_ICONS.azimuthalPerspective, variant: o.value })),
-  ...AZIMUTHAL_MATH_VARIANT_OPTIONS.map((o) => ({ family: 'azimuthalMath' as const, familyLabel: FAMILY_LABEL.azimuthalMath, familyIcon: FAMILY_ICONS.azimuthalMath, variant: o.value })),
 ];
 
 interface Props {
@@ -40,7 +37,7 @@ interface Props {
   onSelect: (family: ProjectionFamily, variant: ProjectionVariant) => void;
 }
 
-// One table for all 14 projections. Columns: family (icon + label), the
+// One table for all 7 projections. Columns: family (icon + label), the
 // projection name, what it preserves / its property, and the developable surface.
 const COLUMNS: { key: 'family' | 'label' | 'propertyLabel' | 'surfaceTypeLabel'; header: string }[] = [
   { key: 'family', header: '' },

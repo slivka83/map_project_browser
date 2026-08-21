@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as d3Geo from 'd3-geo';
 import type { ProjectionParams, ProjectionFamily, DistortionModel } from '../store/useAppStore';
-import { RADIUS, RAY_COUNT, MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y, utmZoneToCentralMeridian, circleRadiusToScale } from '../constants/geometry';
+import { RADIUS, RAY_COUNT, MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y } from '../constants/geometry';
 import { getD3Projection, computeAreaDistortion, FIT_SPHERE } from '../utils/projectionMapper';
 import {
   lonLatToVec3,
@@ -22,7 +22,7 @@ import {
 } from '../utils/auxSurfaceGeometry';
 import { computeTissotCircles } from '../utils/tissot';
 
-const FAMILIES: ProjectionFamily[] = ['cylindrical', 'conic', 'azimuthalPerspective', 'azimuthalMath'];
+const FAMILIES: ProjectionFamily[] = ['cylindrical', 'conic', 'azimuthalPerspective'];
 const DISTORTIONS: DistortionModel[] = ['conformal', 'equalArea', 'equidistant'];
 
 const base = (over: Partial<ProjectionParams> = {}): ProjectionParams => ({
@@ -35,16 +35,8 @@ const base = (over: Partial<ProjectionParams> = {}): ProjectionParams => ({
   falseNorthing: 0,
   gamma: 0,
   stdParallel2: null,
-  azLight: 'math',
-  utmZone: null,
-  azHeight: 400,
-  azTiltDeg: 0,
-  azAzimuthDeg: 0,
+  azLight: 'center',
   coneHemisphere: 'north',
-  somInclination: 98,
-  somPeriod: 100,
-  somNodeLongitude: 0,
-  circleRadiusKm: 10000,
   variant: 'mercator',
   rulerMode: 'off',
   rulerPoint1: null,
@@ -169,7 +161,7 @@ describe('globe ↔ map projection consistency', () => {
 describe('rays link globe point to map point', () => {
   for (const family of FAMILIES) {
     for (const distortion of DISTORTIONS) {
-      const az = family === 'azimuthalPerspective' ? 'center' : 'math';
+      const az = 'center';
       const p = base({ family, distortion, azLight: az, phiOrigin: family === 'cylindrical' ? 0 : 25 });
 
       it(`${family}/${distortion}: every central-meridian ray's globe endpoint is the true 3D point`, () => {
@@ -702,7 +694,7 @@ describe('aux-surface ↔ globe intersection physics', () => {
     const phiS = (Math.acos(s) * 180) / Math.PI;
     const latsAt = (g: number) => {
       const raw = computeAuxSphereIntersections('cylindrical', 0, 0, s, RADIUS);
-      const surface = computeAuxSurfaceParams('cylindrical', 0, 0, s, RADIUS, null, g, 'equidistant', 'math')!;
+      const surface = computeAuxSurfaceParams('cylindrical', 0, 0, s, RADIUS, null, g, 'equidistant', 'center')!;
       const drawn = raw[0].map((p) => auxPointToWorld(surface, p));
       return drawn.map((p) => {
         closeTo(Math.hypot(p[0], p[1], p[2]), RADIUS, 1e-6);
@@ -723,8 +715,8 @@ describe('aux-surface ↔ globe intersection physics', () => {
     // scene disagree about where the surface meets the globe.
     const s = 0.8;
     for (const g of [0, 25, 60]) {
-      const ring2d = computeAuxSphereIntersectionsLonLat('cylindrical', 0, 0, s, RADIUS, null, g, 'equidistant', 'math')[0];
-      const surface = computeAuxSurfaceParams('cylindrical', 0, 0, s, RADIUS, null, g, 'equidistant', 'math')!;
+      const ring2d = computeAuxSphereIntersectionsLonLat('cylindrical', 0, 0, s, RADIUS, null, g, 'equidistant', 'center')[0];
+      const surface = computeAuxSurfaceParams('cylindrical', 0, 0, s, RADIUS, null, g, 'equidistant', 'center')!;
       const raw = computeAuxSphereIntersections('cylindrical', 0, 0, s, RADIUS, null);
       const ring3d = raw[0].map((p) => vec3ToLonLat(auxPointToWorld(surface, p)));
       expect(ring2d.length).toBe(ring3d.length);
@@ -840,12 +832,10 @@ describe('area-distortion invariants', () => {
   it('equal-area family reports ~0% mean area distortion for every family', () => {
     for (const family of FAMILIES) {
       // azimuthalPerspective's "equalArea" distortion is not an equal-area
-      // projection (it routes to gnomonic); the equal-area azimuthal family is
-      // azimuthalMath. Only test the families whose equal-area model actually
-      // preserves area.
+      // projection (it routes to gnomonic); the only equal-area projections are
+      // cylindrical-equalArea, Albers (conic) and their 3D counterparts.
       if (family === 'azimuthalPerspective') continue;
-      const az = 'math';
-      const d = computeAreaDistortion(base({ family, distortion: 'equalArea', azLight: az, phiOrigin: family === 'cylindrical' ? 0 : 25 }));
+      const d = computeAreaDistortion(base({ family, distortion: 'equalArea', azLight: 'center', phiOrigin: family === 'cylindrical' ? 0 : 25 }));
       expect(d).toBeLessThan(5);
     }
   });
@@ -865,9 +855,9 @@ describe('area-distortion invariants', () => {
   });
 
   it('conic/azimuthal area distortion is invariant under scaleFactor (pure zoom)', () => {
-    for (const family of ['conic', 'azimuthalPerspective', 'azimuthalMath'] as ProjectionFamily[]) {
-      const a = computeAreaDistortion(base({ family, distortion: 'equalArea', scaleFactor: 0.9, phiOrigin: 25, azLight: 'math' }));
-      const b = computeAreaDistortion(base({ family, distortion: 'equalArea', scaleFactor: 1.1, phiOrigin: 25, azLight: 'math' }));
+    for (const family of ['conic', 'azimuthalPerspective'] as ProjectionFamily[]) {
+      const a = computeAreaDistortion(base({ family, distortion: 'equalArea', scaleFactor: 0.9, phiOrigin: 25, azLight: 'center' }));
+      const b = computeAreaDistortion(base({ family, distortion: 'equalArea', scaleFactor: 1.1, phiOrigin: 25, azLight: 'center' }));
       closeTo(a, b, 1e-6);
     }
   });
@@ -918,48 +908,6 @@ describe('globe geometry sanity', () => {
 function dot(a: [number, number, number], b: [number, number, number]) {
   return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 }
-
-describe('new projection round-trips (vertical / tilted perspective)', () => {
-  it('vertical perspective round-trips globe → map → globe', () => {
-    const p = base({ family: 'azimuthalPerspective', distortion: 'conformal', azLight: 'center', variant: 'verticalPerspective', azHeight: 400 });
-    const proj = getD3Projection(p);
-    const inv = proj.invert!;
-    for (const [lon, lat] of [[0, 0], [10, 20], [-30, -40], [45, 60]] as [number, number][]) {
-      const xy = proj([lon, lat])!;
-      const back = inv(xy)!;
-      closeTo(back[0], lon, 1e-6);
-      closeTo(back[1], lat, 1e-6);
-    }
-  });
-
-  it('tilted perspective round-trips globe → map → globe', () => {
-    const p = base({ family: 'azimuthalPerspective', distortion: 'conformal', azLight: 'center', variant: 'tiltedPerspective', azHeight: 400, azTiltDeg: 30, azAzimuthDeg: 45 });
-    const proj = getD3Projection(p);
-    const inv = proj.invert!;
-    for (const [lon, lat] of [[0, 0], [10, 20], [-30, -40]] as [number, number][]) {
-      const xy = proj([lon, lat])!;
-      const back = inv(xy)!;
-      closeTo(back[0], lon, 1e-6);
-      closeTo(back[1], lat, 1e-6);
-    }
-  });
-});
-
-describe('UTM zone & circle-radius helpers (spec §9.4 / new)', () => {
-  it('UTM zone 31 → central meridian 3°', () => {
-    expect(utmZoneToCentralMeridian(31)).toBe(3);
-  });
-
-  it('circleRadiusKm=10000 yields a reasonable azimuthal-math scale', () => {
-    const scale = circleRadiusToScale(10000);
-    expect(scale).toBeGreaterThan(0);
-    expect(scale).toBeLessThan(1);
-    const p = base({ family: 'azimuthalMath', distortion: 'equalArea', circleRadiusKm: 10000 });
-    const proj = getD3Projection(p);
-    const c = proj([p.lambda0, p.phiOrigin])!;
-    expect(Number.isFinite(c[0])).toBe(true);
-  });
-});
 
 // Local area scale (projected px² per unit true area) of a projection at (lon,lat),
 // from a tiny 2°×2° quad. Stand-in for the production localAreaScale used by the

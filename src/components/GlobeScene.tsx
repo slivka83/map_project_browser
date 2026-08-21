@@ -49,10 +49,8 @@ export default function GlobeScene() {
         params.distortion,
         params.azLight,
         params.variant,
-        params.azHeight,
-        params.circleRadiusKm,
       ),
-    [params.family, params.lambda0, params.phiOrigin, params.scaleFactor, params.distortion, params.azLight, params.stdParallel2, params.gamma, params.variant, params.azHeight, params.circleRadiusKm],
+    [params.family, params.lambda0, params.phiOrigin, params.scaleFactor, params.distortion, params.azLight, params.stdParallel2, params.gamma, params.variant],
   );
 
   // Shared hover linkage (AGENTS.md): hovering the globe reads the
@@ -66,7 +64,7 @@ export default function GlobeScene() {
   const showTouchPin =
     def.showTouchPointPresets &&
     !(viz.rulerActive) &&
-    (params.family === 'azimuthalPerspective' || params.family === 'azimuthalMath');
+    params.family === 'azimuthalPerspective';
 
   return (
     <Canvas camera={{ position: [0, 5, 42], fov: 50 }} className="rounded-lg">

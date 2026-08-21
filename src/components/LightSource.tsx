@@ -5,7 +5,6 @@ import { RADIUS } from '../constants/geometry';
 import {
   computeAzimuthalLightLamp,
   coneApexWorld,
-  computeSatellitePosition,
   type Vec3,
   type AuxSurfaceParams,
 } from '../utils/auxSurfaceGeometry';
@@ -19,7 +18,7 @@ export default function LightSource({
   surface: AuxSurfaceParams;
   params: ProjectionParams;
 }) {
-  const { family, lambda0, phiOrigin, azLight, azHeight } = params;
+  const { family, lambda0, phiOrigin, azLight } = params;
 
   const def = useMemo(() => variantDef(params.variant ?? defaultVariant(family)), [params.variant, family]);
 
@@ -36,21 +35,12 @@ export default function LightSource({
     return surface.kind === 'cone' ? coneApexWorld(surface, params.gamma) : null;
   }, [family, surface, params.gamma]);
 
-  const satellite = useMemo(() => {
-    if (family !== 'azimuthalPerspective') return null;
-    if (params.variant === 'verticalPerspective' || params.variant === 'tiltedPerspective') {
-      return computeSatellitePosition(phiOrigin, lambda0, azHeight);
-    }
-    return null;
-  }, [family, params.variant, phiOrigin, lambda0, azHeight]);
-
-  if (!def.hasLamp && family !== 'conic' && !satellite) return null;
+  if (!def.hasLamp && family !== 'conic') return null;
 
   return (
     <group renderOrder={11}>
       {lamp && <LampMarker position={lamp} />}
       {apex && <LampMarker position={apex} />}
-      {satellite && <SatelliteMarker position={satellite} />}
     </group>
   );
 }
@@ -68,28 +58,6 @@ function LampMarker({ position }: { position: Vec3 }) {
           color={NEON_YELLOW}
           transparent
           opacity={0.16}
-          depthWrite={false}
-          blending={THREE.AdditiveBlending}
-          toneMapped={false}
-        />
-      </mesh>
-    </group>
-  );
-}
-
-function SatelliteMarker({ position }: { position: Vec3 }) {
-  return (
-    <group position={position}>
-      <mesh>
-        <boxGeometry args={[0.5, 0.5, 0.5]} />
-        <meshBasicMaterial color={NEON_YELLOW} toneMapped={false} />
-      </mesh>
-      <mesh>
-        <sphereGeometry args={[1.2, 24, 24]} />
-        <meshBasicMaterial
-          color={NEON_YELLOW}
-          transparent
-          opacity={0.14}
           depthWrite={false}
           blending={THREE.AdditiveBlending}
           toneMapped={false}

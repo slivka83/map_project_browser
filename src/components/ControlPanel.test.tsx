@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import ControlPanel from './ControlPanel';
 import { useAppStore } from '../store/useAppStore';
-import { utmZoneToCentralMeridian } from '../constants/geometry';
 
 describe('ControlPanel', () => {
   beforeEach(() => {
@@ -16,7 +15,7 @@ describe('ControlPanel', () => {
       falseNorthing: 0,
       gamma: 0,
       stdParallel2: null,
-      azLight: 'math',
+      azLight: 'center',
       showTissot: false,
       geoJsonData: null,
       variant: 'mercator',
@@ -63,10 +62,10 @@ describe('ControlPanel', () => {
     expect(screen.queryByRole('slider', { name: 'Центральная широта (φ₀)' })).toBeNull();
   });
 
-  it('updates store.gamma when the tilt slider changes (oblique Mercator)', () => {
-    useAppStore.getState().setVariant('obliqueMercator');
+  it('updates store.gamma when the tilt slider changes (azimuthal)', () => {
+    useAppStore.getState().setVariant('gnomonic');
     render(<ControlPanel />);
-    const slider = screen.getByRole('slider', { name: 'Азимут' }) as HTMLInputElement;
+    const slider = screen.getByRole('slider', { name: 'Наклон (γ)' }) as HTMLInputElement;
     fireEvent.change(slider, { target: { value: '-30' } });
     expect(useAppStore.getState().gamma).toBe(-30);
   });
@@ -87,8 +86,8 @@ describe('ControlPanel', () => {
     expect(screen.getByText(/Противоположный полюс/)).toBeTruthy();
   });
 
-  it('non-conformal azimuthal shows locked math light label', () => {
-    useAppStore.setState({ family: 'azimuthalPerspective', distortion: 'equalArea', azLight: 'math' });
+  it('non-conformal azimuthal shows locked light label', () => {
+    useAppStore.setState({ family: 'azimuthalPerspective', distortion: 'equalArea', azLight: 'center' });
     render(<ControlPanel />);
     expect(screen.getByText('🔒 Источник света')).toBeTruthy();
   });
@@ -114,10 +113,11 @@ describe('ControlPanel', () => {
     expect(screen.queryByText('Пресеты точки касания')).toBeNull();
     unmount();
 
-    // Transverse Mercator → UTM zone shown.
-    useAppStore.getState().setVariant('transverseMercator');
+    // Lambert conformal (conic) → secant-cone control shown, no touch presets.
+    useAppStore.getState().setVariant('lambertConformal');
     ({ unmount } = render(<ControlPanel />));
-    expect(screen.getByText('Зона UTM')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Секущий конус' })).toBeTruthy();
+    expect(screen.queryByText('Пресеты точки касания')).toBeNull();
     unmount();
 
     // Gnomonic (azimuthal) → touch-point presets shown.
@@ -134,17 +134,6 @@ describe('ControlPanel', () => {
     const s = useAppStore.getState();
     expect(s.phiOrigin).toBeCloseTo(55.75);
     expect(s.lambda0).toBeCloseTo(37.62);
-  });
-
-  it('UTM zone dropdown changes lambda0', () => {
-    useAppStore.getState().setVariant('transverseMercator');
-    render(<ControlPanel />);
-    // open the UTM zone dropdown (its trigger shows the current value "Зона 1")
-    fireEvent.click(screen.getByText('Зона 1'));
-    fireEvent.click(screen.getByText('Зона 31'));
-    const s = useAppStore.getState();
-    expect(s.utmZone).toBe(31);
-    expect(s.lambda0).toBe(utmZoneToCentralMeridian(31));
   });
 
   it('north/south radio changes coneHemisphere', () => {
@@ -176,15 +165,16 @@ describe('ControlPanel', () => {
     expect(useAppStore.getState().rulerActive).toBe(true);
   });
 
-  it('hides the ray switch for a projection without rays (conic)', () => {
+  it('shows the ray switch for a projection with rays (conic now has rays from the apex)', () => {
     act(() => {
       useAppStore.setState({ family: 'conic', variant: 'lambertConformal', distortion: 'conformal' });
     });
     render(<ControlPanel />);
-    expect(screen.queryByRole('switch', { name: 'Лучи света' })).toBeNull();
+    expect(screen.getByRole('switch', { name: 'Лучи света' })).toBeTruthy();
   });
 
   it('visualization method dropdown changes vizMethod', () => {
+    useAppStore.getState().setVizMethod('none');
     render(<ControlPanel />);
     // open the method dropdown (its trigger shows the current value "Нет" — the
     // first of the two "Нет" matches is the Method dropdown, before the figures one)
