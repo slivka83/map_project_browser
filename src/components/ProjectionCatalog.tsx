@@ -43,7 +43,7 @@ interface Props {
 // One table for all 14 projections. Columns: family (icon + label), the
 // projection name, what it preserves / its property, and the developable surface.
 const COLUMNS: { key: 'family' | 'label' | 'propertyLabel' | 'surfaceTypeLabel'; header: string; width: string }[] = [
-  { key: 'family', header: 'Семейство', width: '20%' },
+  { key: 'family', header: '', width: '20%' },
   { key: 'label', header: 'Название', width: '35%' },
   { key: 'propertyLabel', header: 'Свойства', width: '33%' },
   { key: 'surfaceTypeLabel', header: 'Поверхность', width: '12%' },
