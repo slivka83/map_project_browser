@@ -126,7 +126,7 @@ export const CYLINDRICAL_VARIANTS: Record<CylindricalVariant, VariantDef> = {
     lockedGamma: 0,
     lockedStdParallel: 0,
     lockedLight: true,
-    propertyLabel: 'Компромиссная',
+    propertyLabel: 'Сохраняет расстояния по меридианам и параллелям',
     showParallel1: true,
     showK0: true,
     k0Editable: true,
