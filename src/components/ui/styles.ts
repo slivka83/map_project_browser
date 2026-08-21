@@ -39,11 +39,7 @@ export const fieldRow = 'flex items-center gap-[12px]';
 export const sliderClass =
   'h-1 min-w-0 flex-1 cursor-pointer rounded-full bg-white/10 accent-neon-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70 disabled:opacity-40';
 
-// ---- Badge + toggle + radio + misc design-system additions (new spec) ----
-
-export const badgeClass =
-  'inline-flex items-center gap-1.5 rounded border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-gray-300 backdrop-blur-md';
-export const badgeMuted = 'opacity-70';
+// ---- toggle + radio + misc design-system additions (new spec) ----
 
 export const toggleTrack = 'relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200';
 export const toggleTrackOn = 'bg-neon-blue/30';

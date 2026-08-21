@@ -9,10 +9,9 @@ import {
 import Dropdown from './Dropdown';
 import CircularSlider from './CircularSlider';
 import Toggle from './Toggle';
-import Badge from './ui/Badge';
 import ParamSlider from './ui/ParamSlider';
 import PresetChips from './ui/PresetChips';
-import { RulerIcon, HeatmapIcon, RaysIcon, GraticuleIcon, UnfoldIcon, NorthSouthIcon } from './ui/icons';
+import { RulerIcon, HeatmapIcon, RaysIcon, GraticuleIcon, UnfoldIcon } from './ui/icons';
 import {
   labelClass,
   activeTab,
@@ -387,11 +386,6 @@ export default function ControlPanel() {
 
   return (
     <div className="flex flex-col gap-3.5 px-3 py-3">
-      <div className="flex flex-wrap gap-1.5">
-        <Badge label={def.surfaceTypeLabel} icon={<NorthSouthIcon />} />
-        <Badge label={def.propertyLabel} />
-      </div>
-
       <ProjectionParamsSection def={def} />
       <VisualizationSection def={def} />
     </div>
