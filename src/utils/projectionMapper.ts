@@ -256,56 +256,6 @@ export function computeAreaDistortion(params: ProjectionParams): number {
   return den > 0 ? (num / den) * 100 : 0;
 }
 
-// The reference (least-distorted) area scale of a projection — the area scale at
-// the standard parallel / aux-surface↔globe intersection. Equal-area
-// projections return a constant everywhere, so this is the same value for all
-// cells. Used by the heatmap overlay to colour each cell by its local excess
-// area relative to the projection's own true-scale reference.
-export function referenceAreaScale(params: ProjectionParams): number {
-  const proj = getD3Projection(params);
-  const d = 0.25;
-  let aRef: number | null;
-  if (params.family === 'cylindrical') {
-    const s = Math.max(0, Math.min(1, params.scaleFactor));
-    const phiS = (Math.acos(s) * 180) / Math.PI;
-    const cands = [phiS + params.phiOrigin, -phiS + params.phiOrigin];
-    let best: number | null = null;
-    for (const lat of cands) {
-      const a = localAreaScale(proj, params.lambda0, lat, d);
-      if (a != null && a > 0) best = best == null ? a : Math.min(best, a);
-    }
-    if (best == null) {
-      const centre = localAreaScale(proj, params.lambda0, params.phiOrigin, d);
-      best = centre != null && centre > 0 ? centre : null;
-    }
-    aRef = best;
-  } else if (params.family === 'conic') {
-    const phi1 = signedStandardParallelDeg(params.phiOrigin);
-    const centre = localAreaScale(proj, params.lambda0, phi1, d);
-    aRef = centre != null && centre > 0 ? centre : null;
-  } else {
-    const centre = localAreaScale(proj, params.lambda0, params.phiOrigin, d);
-    aRef = centre != null && centre > 0 ? centre : null;
-  }
-  return aRef ?? 1;
-}
-
-// Local area-distortion percentage at a single cell (lon, lat) of the given
-// projection: 0% means true-to-scale (at the standard parallel), positive means
-// the cell is stretched relative to that reference. Returns null for cells that
-// fall outside the projection or sit on a discontinuity.
-export function cellAreaDistortion(
-  proj: GeoProjection,
-  reference: number,
-  lon: number,
-  lat: number,
-  d = 0.5,
-): number | null {
-  const a = localAreaScale(proj, lon, lat, d);
-  if (a == null || reference <= 0) return null;
-  return Math.max(0, (a / reference - 1) * 100);
-}
-
 // Fit object used to size the 2D map. A full {type:'Sphere'} is infinite for
 // some projections (e.g. conic conformal, where the pole maps to infinity), so
 // `fitExtent` there collapses to a degenerate scale. Clipping the fit target to

@@ -16,9 +16,6 @@ export const useProjectionParams = (): ProjectionParams =>
       gamma: s.gamma,
       stdParallel2: s.stdParallel2,
       azLight: s.azLight,
-      rulerMode: s.rulerMode,
-      rulerPoint1: s.rulerPoint1,
-      rulerPoint2: s.rulerPoint2,
       coneHemisphere: s.coneHemisphere,
     })),
   );
@@ -28,13 +25,8 @@ export const useProjectionParams = (): ProjectionParams =>
 export function useVisualizationParams() {
   return useAppStore(
     useShallow((s) => ({
-      showHeatmap: s.showHeatmap,
-      heatmapType: s.heatmapType,
       graticuleStep: s.graticuleStep,
       showGraticule: s.showGraticule,
-      testFigureType: s.testFigureType,
-      showRays: s.showRays,
-      rulerActive: s.rulerActive,
     })),
   );
 }

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Canvas, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { useAppStore } from '../store/useAppStore';
-import { useProjectionParams, useVisualizationParams } from '../store/selectors';
+import { useProjectionParams } from '../store/selectors';
 import Globe from './Globe';
 import AuxSurface from './AuxSurface';
 import AxesIndicator from './AxesIndicator';
@@ -18,7 +18,6 @@ import { variantDef, defaultVariant } from '../utils/projectionVariants';
 
 export default function GlobeScene() {
   const params = useProjectionParams();
-  const viz = useVisualizationParams();
   const geoJson = useAppStore((s) => s.geoJsonData);
   const hoverLonLat = useAppStore((s) => s.hoverLonLat);
   const hoverSource = useAppStore((s) => s.hoverSource);
@@ -62,7 +61,6 @@ export default function GlobeScene() {
 
   const showTouchPin =
     def.showTouchPointPresets &&
-    !(viz.rulerActive) &&
     params.family === 'azimuthalPerspective';
 
   return (

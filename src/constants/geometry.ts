@@ -70,6 +70,3 @@ export const signedStandardParallelDeg = (phiOrigin: number): number => {
   const base = mag < STD_PARALLEL_MIN_ABS ? STD_PARALLEL_FALLBACK : mag;
   return phiOrigin < 0 ? -base : base;
 };
-
-// Earth radius in km — used by the 2D ruler to convert angular distances.
-export const EARTH_RADIUS_KM = 6371;

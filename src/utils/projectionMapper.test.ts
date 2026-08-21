@@ -18,9 +18,6 @@ const makeState = (over: Partial<ProjectionParams> = {}): ProjectionParams => ({
   azLight: 'center',
   coneHemisphere: 'north',
   variant: 'mercator',
-  rulerMode: 'off',
-  rulerPoint1: null,
-  rulerPoint2: null,
   ...over,
 });
 

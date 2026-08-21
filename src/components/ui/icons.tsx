@@ -103,33 +103,9 @@ export function HoverRayIcon() {
 
 // ---- New icons for the visualization panel, catalog and badges ----
 
-export function RulerIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-      <path d="M3 8l13-5 5 13-13 5z" />
-      <path d="M8 7l1.5 1M12 9l1.5 1M16 11l1.5 1" />
-    </svg>
-  );
-}
-
-export function HeatmapIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-      <rect x="4" y="4" width="16" height="16" rx="1" />
-      <path d="M4 14h16M4 9h16M9 4v16M14 4v16" opacity="0.55" />
-    </svg>
-  );
-}
 
 
-export function RaysIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="2.4" />
-      <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2 2M16.4 16.4l2 2M18.4 5.6l-2 2M7.6 16.4l-2 2" />
-    </svg>
-  );
-}
+
 
 export function GraticuleIcon() {
   return (

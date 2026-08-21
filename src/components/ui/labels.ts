@@ -1,8 +1,6 @@
 import type {
   ProjectionFamily,
   DistortionModel,
-  HeatmapType,
-  TestFigureType,
   ConeHemisphere,
   AzimuthalLight,
 } from '../../store/useAppStore';
@@ -40,26 +38,6 @@ export const FAMILY_LABEL: Record<ProjectionFamily, string> = Object.fromEntries
 export const DISTORTION_LABEL: Record<DistortionModel, string> = Object.fromEntries(
   DISTORTION_OPTIONS.map((o) => [o.value, o.label]),
 ) as Record<DistortionModel, string>;
-
-export const HEATMAP_TYPE_OPTIONS: { value: HeatmapType; label: string }[] = [
-  { value: 'area', label: 'Площади' },
-  { value: 'angle', label: 'Углы' },
-  { value: 'scale', label: 'Масштаб' },
-];
-
-export const HEATMAP_TYPE_LABELS: Record<HeatmapType, string> = Object.fromEntries(
-  HEATMAP_TYPE_OPTIONS.map((o) => [o.value, o.label]),
-) as Record<HeatmapType, string>;
-
-export const TEST_FIGURE_OPTIONS: { value: TestFigureType; label: string }[] = [
-  { value: 'circles', label: 'Круги' },
-  { value: 'squares', label: 'Квадраты' },
-  { value: 'faces', label: 'Лица' },
-];
-
-export const TEST_FIGURE_LABELS: Record<TestFigureType, string> = Object.fromEntries(
-  TEST_FIGURE_OPTIONS.map((o) => [o.value, o.label]),
-) as Record<TestFigureType, string>;
 
 export const CONE_HEMISPHERE_OPTIONS: { value: ConeHemisphere; label: string }[] = [
   { value: 'north', label: 'Север' },

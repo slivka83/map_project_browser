@@ -4,86 +4,23 @@ import * as d3Geo from 'd3-geo';
 import type { FeatureCollection } from 'geojson';
 import { useAppStore } from '../store/useAppStore';
 import { useProjectionParams, useVisualizationParams } from '../store/selectors';
-import { getD3Projection, fitProjectionToView, computeAreaDistortion, referenceAreaScale, cellAreaDistortion, isPointerOverGlobe } from '../utils/projectionMapper';
+import { getD3Projection, fitProjectionToView, computeAreaDistortion, isPointerOverGlobe } from '../utils/projectionMapper';
 import { computeTissotCircles } from '../utils/tissot';
 import { computeAuxSphereIntersectionsLonLat } from '../utils/auxSurfaceGeometry';
 import { variantDef } from '../utils/projectionVariants';
-import { EARTH_RADIUS_KM, RADIUS } from '../constants/geometry';
-import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT, NEON_YELLOW, NEON_WHITE, GRATICULE_STROKE, NEON_RED } from '../constants/designTokens';
+import { RADIUS } from '../constants/geometry';
+import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT, NEON_YELLOW, NEON_WHITE, GRATICULE_STROKE } from '../constants/designTokens';
 import { iconBtnPlain, iconGlow, glassPanel } from './ui/styles';
 import { TissotIcon, BorderIcon, DetailIcon, IntersectionIcon, HoverRayIcon, InfoIcon, GraticuleIcon } from './ui/icons';
 import ProjectionSummary from './ProjectionSummary';
 import useElementSize from '../hooks/useElementSize';
 import { FIT_MARGIN } from '../constants/geometry';
 
-// Distortion heatmap cell: sample the local area-scale at a lon/lat grid and
-// colour green→red. Cheap enough to recompute on param change (memoised).
-function HeatmapOverlay({ proj, reference }: { proj: d3Geo.GeoProjection; reference: number }) {
-  const cells = useMemo(() => {
-    const out: { d: string; color: string }[] = [];
-    const step = 2;
-    for (let lat = -88; lat < 88; lat += step) {
-      for (let lon = -180; lon < 180; lon += step) {
-        const a = proj([lon, lat]);
-        const b = proj([lon + step, lat + step]);
-        if (!a || !b || !isFinite(a[0]) || !isFinite(b[0])) continue;
-        // Colour each cell by its LOCAL area distortion relative to the
-        // projection's own true-scale reference (green = true scale, red = stretched).
-        const dist = cellAreaDistortion(proj, reference, lon + step / 2, lat + step / 2);
-        if (dist == null) continue;
-        const t = Math.max(0, Math.min(1, dist / 400));
-        const r = Math.round(40 + t * 215);
-        const g = Math.round(220 - t * 200);
-        const path = `M ${a[0]} ${a[1]} L ${b[0]} ${a[1]} L ${b[0]} ${b[1]} L ${a[0]} ${b[1]} Z`;
-        out.push({ d: path, color: `rgba(${r},${g},40,0.18)` });
-      }
-    }
-    return out;
-  }, [proj, reference]);
-  return (
-    <g data-testid="heatmap-layer">
-      {cells.map((c, i) => (
-        <path key={i} d={c.d} fill={c.color} stroke="none" />
-      ))}
-    </g>
-  );
-}
-
-// Test figures (circles / squares / faces) placed on the projection grid.
-function TestFiguresOverlay({ proj, type }: { proj: d3Geo.GeoProjection; type: 'circles' | 'squares' | 'faces' }) {
-  const shapes = useMemo(() => {
-    const out: { d: string }[] = [];
-    for (let lat = -60; lat <= 60; lat += 30) {
-      const lonOffset = (Math.round(lat / 30) % 2 === 0 ? 0 : 15) % 30;
-      for (let lon = -180 + lonOffset; lon <= 150; lon += 30) {
-        const p = proj([lon, lat]);
-        if (!p || !isFinite(p[0]) || !isFinite(p[1])) continue;
-        if (type === 'circles') {
-          out.push({ d: `M ${p[0]} ${p[1]} m -4 0 a 4 4 0 1 0 8 0 a 4 4 0 1 0 -8 0` });
-        } else if (type === 'squares') {
-          out.push({ d: `M ${p[0] - 4} ${p[1] - 4} h 8 v 8 h -8 Z` });
-        } else {
-          // simple "face": head + two eyes
-          out.push({ d: `M ${p[0]} ${p[1]} m -5 0 a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0` });
-        }
-      }
-    }
-    return out;
-  }, [proj, type]);
-  return (
-    <g data-testid="test-figures-layer">
-      {shapes.map((s, i) => (
-        <path key={i} d={s.d} fill="none" stroke={NEON_YELLOW} strokeWidth={0.8} opacity={0.8} />
-      ))}
-    </g>
-  );
-}
-
 export default function Map2D() {
   const params = useProjectionParams();
   const viz = useVisualizationParams();
   const { scaleFactor, family, lambda0, phiOrigin, stdParallel2 } = params;
-  const { graticuleStep, showHeatmap, showGraticule, testFigureType, rulerActive } = viz;
+  const { graticuleStep, showGraticule } = viz;
   const showTissot = useAppStore((s) => s.showTissot);
   const setShowTissot = useAppStore((s) => s.setShowTissot);
   const showBorders = useAppStore((s) => s.showBorders);
@@ -130,7 +67,6 @@ export default function Map2D() {
   );
 
   const areaDistortion = useMemo(() => computeAreaDistortion(params), [params]);
-  const areaReference = useMemo(() => referenceAreaScale(params), [params]);
 
   const tissotCircles = useMemo(
     () => (showTissot ? computeTissotCircles(graticuleStep) : []),
@@ -154,8 +90,7 @@ export default function Map2D() {
 
   const projRef = pathGenerator.projection() as d3Geo.GeoProjection | null;
 
-  // Ruler: a click records points (not hover). The first click → rulerPoint1,
-  // second → rulerPoint2; further clicks reset.
+  // Click on an azimuthal map moves the tangent point (touch-point presets).
   const handleMapClick = (e: React.MouseEvent<SVGSVGElement>) => {
     if (!projRef) return;
     const rect = e.currentTarget.getBoundingClientRect();
@@ -166,23 +101,10 @@ export default function Map2D() {
     const y = (e.clientY - rect.top - offY) / scale;
     const inv = projRef.invert?.([x, y]);
     if (!inv) return;
-    const store = useAppStore.getState();
-    if (rulerActive) {
-      const mode = store.rulerMode;
-      if (mode === 'first' || mode === 'done') {
-        store.setRulerMode('second');
-        store.setRulerPoint1([inv[0], inv[1]]);
-        store.setRulerPoint2(null);
-      } else {
-        store.setRulerMode('done');
-        store.setRulerPoint2([inv[0], inv[1]]);
-      }
-      return;
-    }
     const def = variantDef(params.variant);
     if (def?.showTouchPointPresets && family === 'azimuthalPerspective') {
-      store.setParam('phiOrigin', inv[1]);
-      store.setParam('lambda0', inv[0]);
+      useAppStore.getState().setParam('phiOrigin', inv[1]);
+      useAppStore.getState().setParam('lambda0', inv[0]);
     }
   };
 
@@ -203,11 +125,6 @@ export default function Map2D() {
   const hoverPoint = showHoverMarker && hoverLonLat
     ? (projRef?.([hoverLonLat[0], hoverLonLat[1]]) ?? null)
     : null;
-
-  const rulerP1 = useAppStore((s) => s.rulerPoint1);
-  const rulerP2 = useAppStore((s) => s.rulerPoint2);
-  const p1 = rulerP1 ? projRef?.(rulerP1) ?? null : null;
-  const p2 = rulerP2 ? projRef?.(rulerP2) ?? null : null;
 
   return (
     <div ref={ref} style={containerStyle}>
@@ -233,7 +150,6 @@ export default function Map2D() {
           onPointerLeave={() => setHoverLonLat(null)}
           onClick={handleMapClick}
         >
-          {showHeatmap && projRef && <HeatmapOverlay proj={projRef} reference={areaReference} />}
           <path d={graticulePath} fill="none" stroke={GRATICULE_STROKE} strokeWidth={0.5} />
           {(baseLand as FeatureCollection).features.map((feature, i) => (
             <path key={i} d={pathGenerator(feature) ?? ''} fill={BG} stroke={NEON_BLUE} strokeWidth={1} />
@@ -256,27 +172,6 @@ export default function Map2D() {
               opacity={0.9}
             />
           ))}
-          {testFigureType && projRef && <TestFiguresOverlay proj={projRef} type={testFigureType} />}
-          {p1 && <circle cx={p1[0]} cy={p1[1]} r={4} fill="none" stroke={NEON_RED} strokeWidth={1.5} data-testid="ruler-point-1" />}
-          {p2 && <circle cx={p2[0]} cy={p2[1]} r={4} fill="none" stroke={NEON_RED} strokeWidth={1.5} data-testid="ruler-point-2" />}
-          {p1 && p2 && (
-            <line x1={p1[0]} y1={p1[1]} x2={p2[0]} y2={p2[1]} stroke={NEON_YELLOW} strokeWidth={1} strokeDasharray="4 2" data-testid="ruler-line" />
-          )}
-          {p1 && p2 && rulerP1 && rulerP2 && (
-            <text
-              x={(p1[0] + p2[0]) / 2}
-              y={(p1[1] + p2[1]) / 2 - 6}
-              textAnchor="middle"
-              fontSize={11}
-              fill={NEON_YELLOW}
-              stroke={BG}
-              strokeWidth={3}
-              paintOrder="stroke"
-              data-testid="ruler-distance"
-            >
-              {formatDistance(greatCircleKm(rulerP1, rulerP2))}
-            </text>
-          )}
           {hoverPoint && (
             <circle data-testid="hover-marker" cx={hoverPoint[0]} cy={hoverPoint[1]} r={5} fill="none" stroke={NEON_YELLOW} strokeWidth={1.5} />
           )}
@@ -332,18 +227,4 @@ export default function Map2D() {
 function formatDistortion(value: number): string {
   const v = Number.isFinite(value) ? value : 0;
   return Math.round(v).toString();
-}
-
-// Great-circle (orthodromic) distance between two lon/lat points in km.
-function greatCircleKm(a: [number, number], b: [number, number]): number {
-  const [lon1, lat1] = [a[0] * Math.PI / 180, a[1] * Math.PI / 180];
-  const [lon2, lat2] = [b[0] * Math.PI / 180, b[1] * Math.PI / 180];
-  const dLon = lon2 - lon1;
-  const cos = Math.sin(lat1) * Math.sin(lat2) + Math.cos(lat1) * Math.cos(lat2) * Math.cos(dLon);
-  return EARTH_RADIUS_KM * Math.acos(Math.max(-1, Math.min(1, cos)));
-}
-
-function formatDistance(km: number): string {
-  if (km >= 1000) return `${(km / 1000).toLocaleString('ru-RU', { maximumFractionDigits: 2 })} тыс. км`;
-  return `${Math.round(km).toLocaleString('ru-RU')} км`;
 }

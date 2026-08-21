@@ -3,7 +3,7 @@ import * as projectionMapper from '../utils/projectionMapper';
 import * as auxSurfaceGeometry from '../utils/auxSurfaceGeometry';
 import * as tissot from '../utils/tissot';
 import * as designTokens from '../constants/designTokens';
-import { MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y, CLIP_LAT, EARTH_RADIUS_KM } from '../constants/geometry';
+import { MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y, CLIP_LAT } from '../constants/geometry';
 import { defaultParamsForFamily } from '../store/useAppStore';
 
 // Discover the documentation files dynamically (only those that exist on disk),
@@ -175,8 +175,6 @@ describe('docs ↔ code: key exports are documented', () => {
     'fitProjectionToView',
     'FIT_SPHERE',
     'localAreaScale',
-    'referenceAreaScale',
-    'cellAreaDistortion',
     'computeAuxSurfaceParams',
     'computeAuxGraticule',
     'computeAuxSphereIntersections',
@@ -246,9 +244,4 @@ describe('docs ↔ code: math facts', () => {
   });
 });
 
-describe('docs ↔ code: new geometry constants are documented', () => {
-  it('documents EARTH_RADIUS_KM', () => {
-    expect(EARTH_RADIUS_KM).toBe(6371);
-    expectInDocs('EARTH_RADIUS_KM', 'EARTH_RADIUS_KM constant');
-  });
-});
+

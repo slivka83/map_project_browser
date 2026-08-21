@@ -10,7 +10,6 @@ import {
   VIEW_CENTER_X,
   VIEW_CENTER_Y,
   CLIP_LAT,
-  EARTH_RADIUS_KM,
 } from './geometry';
 
 describe('standardParallelDeg', () => {
@@ -78,8 +77,4 @@ describe('geometry constants are self-consistent', () => {
   });
 });
 
-describe('Earth radius constant', () => {
-  it('spherical Earth radius = 6371 km (ruler distance math)', () => {
-    expect(EARTH_RADIUS_KM).toBe(6371);
-  });
-});
+

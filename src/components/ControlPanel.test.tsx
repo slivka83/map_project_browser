@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import ControlPanel from './ControlPanel';
 import { useAppStore } from '../store/useAppStore';
 
@@ -144,31 +144,9 @@ describe('ControlPanel', () => {
     expect(useAppStore.getState().coneHemisphere).toBe('south');
   });
 
-  it('visualization toggles switch store state', () => {
-    act(() => {
-      useAppStore.setState({ showTissot: false, showGraticule: false, showRays: false, rulerActive: false });
-    });
+  it('does not expose any visualization toggles (Тиссо, Сетка, лучи, линейка переехали/убраны)', () => {
     render(<ControlPanel />);
-    const tissot = screen.getByRole('switch', { name: 'Индикатрисы Тиссо' });
-    fireEvent.click(tissot);
-    expect(useAppStore.getState().showTissot).toBe(true);
-    // The graticule toggle lives in the 2D map toolbar (not the panel).
-    expect(screen.queryByRole('switch', { name: 'Сетка' })).toBeNull();
-    // The default variant (Меркатор) has rays, so the switch must be present and
-    // its click must toggle the store.
-    const rays = screen.getByRole('switch', { name: 'Лучи света' });
-    fireEvent.click(rays);
-    expect(useAppStore.getState().showRays).toBe(true);
-    const ruler = screen.getByRole('switch', { name: 'Линейка' });
-    fireEvent.click(ruler);
-    expect(useAppStore.getState().rulerActive).toBe(true);
-  });
-
-  it('shows the ray switch for a projection with rays (conic now has rays from the apex)', () => {
-    act(() => {
-      useAppStore.setState({ family: 'conic', variant: 'lambertConformal', distortion: 'conformal' });
-    });
-    render(<ControlPanel />);
-    expect(screen.getByRole('switch', { name: 'Лучи света' })).toBeTruthy();
+    expect(screen.queryByRole('switch')).toBeNull();
+    expect(screen.queryByText('Визуализация')).toBeNull();
   });
 });

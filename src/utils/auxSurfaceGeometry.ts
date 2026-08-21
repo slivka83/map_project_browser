@@ -40,9 +40,6 @@ function projParams(
     gamma: 0,
     stdParallel2: null,
     azLight: 'center',
-    rulerMode: 'off',
-    rulerPoint1: null,
-    rulerPoint2: null,
     coneHemisphere: 'north',
     ...over,
   };

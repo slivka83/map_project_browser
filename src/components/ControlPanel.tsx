@@ -1,16 +1,13 @@
 import { useMemo } from 'react';
 import { useAppStore } from '../store/useAppStore';
 
-import { useProjectionParams, useVisualizationParams } from '../store/selectors';
+import { useProjectionParams } from '../store/selectors';
 import {
   variantDef,
   defaultVariant,
 } from '../utils/projectionVariants';
-import Dropdown from './Dropdown';
-import Toggle from './Toggle';
 import ParamSlider from './ui/ParamSlider';
 import PresetChips from './ui/PresetChips';
-import { RulerIcon, HeatmapIcon, RaysIcon } from './ui/icons';
 import {
   labelClass,
   activeTab,
@@ -23,8 +20,6 @@ import {
   radioOptionInactive,
 } from './ui/styles';
 import {
-  HEATMAP_TYPE_OPTIONS,
-  TEST_FIGURE_OPTIONS,
   CONE_HEMISPHERE_OPTIONS,
   AZ_LIGHT_LABEL_MAP,
   AZ_LIGHT_ICON_MAP,
@@ -184,52 +179,6 @@ function ProjectionParamsSection({ def }: { def: ReturnType<typeof variantDef> }
   );
 }
 
-// Universal visualization panel (rays, heatmap, graticule, figures).
-function VisualizationSection({ def }: { def: ReturnType<typeof variantDef> }) {
-  const viz = useVisualizationParams();
-  const store = useAppStore();
-  const setShowHeatmap = store.setShowHeatmap;
-  const setHeatmapType = store.setHeatmapType;
-  const setTestFigureType = store.setTestFigureType;
-  const setShowRays = store.setShowRays;
-  const setRulerActive = store.setRulerActive;
-
-  return (
-    <div className="flex flex-col gap-2.5 border-t border-white/10 pt-3">
-      <span className={labelClass}>Визуализация</span>
-
-      <Toggle label="Индикатрисы Тиссо" checked={store.showTissot} onChange={store.setShowTissot} icon={<span className="w-4 text-center text-neon-blue/80">◎</span>} />
-
-      <div className="flex items-center gap-2">
-        <Toggle label="Тепловая карта" checked={viz.showHeatmap} onChange={setShowHeatmap} icon={<HeatmapIcon />} />
-        {viz.showHeatmap && (
-          <Dropdown
-            value={viz.heatmapType}
-            options={HEATMAP_TYPE_OPTIONS}
-            onChange={(v) => setHeatmapType(v as typeof viz.heatmapType)}
-          />
-        )}
-      </div>
-
-      <div className={fieldRow}>
-        <span className={`${labelClass} w-36 shrink-0`}>Тестовые фигуры</span>
-        <Dropdown
-          value={viz.testFigureType ?? ''}
-          allLabel="Нет"
-          options={TEST_FIGURE_OPTIONS}
-          onChange={(v) => setTestFigureType(v ? (v as NonNullable<typeof viz.testFigureType>) : null)}
-        />
-      </div>
-
-      {def.hasRays && (
-        <Toggle label="Лучи света" checked={viz.showRays} onChange={setShowRays} icon={<RaysIcon />} />
-      )}
-
-      <Toggle label="Линейка" checked={viz.rulerActive} onChange={setRulerActive} icon={<RulerIcon />} />
-    </div>
-  );
-}
-
 export default function ControlPanel() {
   const params = useProjectionParams();
   const { variant, family } = params;
@@ -239,7 +188,6 @@ export default function ControlPanel() {
   return (
     <div className="flex flex-col gap-3.5 px-3 py-3">
       <ProjectionParamsSection def={def} />
-      <VisualizationSection def={def} />
     </div>
   );
 }

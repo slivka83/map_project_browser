@@ -13,7 +13,6 @@ export default function Rays({ params }: { params: ProjectionParams }) {
   const hoverLonLat = useAppStore((s) => s.hoverLonLat);
   const hoverSource = useAppStore((s) => s.hoverSource);
   const showHoverRay = useAppStore((s) => s.showHoverRay);
-  const showRays = useAppStore((s) => s.showRays);
 
   const def = useMemo(
     () => variantDef(params.variant ?? defaultVariant(params.family)),
@@ -21,12 +20,12 @@ export default function Rays({ params }: { params: ProjectionParams }) {
   );
 
   const segments = useMemo<RaySegment[]>(
-    () => (def.hasRays && showRays ? computeCentralMeridianRays({
+    () => (def.hasRays ? computeCentralMeridianRays({
       ...params,
       radius: RADIUS,
       rayCount: RAY_COUNT,
     }) : []),
-    [params, def.hasRays, showRays],
+    [params, def.hasRays],
   );
 
   const showHover = hoverSource === 'map' && showHoverRay;
@@ -35,7 +34,7 @@ export default function Rays({ params }: { params: ProjectionParams }) {
     [params, hoverLonLat, showHover, def.hasRays],
   );
 
-  if (!def.hasRays || !showRays) return null;
+  if (!def.hasRays) return null;
 
   return (
     <group renderOrder={10}>

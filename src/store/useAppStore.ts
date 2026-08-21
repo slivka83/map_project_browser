@@ -16,12 +16,6 @@ export type AzimuthalLight = 'center' | 'antipode' | 'infinity';
 // Cone hemisphere selector (north / south).
 export type ConeHemisphere = 'north' | 'south';
 
-// Distortion heatmap colouring mode.
-export type HeatmapType = 'area' | 'angle' | 'scale';
-
-// Test-figure overlay type on the 2D map.
-export type TestFigureType = 'circles' | 'squares' | 'faces';
-
 // Graticule step in degrees.
 export type GraticuleStep = 1 | 5 | 10 | 15 | 30;
 
@@ -46,11 +40,6 @@ export interface ProjectionParams {
   stdParallel2: number | null; // φ2; null = tangent surface (single standard parallel)
   azLight: AzimuthalLight; // light-source mode for the azimuthal family
 
-  // Ruler (distance measurement) state.
-  rulerMode: 'off' | 'first' | 'second' | 'done';
-  rulerPoint1: [number, number] | null;
-  rulerPoint2: [number, number] | null;
-
   // Cone hemisphere (north / south).
   coneHemisphere: ConeHemisphere;
 }
@@ -70,9 +59,6 @@ export function defaultParamsForFamily(family: ProjectionFamily): ProjectionPara
     gamma: def.lockedGamma ?? 0,
     stdParallel2: def.lockedStdParallel2 ?? null,
     azLight: def.azLight,
-    rulerMode: 'off',
-    rulerPoint1: null,
-    rulerPoint2: null,
     coneHemisphere: 'north',
   };
 }
@@ -117,13 +103,8 @@ interface AppState extends ProjectionParams {
   setShowHoverRay: (value: boolean) => void;
 
   // --- Non-parametric visualization / interaction state ---
-  showHeatmap: boolean;
-  heatmapType: HeatmapType;
   graticuleStep: GraticuleStep;
   showGraticule: boolean;
-  testFigureType: TestFigureType | null;
-  showRays: boolean;
-  rulerActive: boolean;
 
   setParam: <K extends keyof ProjectionParams>(key: K, value: ProjectionParams[K]) => void;
   setVariant: (v: ProjectionVariant) => void;
@@ -136,16 +117,8 @@ interface AppState extends ProjectionParams {
   loadGeoData: () => Promise<void>;
   applyPreset: (preset: Partial<ProjectionParams>) => void;
 
-  setShowHeatmap: (value: boolean) => void;
-  setHeatmapType: (value: HeatmapType) => void;
   setGraticuleStep: (value: GraticuleStep) => void;
   setShowGraticule: (value: boolean) => void;
-  setTestFigureType: (value: TestFigureType | null) => void;
-  setShowRays: (value: boolean) => void;
-  setRulerActive: (value: boolean) => void;
-  setRulerMode: (value: 'off' | 'first' | 'second' | 'done') => void;
-  setRulerPoint1: (value: [number, number] | null) => void;
-  setRulerPoint2: (value: [number, number] | null) => void;
   setConeHemisphere: (value: ConeHemisphere) => void;
 }
 
@@ -153,9 +126,6 @@ interface AppState extends ProjectionParams {
 // resetParams / applyPreset. Keeping them in one record guarantees the variant
 // switch never leaves stale state behind.
 const NEW_DEFAULTS = {
-  rulerMode: 'off' as const,
-  rulerPoint1: null,
-  rulerPoint2: null,
   coneHemisphere: 'north' as ConeHemisphere,
 };
 
@@ -175,13 +145,8 @@ export const useAppStore = create<AppState>((set) => ({
   hoverLonLat: null,
   hoverSource: null,
   showHoverRay: false,
-  showHeatmap: false,
-  heatmapType: 'area',
   graticuleStep: 15,
   showGraticule: true,
-  testFigureType: null,
-  showRays: true,
-  rulerActive: false,
   setHoverLonLat: (v, source) => set({ hoverLonLat: v, hoverSource: source ?? null }),
   setShowHoverRay: (value) => set({ showHoverRay: value }),
 
@@ -318,15 +283,7 @@ export const useAppStore = create<AppState>((set) => ({
     });
   },
 
-  setShowHeatmap: (value) => set({ showHeatmap: value }),
-  setHeatmapType: (value) => set({ heatmapType: value }),
   setGraticuleStep: (value) => set({ graticuleStep: value }),
   setShowGraticule: (value) => set({ showGraticule: value }),
-  setTestFigureType: (value) => set({ testFigureType: value }),
-  setShowRays: (value) => set({ showRays: value }),
-  setRulerActive: (value) => set({ rulerActive: value, rulerMode: value ? 'first' : 'off' }),
-  setRulerMode: (value) => set({ rulerMode: value }),
-  setRulerPoint1: (value) => set({ rulerPoint1: value }),
-  setRulerPoint2: (value) => set({ rulerPoint2: value }),
   setConeHemisphere: (value) => set({ coneHemisphere: value }),
 }));
