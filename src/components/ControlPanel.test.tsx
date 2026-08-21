@@ -152,9 +152,8 @@ describe('ControlPanel', () => {
     const tissot = screen.getByRole('switch', { name: 'Индикатрисы Тиссо' });
     fireEvent.click(tissot);
     expect(useAppStore.getState().showTissot).toBe(true);
-    const grid = screen.getByRole('switch', { name: 'Сетка' });
-    fireEvent.click(grid);
-    expect(useAppStore.getState().showGraticule).toBe(true);
+    // The graticule toggle lives in the 2D map toolbar (not the panel).
+    expect(screen.queryByRole('switch', { name: 'Сетка' })).toBeNull();
     // The default variant (Меркатор) has rays, so the switch must be present and
     // its click must toggle the store.
     const rays = screen.getByRole('switch', { name: 'Лучи света' });

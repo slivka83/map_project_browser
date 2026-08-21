@@ -104,9 +104,10 @@ describe('Map2D', () => {
     expect(link.getAttribute('rel')).toContain('noopener');
   });
 
-  it('shows all six overlay buttons in a row, always visible', () => {
+  it('shows all seven overlay buttons in a row, always visible', () => {
     const { getByRole, container } = render(<Map2D />);
     const tissot = getByRole('button', { name: 'Индикатрисы Тиссо' });
+    const grid = getByRole('button', { name: 'Сетка' });
     const detail = getByRole('button', { name: 'Детализация карты' });
     const borders = getByRole('button', { name: 'Границы стран' });
     const intersection = getByRole('button', { name: 'Линии пересечения поверхности с глобусом' });
@@ -115,13 +116,14 @@ describe('Map2D', () => {
     });
     const summary = getByRole('button', { name: 'Точные параметры проекции' });
     expect(tissot).toBeTruthy();
+    expect(grid).toBeTruthy();
     expect(detail).toBeTruthy();
     expect(borders).toBeTruthy();
     expect(intersection).toBeTruthy();
     expect(hoverRay).toBeTruthy();
     expect(summary).toBeTruthy();
-    // Six buttons total, rendered as a single horizontal row.
-    expect(container.querySelectorAll('button').length).toBe(6);
+    // Seven buttons total, rendered as a single horizontal row.
+    expect(container.querySelectorAll('button').length).toBe(7);
     expect(useAppStore.getState().detailedMap).toBe(false);
     expect(useAppStore.getState().showBorders).toBe(false);
 
@@ -136,6 +138,9 @@ describe('Map2D', () => {
 
     fireEvent.click(hoverRay);
     expect(useAppStore.getState().showHoverRay).toBe(false);
+
+    fireEvent.click(grid);
+    expect(useAppStore.getState().showGraticule).toBe(false);
   });
 
   it('shows the hover marker only for a 2D-map hover with the feature enabled', async () => {

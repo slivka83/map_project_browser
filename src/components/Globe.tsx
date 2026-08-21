@@ -1,11 +1,9 @@
 import { useMemo } from 'react';
 import * as THREE from 'three';
-import { Line } from '@react-three/drei';
 import { NEON_BLUE, BG } from '../constants/designTokens';
 import { RADIUS, GLOBE_INFLATE } from '../constants/geometry';
-import { lonLatToVec3, type Vec3 } from '../utils/auxSurfaceGeometry';
+import { lonLatToVec3 } from '../utils/auxSurfaceGeometry';
 import type { FeatureCollection, Geometry } from 'geojson';
-import { useVisualizationParams } from '../store/selectors';
 
 function GlobeShell() {
   return (
@@ -19,34 +17,6 @@ function GlobeShell() {
         depthWrite={false}
       />
     </mesh>
-  );
-}
-
-function Graticule() {
-  const { graticuleStep, showGraticule } = useVisualizationParams();
-  const lines = useMemo<Vec3[][]>(() => {
-    if (!showGraticule) return [];
-    const step = graticuleStep;
-    const out: Vec3[][] = [];
-    for (let lon = -180; lon <= 180; lon += step) {
-      const pts: Vec3[] = [];
-      for (let lat = -90; lat <= 90; lat += 3) pts.push(lonLatToVec3(lon, lat));
-      out.push(pts);
-    }
-    for (let lat = -90; lat <= 90; lat += step) {
-      const pts: Vec3[] = [];
-      for (let lon = -180; lon <= 180; lon += 3) pts.push(lonLatToVec3(lon, lat));
-      out.push(pts);
-    }
-    return out;
-  }, [graticuleStep, showGraticule]);
-
-  return (
-    <group>
-      {lines.map((pts, i) => (
-        <Line key={i} points={pts} color={NEON_BLUE} lineWidth={0.6} transparent opacity={0.28} />
-      ))}
-    </group>
   );
 }
 
@@ -90,7 +60,6 @@ export default function Globe({ geoJson }: { geoJson: FeatureCollection | null }
     <group>
       <GlobeShell />
       {geoJson && <Coastlines geoJson={geoJson} />}
-      <Graticule />
     </group>
   );
 }

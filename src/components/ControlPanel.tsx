@@ -10,7 +10,7 @@ import Dropdown from './Dropdown';
 import Toggle from './Toggle';
 import ParamSlider from './ui/ParamSlider';
 import PresetChips from './ui/PresetChips';
-import { RulerIcon, HeatmapIcon, RaysIcon, GraticuleIcon } from './ui/icons';
+import { RulerIcon, HeatmapIcon, RaysIcon } from './ui/icons';
 import {
   labelClass,
   activeTab,
@@ -25,7 +25,6 @@ import {
 import {
   HEATMAP_TYPE_OPTIONS,
   TEST_FIGURE_OPTIONS,
-  GRATICULE_STEP_OPTIONS,
   CONE_HEMISPHERE_OPTIONS,
   AZ_LIGHT_LABEL_MAP,
   AZ_LIGHT_ICON_MAP,
@@ -191,8 +190,6 @@ function VisualizationSection({ def }: { def: ReturnType<typeof variantDef> }) {
   const store = useAppStore();
   const setShowHeatmap = store.setShowHeatmap;
   const setHeatmapType = store.setHeatmapType;
-  const setGraticuleStep = store.setGraticuleStep;
-  const setShowGraticule = store.setShowGraticule;
   const setTestFigureType = store.setTestFigureType;
   const setShowRays = store.setShowRays;
   const setRulerActive = store.setRulerActive;
@@ -202,15 +199,6 @@ function VisualizationSection({ def }: { def: ReturnType<typeof variantDef> }) {
       <span className={labelClass}>Визуализация</span>
 
       <Toggle label="Индикатрисы Тиссо" checked={store.showTissot} onChange={store.setShowTissot} icon={<span className="w-4 text-center text-neon-blue/80">◎</span>} />
-
-      <div className="flex items-center gap-2">
-        <Toggle label="Сетка" checked={viz.showGraticule} onChange={setShowGraticule} icon={<GraticuleIcon />} />
-        <Dropdown
-          value={String(viz.graticuleStep)}
-          options={GRATICULE_STEP_OPTIONS.map((o) => ({ value: String(o.value), label: o.label }))}
-          onChange={(v) => setGraticuleStep(Number(v) as typeof viz.graticuleStep)}
-        />
-      </div>
 
       <div className="flex items-center gap-2">
         <Toggle label="Тепловая карта" checked={viz.showHeatmap} onChange={setShowHeatmap} icon={<HeatmapIcon />} />

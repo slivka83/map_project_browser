@@ -3,7 +3,6 @@ import type {
   DistortionModel,
   HeatmapType,
   TestFigureType,
-  GraticuleStep,
   ConeHemisphere,
   AzimuthalLight,
 } from '../../store/useAppStore';
@@ -61,14 +60,6 @@ export const TEST_FIGURE_OPTIONS: { value: TestFigureType; label: string }[] = [
 export const TEST_FIGURE_LABELS: Record<TestFigureType, string> = Object.fromEntries(
   TEST_FIGURE_OPTIONS.map((o) => [o.value, o.label]),
 ) as Record<TestFigureType, string>;
-
-export const GRATICULE_STEP_OPTIONS: { value: GraticuleStep; label: string }[] = [
-  { value: 1, label: '1°' },
-  { value: 5, label: '5°' },
-  { value: 10, label: '10°' },
-  { value: 15, label: '15°' },
-  { value: 30, label: '30°' },
-];
 
 export const CONE_HEMISPHERE_OPTIONS: { value: ConeHemisphere; label: string }[] = [
   { value: 'north', label: 'Север' },

@@ -11,7 +11,7 @@ import { variantDef } from '../utils/projectionVariants';
 import { EARTH_RADIUS_KM, RADIUS } from '../constants/geometry';
 import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT, NEON_YELLOW, NEON_WHITE, GRATICULE_STROKE, NEON_RED } from '../constants/designTokens';
 import { iconBtnPlain, iconGlow, glassPanel } from './ui/styles';
-import { TissotIcon, BorderIcon, DetailIcon, IntersectionIcon, HoverRayIcon, InfoIcon } from './ui/icons';
+import { TissotIcon, BorderIcon, DetailIcon, IntersectionIcon, HoverRayIcon, InfoIcon, GraticuleIcon } from './ui/icons';
 import ProjectionSummary from './ProjectionSummary';
 import useElementSize from '../hooks/useElementSize';
 import { FIT_MARGIN } from '../constants/geometry';
@@ -90,6 +90,7 @@ export default function Map2D() {
   const setShowBorders = useAppStore((s) => s.setShowBorders);
   const showIntersection = useAppStore((s) => s.showIntersection);
   const setShowIntersection = useAppStore((s) => s.setShowIntersection);
+  const setShowGraticule = useAppStore((s) => s.setShowGraticule);
   const showHoverRay = useAppStore((s) => s.showHoverRay);
   const setShowHoverRay = useAppStore((s) => s.setShowHoverRay);
   const detailedMap = useAppStore((s) => s.detailedMap);
@@ -284,6 +285,9 @@ export default function Map2D() {
       <div className="absolute right-3 top-3 z-10 flex gap-1 items-start">
         <button title="Индикатрисы Тиссо" aria-label="Индикатрисы Тиссо" onClick={() => setShowTissot(!showTissot)} aria-pressed={showTissot} className={iconBtnPlain} style={{ color: showTissot ? NEON_BLUE : undefined, filter: iconGlow(showTissot) }}>
           <TissotIcon />
+        </button>
+        <button title="Сетка" aria-label="Сетка" onClick={() => setShowGraticule(!showGraticule)} aria-pressed={showGraticule} className={iconBtnPlain} style={{ color: showGraticule ? NEON_BLUE : undefined, filter: iconGlow(showGraticule) }}>
+          <GraticuleIcon />
         </button>
         <button title="Детализация карты" aria-label="Детализация карты" onClick={() => setDetailedMap(!detailedMap)} aria-pressed={detailedMap} className={iconBtnPlain} style={{ color: detailedMap ? NEON_BLUE : undefined, filter: iconGlow(detailedMap) }}>
           <DetailIcon />
