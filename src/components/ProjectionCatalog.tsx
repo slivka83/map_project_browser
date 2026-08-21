@@ -41,14 +41,12 @@ interface Props {
 }
 
 // One table for all 14 projections. Columns: family (icon + label), the
-// projection name, what it preserves / its property, where it is used, and
-// the developable surface.
-const COLUMNS: { key: 'family' | 'label' | 'propertyLabel' | 'applicationLabel' | 'surfaceTypeLabel'; header: string; width: string }[] = [
-  { key: 'family', header: 'Семейство', width: '18%' },
-  { key: 'label', header: 'Название', width: '29%' },
-  { key: 'propertyLabel', header: 'Свойства', width: '23%' },
-  { key: 'applicationLabel', header: 'Применение', width: '23%' },
-  { key: 'surfaceTypeLabel', header: 'Поверхность', width: '7%' },
+// projection name, what it preserves / its property, and the developable surface.
+const COLUMNS: { key: 'family' | 'label' | 'propertyLabel' | 'surfaceTypeLabel'; header: string; width: string }[] = [
+  { key: 'family', header: 'Семейство', width: '20%' },
+  { key: 'label', header: 'Название', width: '35%' },
+  { key: 'propertyLabel', header: 'Свойства', width: '33%' },
+  { key: 'surfaceTypeLabel', header: 'Поверхность', width: '12%' },
 ];
 
 export default function ProjectionCatalog({ onClose, onSelect }: Props) {
@@ -70,8 +68,7 @@ export default function ProjectionCatalog({ onClose, onSelect }: Props) {
       return (
         row.familyLabel.toLowerCase().includes(q) ||
         def.label.toLowerCase().includes(q) ||
-        def.propertyLabel.toLowerCase().includes(q) ||
-        (def.applicationLabel ?? '').toLowerCase().includes(q)
+        def.propertyLabel.toLowerCase().includes(q)
       );
     });
   }, [query]);
@@ -139,7 +136,6 @@ export default function ProjectionCatalog({ onClose, onSelect }: Props) {
                     </td>
                     <td className="px-3 py-2 text-neon-blue">{def.label}</td>
                     <td className="px-3 py-2">{def.propertyLabel}</td>
-                    <td className="px-3 py-2 text-white/60">{def.applicationLabel ?? '—'}</td>
                     <td className="whitespace-nowrap px-3 py-2 text-white/60">{def.surfaceTypeLabel}</td>
                   </tr>
                 );
