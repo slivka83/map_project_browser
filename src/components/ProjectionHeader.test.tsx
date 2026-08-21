@@ -22,37 +22,41 @@ describe('ProjectionHeader', () => {
     });
   });
 
-  it('renders a projection dropdown with the current variant selected', () => {
+  it('renders the projection dropdown button with the current variant', () => {
     render(<ProjectionHeader />);
-    const sel = screen.getByRole('combobox', { name: 'Выбрать проекцию' });
-    expect(sel).toBeTruthy();
-    expect((sel as HTMLSelectElement).value).toBe('mercator');
-    expect(sel.textContent).toMatch(/Меркатор/);
+    const btn = screen.getByRole('button', { name: 'Выбрать проекцию' });
+    expect(btn).toBeTruthy();
+    expect(btn.textContent).toMatch(/Меркатор/);
+    expect(btn.textContent).not.toMatch(/Цилиндрическая/);
   });
 
-  it('lists all 7 projections grouped by family', () => {
+  it('opens the dropdown listing all 7 projections grouped by family', () => {
     render(<ProjectionHeader />);
-    const sel = screen.getByRole('combobox', { name: 'Выбрать проекцию' }) as HTMLSelectElement;
-    const labels = Array.from(sel.options).map((o) => o.textContent);
-    expect(labels).toEqual([
-      'Равнопромежуточная',
-      'Меркатор',
-      'Ламберта конформная',
-      'Альберса равновеликая',
-      'Гномоническая',
-      'Стереографическая',
-      'Ортографическая',
-    ]);
+    fireEvent.click(screen.getByRole('button', { name: 'Выбрать проекцию' }));
+    const listbox = screen.getByRole('listbox', { name: 'Выбрать проекцию' });
+    expect(listbox.textContent).toMatch(/Цилиндрическая/);
+    expect(listbox.textContent).toMatch(/Коническая/);
+    expect(listbox.textContent).toMatch(/Азимутальная/);
+    for (const label of ['Равнопромежуточная', 'Меркатор', 'Ламберта конформная', 'Альберса равновеликая', 'Гномоническая', 'Стереографическая', 'Ортографическая']) {
+      expect(screen.getByRole('option', { name: label })).toBeTruthy();
+    }
   });
 
   it('switches the projection from the dropdown', () => {
     render(<ProjectionHeader />);
-    fireEvent.change(screen.getByRole('combobox', { name: 'Выбрать проекцию' }), {
-      target: { value: 'gnomonic' },
-    });
+    fireEvent.click(screen.getByRole('button', { name: 'Выбрать проекцию' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Гномоническая' }));
     const s = useAppStore.getState();
     expect(s.family).toBe('azimuthalPerspective');
     expect(s.variant).toBe('gnomonic');
+  });
+
+  it('closes the dropdown on Escape', () => {
+    render(<ProjectionHeader />);
+    fireEvent.click(screen.getByRole('button', { name: 'Выбрать проекцию' }));
+    expect(screen.getByRole('listbox')).toBeTruthy();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('listbox')).toBeNull();
   });
 
   it('resets params to the current family defaults via the reset button', () => {
@@ -70,9 +74,7 @@ describe('ProjectionHeader', () => {
   it('keeps the reset button usable with a long projection name', () => {
     useAppStore.getState().setVariant('stereographic');
     render(<ProjectionHeader />);
-    const sel = screen.getByRole('combobox', { name: 'Выбрать проекцию' });
-    expect((sel as HTMLSelectElement).value).toBe('stereographic');
-    expect(sel.textContent).toMatch(/Стереографическая/);
+    expect(screen.getByRole('button', { name: 'Выбрать проекцию' }).textContent).toMatch(/Стереографическая/);
     useAppStore.getState().setParam('lambda0', 60);
     fireEvent.click(screen.getByRole('button', { name: 'Сбросить параметры' }));
     expect(useAppStore.getState().lambda0).toBe(0);
