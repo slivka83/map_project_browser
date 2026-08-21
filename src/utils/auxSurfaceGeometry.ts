@@ -421,31 +421,25 @@ export function computeAuxSurfaceParams(
 ): AuxSurfaceParams {
   const v = variant ?? defaultVariant(family);
   if (family === 'cylindrical') {
-    // The cylinder is always equatorial (axis through the poles) and touches the
-    // globe — it does NOT slide along the axis in 3D (variant A). The
-    // central-latitude slider (phiOrigin) only re-centres the 2D map / sets the
-    // standard parallel, so it must NOT change the 3D cylinder at all. Height is
-    // measured from the fitted ±CLIP_LAT band at phiOrigin = 0 (depends on the
-    // distortion + diameter, not on the slider), and positionY stays 0. The tilt
-    // (gamma) must NOT change the cylinder's size either — it only rotates the
-    // surface (see `orient` below), so the height is computed with gamma = 0.
+    // The cylinder is a secant tube through the globe centre. For an oblique
+    // aspect (central latitude φ₀ ≠ 0) the WHOLE tube is rigidly tilted by φ₀ so
+    // its axis leaves Earth's polar axis — that is exactly what makes the
+    // geographic parallels bow in the 2D map (the projection is rotated by φ₀).
+    // The height is sized from the *equatorial* projection (φ₀ = 0, γ = 0): γ only
+    // rotates the rigid tube and must not resize it, and the rays are built from
+    // the same untilted (φ₀ = 0) projection so the tube + rays always stay in
+    // sync (they are bound to each other, not to the obliquely-rotated 2D map).
     const proj = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin: 0, scaleFactor, gamma: 0, stdParallel2, azLight, variant: v, azHeight, circleRadiusKm }));
     const yTop = proj([lambda0, CLIP_LAT])?.[1] ?? 0;
     const yBot = proj([lambda0, -CLIP_LAT])?.[1] ?? 0;
     const band = Math.abs(yTop - yBot) * worldPerPixel(radius);
     const height = Math.min(AUX_LENGTH * radius * AUX_SIZE_CAP, Math.max(AUX_LENGTH * radius * 0.5, band));
-    // The cylinder is always equatorial and does NOT translate with the
-    // central-latitude slider (variant A), so phiOrigin does not move the 3D tube.
-    // The tilt (gamma) only ROTATES the rigid tube in space (its size is fixed at
-    // gamma = 0); the rays are bound to the tube and rotate with it via
-    // auxPointToWorld. The map (unrolled tube) is invariant under this rotation.
-    const orient = projectionRotationMatrix(lambda0, 0, gamma);
-    // Height is fixed at gamma = 0 (tilting only rotates, never resizes). The
-    // rays are built from the UNTILTED projection too, so their latitude→y extent
-    // already matches this band exactly: the landing y is `-dy * wpp`, which maps
-    // the full ±CLIP_LAT band into exactly ±height/2, so every latitude lands at
-    // its own distinct height — the rays fill the whole tube under any tilt
-    // without collapsing/merging.
+    // The cylinder axis tilts with the central-latitude slider (φ₀) so the 3D
+    // tube matches the obliquely-rotated 2D map: the angle between Earth's polar
+    // axis and the tilted cylinder axis equals the φ₀ fed into the projection.
+    // γ only ROTATES the rigid tube in space (its size is fixed at γ = 0); the
+    // rays are bound to the tube and rotate with it via auxPointToWorld.
+    const orient = projectionRotationMatrix(lambda0, phiOrigin, gamma);
     return { kind: 'cylinder', radius: radius * scaleFactor, height, orient, orientInv: matTranspose(orient), positionY: 0 };
   }
 

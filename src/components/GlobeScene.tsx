@@ -5,6 +5,7 @@ import { useAppStore } from '../store/useAppStore';
 import { useProjectionParams, useVisualizationParams } from '../store/selectors';
 import Globe from './Globe';
 import AuxSurface from './AuxSurface';
+import AxesIndicator from './AxesIndicator';
 import IntersectionDisks from './IntersectionDisks';
 import LightSource from './LightSource';
 import Rays from './Rays';
@@ -77,6 +78,9 @@ export default function GlobeScene() {
           <IntersectionDisks surface={surface} params={params} />
           <LightSource surface={surface} params={params} />
           <CutLine surface={surface} params={params} />
+          {params.family === 'cylindrical' && (
+            <AxesIndicator surface={surface} radius={RADIUS} />
+          )}
         </>
       )}
       <Rays params={params} />

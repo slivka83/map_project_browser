@@ -304,21 +304,28 @@ describe('computeCentralMeridianRays', () => {
     }
   });
 
-  it('cylindrical rays stay on the cylinder and do not drift with phiOrigin', () => {
+  it('cylindrical rays stay on the cylinder and tilt with the central latitude', () => {
+    // Changing the central latitude φ₀ tilts the whole cylinder (its axis leaves
+    // Earth's pole by φ₀), so the ray fan must follow the tilt — every ray still
+    // lands exactly on the cylinder's lateral surface (distance to the tilted axis
+    // = the cylinder radius), never in empty space. At φ₀ = 0 the fan is the
+    // equatorial one; for φ₀ ≠ 0 it is the same fan rigidly rotated by φ₀.
     const ref = computeCentralMeridianRays({ ...base, family: 'cylindrical', phiOrigin: 0 });
     for (const phi of [0, 30, -45]) {
       const segs = computeCentralMeridianRays({ ...base, family: 'cylindrical', phiOrigin: phi });
-      const sf = 1;
-      expect(segs.length).toBe(ref.length);
-       for (let i = 0; i < segs.length; i++) {
-        // rays land on the (non-translating) cylinder of radius RADIUS·scaleFactor
-        // (the pole rays land on the top/bottom rim, radius = RADIUS·scaleFactor)
-        const radial = Math.hypot(segs[i].end[0], segs[i].end[2]);
-        expect(radial < 1e-9 || Math.abs(radial - RADIUS * sf) < 1e-6).toBe(true);
-        // and the whole ray fan is invariant under the central-latitude slider
-        closeTo(segs[i].end[0], ref[i].end[0], 1e-6);
-        closeTo(segs[i].end[1], ref[i].end[1], 1e-6);
-        closeTo(segs[i].end[2], ref[i].end[2], 1e-6);
+      const surface = computeAuxSurfaceParams('cylindrical', 0, phi, 1, RADIUS, null, 0, 'equalArea', 'math')!;
+      if (surface.kind !== 'cylinder') throw new Error('expected cylinder');
+      const axis: [number, number, number] = [surface.orient[1], surface.orient[4], surface.orient[7]];
+      for (let i = 0; i < segs.length; i++) {
+        const end = segs[i].end;
+        const proj = end[0] * axis[0] + end[1] * axis[1] + end[2] * axis[2];
+        const distToAxis = Math.sqrt(end[0] * end[0] + end[1] * end[1] + end[2] * end[2] - proj * proj);
+        expect(distToAxis < 1e-9 || Math.abs(distToAxis - surface.radius) < 1e-6).toBe(true);
+        if (phi === 0) {
+          closeTo(0, Math.hypot(end[0] - ref[i].end[0], end[1] - ref[i].end[1], end[2] - ref[i].end[2]), 1e-9);
+        } else {
+          expect(Math.hypot(end[0] - ref[i].end[0], end[1] - ref[i].end[1], end[2] - ref[i].end[2])).toBeGreaterThan(1e-3);
+        }
       }
     }
   });
