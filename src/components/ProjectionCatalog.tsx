@@ -42,11 +42,11 @@ interface Props {
 
 // One table for all 14 projections. Columns: family (icon + label), the
 // projection name, what it preserves / its property, and the developable surface.
-const COLUMNS: { key: 'family' | 'label' | 'propertyLabel' | 'surfaceTypeLabel'; header: string; width: string }[] = [
-  { key: 'family', header: '', width: '20%' },
-  { key: 'label', header: 'Название', width: '35%' },
-  { key: 'propertyLabel', header: 'Свойства', width: '33%' },
-  { key: 'surfaceTypeLabel', header: 'Поверхность', width: '12%' },
+const COLUMNS: { key: 'family' | 'label' | 'propertyLabel' | 'surfaceTypeLabel'; header: string }[] = [
+  { key: 'family', header: '' },
+  { key: 'label', header: 'Название' },
+  { key: 'propertyLabel', header: 'Свойства' },
+  { key: 'surfaceTypeLabel', header: 'Поверхность' },
 ];
 
 export default function ProjectionCatalog({ onClose, onSelect }: Props) {
@@ -101,12 +101,7 @@ export default function ProjectionCatalog({ onClose, onSelect }: Props) {
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto">
-          <table className="w-full table-fixed border-collapse text-sm">
-            <colgroup>
-              {COLUMNS.map((c) => (
-                <col key={c.key} style={{ width: c.width }} />
-              ))}
-            </colgroup>
+          <table className="border-collapse text-sm">
             <thead className="sticky top-0 z-10 bg-panel-bg/95 backdrop-blur">
               <tr className="text-left text-xs uppercase tracking-wider text-neon-blue/50">
                 {COLUMNS.map((c) => (
