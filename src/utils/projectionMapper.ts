@@ -14,26 +14,26 @@ import {
 
 const clampScale = (s: number): number => Math.max(0, Math.min(1, s));
 
-// Tags the cylindrical GeoProjection instances with their central latitude
-// (Параллель 1) so fitProjectionToView can centre the 2D map window on it. The
-// map itself is always a STANDARD (non-tilted) cylindrical projection — the
-// chosen parallel only shifts the window vertically; it never tilts the map.
+// Tags the cylindrical GeoProjection instances so fitProjectionToView can size
+// them analytically to the finite tube band.
 const cylCenterMap = new WeakMap<GeoProjection, number>();
 
-// Geometric cylindrical projection in the CYLINDER frame: x = λ·cosφ_s, y = h(φ)
-// with the standard parallel at the contact φ_s (φ_s = arccos(scaleFactor)). The
-// 2D map is a FLAT standard cylindrical map: getD3Projection applies only the
-// central-meridian rotation [-lambda0, 0, 0] — the central latitude (Параллель
-// 1) NEVER tilts the map, fitProjectionToView shifts the viewport window so the
-// chosen parallel sits on the middle row instead (cylCenterMap). The tilt (gamma)
-// is likewise ignored for the cylindrical family. The 3D tube still tilts in
-// space (see auxSurfaceGeometry.ts); its rays are built from the φ₁ = 0
-// projection and rotate rigidly with the tube, so the map stays flat while the
-// 3D shows the tilted surface.
+// The TWO-LAYER model of the flat cylindrical map:
+//   • The CYLINDER is static — it never tilts or spins itself. Its graduation
+//     grid (straight parallels/meridians, poles at the window edges) is FIXED
+//     to it and is rendered from a fully static projection (no rotations).
+//   • The GEOGRAPHY layer (continents + borders) SLIDES over that graduated
+//     drum: Долгота spins it horizontally, Параллель slides it vertically so
+//     the chosen parallel sits on the middle row. The geography layer is a
+//     rigid translation — continents keep their shapes, parallels stay straight
+//     horizontal lines at every slider position, nothing ever tilts or curls.
+// The map shows both layers together: the moving geography over the static
+// graduation, projected onto the cylinder exactly as positioned during the
+// scroll.
 // The cylinder is a FINITE tube of radius r = scaleFactor·R touching the globe
-// at the contact latitudes ±φ_s measured from the cylinder axis. The projection
-// keeps the chosen property (conformal / equal-area / equidistant) by its height
-// law; the map window (see fitProjectionToView) never extends beyond ±CLIP_LAT.
+// at the contact latitudes ±φ_s measured from its axis; each layer is clipped
+// to those finite band rows, so the pole zone where the height laws misbehave
+// is never on screen.
 function makeCylindricalProjection(
   distortion: ProjectionParams['distortion'],
   scaleFactor: number,
@@ -94,20 +94,27 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
     } else {
       proj = makeCylindricalProjection('equidistant', scaleFactor);
     }
-    // The 2D cylindrical map is a FLAT standard map: only the central meridian
-    // rotates it. The central latitude φ₁ (Параллель 1) does NOT tilt the map —
-    // fitProjectionToView shifts the viewport window so the chosen parallel sits
-    // on the middle row. (The 3D tube still tilts by φ₁; its rays are built from
-    // the φ₁ = 0 projection and rotate rigidly with the tube.)
-    proj
-      .rotate([-lambda0, 0, 0])
-      .scale(MAP_SCALE * scaleFactor)
-      .translate([VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing]);
-    // Mark cylindrical projections so fitProjectionToView can centre the window
-    // on the central parallel and clip it at the window rows.
+    // The GEOGRAPHY layer of the flat cylindrical map: Долгота spins it
+    // horizontally (rotation about Earth's axis), Параллель slides it
+    // vertically — the vertical slide is applied here as a rigid translate
+    // offset so the chosen parallel lands on the middle row (the exact slide
+    // amount is finalised in fitProjectionToView at map scale; here it is
+    // baked in at the scene scale for the 3D ray math).
+    proj.rotate([-lambda0, 0, 0]).scale(MAP_SCALE * scaleFactor);
+    if (phiOrigin !== 0) {
+      const tr: [number, number] = [VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing];
+      const rot = proj.rotate();
+      proj.rotate([0, 0, 0]).scale(1).translate([0, 0]);
+      const dy = (proj([0, phiOrigin]) as [number, number])[1]; // negative for north
+      proj.rotate(rot).scale(MAP_SCALE * scaleFactor).translate([tr[0], tr[1] + dy * MAP_SCALE * scaleFactor]);
+    } else {
+      proj.translate([VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing]);
+    }
+    // Mark cylindrical projections so fitProjectionToView sizes them to the
+    // finite tube band and slides them by the chosen parallel.
     cylCenterMap.set(proj, phiOrigin);
-    // precision(0) keeps the parallels straight horizontal lines (no "egg");
-    // there is no oblique aspect anymore, so adaptive resampling is never needed.
+    // precision(0): the geography layer never tilts, parallels stay straight
+    // horizontal lines at every slider position (no "egg").
     proj.precision(0);
     return proj;
   }
@@ -312,13 +319,14 @@ export function isPointerOverGlobe(path: d3Geo.GeoPath, x: number, y: number): b
 // finite. The 3D scene keeps the fixed `scale(100)` from getD3Projection; only
 // the 2D map overrides it via this helper.
 //
-// The cylindrical family is different: the 2D map is a FLAT standard cylindrical
-// projection, and Параллель 1 (the 3D tube's tilt angle) only SHIFTS the map —
-// the scale is computed once from the full ±CLIP_LAT band and never depends on
-// it, so moving the parallel is a pure vertical scroll (like longitude's
-// horizontal wrap). The translate centres the chosen parallel on the middle row,
-// and the clipExtent is the FIXED viewport frame: it never moves — only the
-// content scrolls beneath a stable window, exactly like longitude.
+// The cylindrical family is different: the map is the TWO-LAYER flat model.
+// The window size is computed once from the full ±CLIP_LAT band and never
+// depends on the sliders; Параллель 1 slides the geography layer vertically so
+// the chosen parallel sits on the middle row. Every layer is clipped to its
+// OWN ±CLIP_LAT band rows (computed AFTER the final translate — d3 clipExtent
+// works in screen pixels): neighbouring layers butt against these rows exactly,
+// so no polar-cap garbage can ever leak onto the screen, while the static grid
+// layer keeps its graduation fixed to the cylinder.
 export function fitProjectionToView(
   proj: GeoProjection,
   width: number,
@@ -329,28 +337,26 @@ export function fitProjectionToView(
   const phiOrigin = cylCenterMap.get(proj);
   if (phiOrigin !== undefined && fitTarget == null) {
     const rot = proj.rotate();
-    // Probe the projection in the raw (un-rotated, unit-scale) frame.
+    // Probe the band rows and the chosen parallel in the identity frame.
     proj.rotate([0, 0, 0]).scale(1).translate([0, 0]);
     const halfWidth = (proj([180, 0]) as [number, number])[0];
     const topY = (proj([0, CLIP_LAT]) as [number, number])[1];
     const botY = (proj([0, -CLIP_LAT]) as [number, number])[1];
-    const rawY = (lat: number): number => (proj([0, lat]) as [number, number])[1];
+    const centerRow = (proj([0, phiOrigin]) as [number, number])[1];
     proj.rotate(rot);
-    const y85 = -topY; // raw height of the ±CLIP_LAT band edge
-    // The scale comes from the FULL ±CLIP_LAT band and is INDEPENDENT of
-    // Параллель 1: moving it only SHIFTS the map vertically — exactly how
-    // longitude shifts it horizontally. No zoom.
+    // The scale comes from the FULL ±CLIP_LAT band and is INDEPENDENT of the
+    // sliders: moving them only SLIDES the geography layer over the static
+    // graduated frame — exactly how longitude shifts it horizontally. No zoom.
     const s = Math.min((width - 2 * margin) / (2 * halfWidth), (height - 2 * margin) / (botY - topY));
-    // Centre the chosen parallel on the middle row (clamped into the band).
-    const centerRaw = Math.min(y85, Math.max(-y85, -rawY(phiOrigin)));
-    const t: [number, number] = [width / 2, height / 2 + centerRaw * s];
+    // Slide the geography so the chosen parallel sits on the middle row
+    // (centerRow is screen-style — negative for north — hence minus).
+    const t: [number, number] = [width / 2, height / 2 - centerRow * s];
     proj.scale(s).translate(t);
-    // The clip is the FIXED viewport frame: it never moves with Параллель 1 —
-    // the content SCROLLS beneath a stable window (like longitude's horizontal
-    // wrap), so the map never slides as a sheet. Only the translate moves.
+    // Clip this layer to its own slid band rows (screen pixels, set AFTER the
+    // final translate).
     proj.clipExtent([
-      [t[0] - halfWidth * s, margin],
-      [t[0] + halfWidth * s, height - margin],
+      [t[0] - halfWidth * s, Math.max(margin, t[1] + topY * s)],
+      [t[0] + halfWidth * s, Math.min(height - margin, t[1] + botY * s)],
     ]);
     return proj;
   }
@@ -361,21 +367,5 @@ export function fitProjectionToView(
     ],
     fitTarget ?? FIT_SPHERE,
   );
-  // For the cylindrical family (explicit fitTarget path), clip at the ±CLIP_LAT
-  // band rows so the clamped cap is never drawn.
-  if (cylCenterMap.has(proj)) {
-    const s = proj.scale();
-    const t = proj.translate();
-    const rot = proj.rotate();
-    proj.rotate([0, 0, 0]).scale(1).translate([0, 0]);
-    const halfWidth = (proj([180, 0]) as [number, number])[0];
-    const topY = (proj([0, CLIP_LAT]) as [number, number])[1];
-    const botY = (proj([0, -CLIP_LAT]) as [number, number])[1];
-    proj.rotate(rot).scale(s).translate(t);
-    proj.clipExtent([
-      [t[0] - halfWidth * s, t[1] + topY * s],
-      [t[0] + halfWidth * s, t[1] + botY * s],
-    ]);
-  }
   return proj;
 }

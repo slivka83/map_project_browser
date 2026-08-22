@@ -19,6 +19,7 @@ import {
   clampLocalToSurface,
   type AuxSurfaceParams,
   computeTangentBasis,
+  projectionRotationMatrix,
 } from '../utils/auxSurfaceGeometry';
 import { computeTissotCircles } from '../utils/tissot';
 
@@ -183,20 +184,22 @@ describe('cylindrical flat map: Параллель 1 only shifts the window (no 
     }
   });
 
-  it('cylindrical: the viewport frame is fixed — the clip never moves with φ₁', () => {
-    // True scrolling means a STABLE window: the clip frame must stay exactly at
-    // the fitted screen box for every Параллель 1, while only the content
-    // translates beneath it (like longitude, whose frame never moves either).
+  it('cylindrical: every layer is clipped to its own slid band rows', () => {
+    // The geography layer slides with Параллель 1, so its clip rows slide with
+    // it — always bracketing the chosen parallel and never leaving the
+    // viewport. No polar-cap garbage can leak past them.
     for (const distortion of DISTORTIONS) {
-      const clips = [0, 30].map((phi1) => {
+      for (const phi1 of [0, 30]) {
         const proj = getD3Projection(base({ family: 'cylindrical', distortion, phiOrigin: phi1 }));
         fitProjectionToView(proj, 800, 600, 16);
-        return proj.clipExtent();
-      });
-      expect(clips[0]).not.toBeNull();
-      expect(clips[1]).toEqual(clips[0]);
-      expect(clips[0]![0][1]).toBeCloseTo(16, 6);
-      expect(clips[0]![1][1]).toBeCloseTo(584, 6);
+        const clip = proj.clipExtent();
+        expect(clip).not.toBeNull();
+        const yPhi = (proj([0, phi1]) as [number, number])[1];
+        expect(clip![0][1]).toBeLessThan(yPhi);
+        expect(clip![1][1]).toBeGreaterThan(yPhi);
+        expect(clip![0][1]).toBeGreaterThanOrEqual(15);
+        expect(clip![1][1]).toBeLessThanOrEqual(585);
+      }
     }
   });
 
@@ -439,10 +442,17 @@ describe('rays link globe point to map point', () => {
       });
 
       it(`${family}/${distortion}: the hover ray (projectToAuxWorld) links globe→map for arbitrary points`, () => {
+        // For the cylindrical family the geography layer is ROLLED by
+        // Долгота/Параллель — the ray pierces the sphere at the rolled position
+        // of the continent point. Other families keep un-rolled endpoints.
+        const roll =
+          p.family === 'cylindrical'
+            ? projectionRotationMatrix(-p.lambda0, -p.phiOrigin, 0)
+            : [1, 0, 0, 0, 1, 0, 0, 0, 1];
         for (const [lon, lat] of [[p.lambda0, 10], [p.lambda0 + 30, -20], [p.lambda0 - 40, 50]] as [number, number][]) {
           const ray = projectToAuxWorld(p, lon, lat, RADIUS);
           if (!ray) continue; // orthographic far-hemisphere is legitimately null
-          const g = lonLatToVec3(lon, lat, RADIUS);
+          const g = matVec(roll, lonLatToVec3(lon, lat, RADIUS));
           closeTo(ray.globe[0], g[0], 1e-6);
           closeTo(ray.globe[1], g[1], 1e-6);
           closeTo(ray.globe[2], g[2], 1e-6);
@@ -747,27 +757,28 @@ describe('aux-surface ↔ globe intersection physics', () => {
     }
   });
 
-  it('the drawn cylindrical intersection ring tilts with the tube and stays on the globe', () => {
-    // A tilted cylinder's axis leaves the poles, so its intersection with the
-    // globe MOVES with the tilt (gamma): the ring is no longer on the fixed
-    // contact latitudes ±φ_s, but it still lies exactly on the sphere surface
-    // (magnitude = radius) and its latitude genuinely changes as gamma changes.
+  it('the drawn cylindrical intersection rings are STATIC — fixed to the upright tube', () => {
+    // The TWO-LAYER model: the cylinder is STATIC and upright, so its contact
+    // circles with the globe never move — for any Долгота/Параллель/γ they sit
+    // at the same grid latitudes ±φ_s, on the sphere surface (magnitude R).
     const s = 0.8;
     const phiS = (Math.acos(s) * 180) / Math.PI;
-    const latsAt = (g: number) => {
-      const raw = computeAuxSphereIntersections('cylindrical', 0, 0, s, RADIUS);
-      const surface = computeAuxSurfaceParams('cylindrical', 0, 0, s, RADIUS, null, g, 'equidistant', 'center')!;
-      const drawn = raw[0].map((p) => auxPointToWorld(surface, p));
-      return drawn.map((p) => {
+    const sample = (lam: number, phi: number, g: number) => {
+      const raw = computeAuxSphereIntersections('cylindrical', lam, phi, s, RADIUS);
+      const surface = computeAuxSurfaceParams('cylindrical', lam, phi, s, RADIUS, null, g, 'equidistant', 'center')!;
+      return raw[0].map((p0) => {
+        const p = auxPointToWorld(surface, p0);
         closeTo(Math.hypot(p[0], p[1], p[2]), RADIUS, 1e-6);
         return vec3ToLonLat(p)[1];
       });
     };
-    const lat0 = latsAt(0)[0];
-    closeTo(Math.abs(lat0), phiS, 1e-6); // at gamma=0 the ring sits at ±φ_s
-    const latG = latsAt(45)[0];
-    // Tilting the tube must move the intersection off the fixed latitude.
-    expect(Math.abs(latG - lat0)).toBeGreaterThan(1e-3);
+    const baseLats = sample(0, 0, 0);
+    closeTo(Math.abs(baseLats[0]), phiS, 1e-6);
+    for (const [lam, phi, g] of [[70, 40, 0], [0, -30, 45], [-120, 15, 80]] as [number, number, number][]) {
+      const lats = sample(lam, phi, g);
+      expect(lats.length).toBe(baseLats.length);
+      for (let i = 0; i < lats.length; i++) closeTo(lats[i], baseLats[i], 1e-9);
+    }
   });
 
   it('the 2D intersection ring (lon/lat) matches the 3D ring exactly under tilt', () => {

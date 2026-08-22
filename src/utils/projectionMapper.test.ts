@@ -36,7 +36,11 @@ describe('getD3Projection (spec §9.2)', () => {
     expect(p.scale()).toBe(105);
     const t = p.translate();
     expect(t[0]).toBeCloseTo(450);
-    expect(t[1]).toBeCloseTo(275);
+    // Параллель 1 slides the geography layer vertically: the translate carries
+    // the exact height-law offset for φ₁ = 15° (Mercator law, cosφ_s = 1 since
+    // scaleFactor is clamped to the [0,1] tangent range).
+    const dyRaw = -Math.log(Math.tan(Math.PI / 4 + (15 * Math.PI) / 180 / 2));
+    expect(t[1]).toBeCloseTo(275 + dyRaw * 105, 6);
   });
 
   it('cylindrical conformal matches d3 geoMercator at the origin', () => {
@@ -139,13 +143,15 @@ describe('getD3Projection — light source & visual params (spec концепт)
 
   it('cylindrical rotation uses lambda0 only and leaves gamma out', () => {
     // The central meridian is set by lambda0 (the "Поворот вокруг Земли" control);
-    // neither the tilt (gamma) nor the central latitude rotates the flat map.
+    // neither the tilt (gamma) nor the central latitude rotates the flat map —
+    // Параллель 1 only slides the layer vertically via its translate.
     const p = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', lambda0: 15 }));
     expect(p.rotate()[0]).toBeCloseTo(-15);
-    const tilted = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', lambda0: 15, gamma: 30, phiOrigin: 20 }));
+    const tilted = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', lambda0: 15, gamma: 30 }));
     expect(tilted.rotate()[2]).toBeCloseTo(0);
     expect(tilted.rotate()[1]).toBeCloseTo(0);
-    // And the same globe point lands at the identical pixel regardless of gamma.
+    // The same globe point lands at the identical pixel regardless of gamma
+    // (both states share the same Параллель 1 slide).
     const a = p([15, 20]) as [number, number];
     const b = tilted([15, 20]) as [number, number];
     expect(a[0]).toBeCloseTo(b[0]);

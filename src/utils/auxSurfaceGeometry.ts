@@ -408,26 +408,18 @@ export function computeAuxSurfaceParams(
 ): AuxSurfaceParams {
   const v = variant ?? defaultVariant(family);
   if (family === 'cylindrical') {
-    // The cylinder is a secant tube through the globe centre. For an oblique
-    // aspect (central latitude φ₀ ≠ 0) the WHOLE tube is rigidly tilted by φ₀ so
-    // its axis leaves Earth's polar axis — the tilt is a 3D-only effect: the 2D
-    // map is a FLAT standard cylindrical map that only shifts its window (see
-    // projectionMapper.fitProjectionToView). The height is sized from the
-    // equatorial projection (φ₀ = 0, γ = 0): γ only rotates the rigid tube and
-    // must not resize it, and the rays are built from the same untilted (φ₀ = 0)
-    // projection so the tube + rays always stay in sync (they are bound to each
-    // other, not to the flat 2D map).
+    // The TWO-LAYER model: the cylinder is STATIC — upright, axis along Earth's
+    // polar axis, never tilted. Долгота/Параллель only SLIDE the geography
+    // layer (the continents) inside it; the graduation grid and the tube stay
+    // put. The height is sized from the standard (un-rotated, un-slid)
+    // projection band; γ does not apply to the cylindrical family at all.
     const proj = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin: 0, scaleFactor, gamma: 0, stdParallel2, azLight, variant: v }));
     const yTop = proj([lambda0, CLIP_LAT])?.[1] ?? 0;
     const yBot = proj([lambda0, -CLIP_LAT])?.[1] ?? 0;
     const band = Math.abs(yTop - yBot) * worldPerPixel(radius);
     const height = Math.min(AUX_LENGTH * radius * AUX_SIZE_CAP, Math.max(AUX_LENGTH * radius * 0.5, band));
-    // The cylinder axis tilts with the central-latitude slider (φ₀); the 3D tube
-    // shows the tilt, while the flat 2D map only shifts its window to centre the
-    // chosen parallel. γ only ROTATES the rigid tube in space (its size is fixed
-    // at γ = 0); the rays are bound to the tube and rotate with it via
-    // auxPointToWorld.
-    const orient = projectionRotationMatrix(lambda0, phiOrigin, gamma);
+    // Identity orientation: the upright tube never rotates.
+    const orient: Mat3 = [1, 0, 0, 0, 1, 0, 0, 0, 1];
     return { kind: 'cylinder', radius: radius * scaleFactor, height, orient, orientInv: matTranspose(orient), positionY: 0 };
   }
 
@@ -678,12 +670,11 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
   const wpp = worldPerPixel(radius);
   const PARALLEL_LEN = parallelBeamLength(radius);
 
-  // The rays are bound to the tube and rotate with it: the landing is taken from
-  // the UNTILTED projection (gamma = 0), so a tilt merely rotates the whole rigid
-  // fan with the cylinder (via auxPointToWorld) — it does not re-land the rays or
-  // bend the fan. This keeps the rays attached to the tube (synchronous rotation).
-  // Conic / azimuthal keep the same untilted projection for the fan too.
-  const projFlat = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin: 0, scaleFactor, gamma: 0, stdParallel2, azLight, variant: params.variant }));
+  // The ray apparatus is STATIC — part of the fixed graduated cylinder (like
+  // the grid and the light): the fan does not depend on Долгота/Параллель at
+  // all. Only the geography layer slides beneath these stationary beams.
+  // Conic / azimuthal keep their own projection for the fan as before.
+  const projFlat = getD3Projection(projParams(family, distortion, { lambda0: 0, phiOrigin: 0, scaleFactor, gamma: 0, stdParallel2, azLight, variant: params.variant }));
   const proj = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight, variant: params.variant }));
 
   const { center, normal } = computeTangentBasis(lambda0, phiOrigin, radius);
@@ -704,7 +695,9 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
     if (family === 'cylindrical') {
       const vdef = variantDef(params.variant ?? defaultVariant(family));
       const r = radius * scaleFactor;
-      localEnd = cylinderLocalEnd(projFlat, lambda0, lat, r, cy, wpp);
+      // The fan belongs to the STATIC graduated cylinder: sample its own
+      // central meridian (grid longitude 0), never the slid geography.
+      localEnd = cylinderLocalEnd(projFlat, 0, lat, r, cy, wpp);
       const latRad = (lat * Math.PI) / 180;
       const globeLocal: Vec3 = [radius * Math.cos(latRad), radius * Math.sin(latRad), 0];
       globe = auxPointToWorld(surface, globeLocal);
@@ -792,12 +785,11 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
 
   const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, params.variant)!;
   const proj = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight, variant: params.variant }));
-  // The UNTILTED, phiOrigin=0 projection. For the cylindrical family the central
-  // latitude and the tilt do not enter the projection rotation at all (rotZ = 0,
-  // and rotate only sees lambda0/phiOrigin), so `projNoShift` would be identical
-  // to `projFlat` here — `projFlat` is the single untilted projection used by the
-  // landing math for every family.
-  const projFlat = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin: 0, scaleFactor, gamma: 0, stdParallel2, azLight, variant: params.variant }));
+  // The projection carrying the actual Долгота/Параллель state: for the
+  // cylindrical family its translate contains the vertical slide of the
+  // geography layer, so the landing math follows the slid continents —
+  // matching the flat two-layer map. γ stays out of the cylindrical family.
+  const projFlat = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, gamma: 0, stdParallel2, azLight, variant: params.variant }));
   const cy = VIEW_CENTER_Y;
   const wpp = worldPerPixel(radius);
   const PARALLEL_LEN = parallelBeamLength(radius);
@@ -806,7 +798,7 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
   const phi2c = stdParallel2 != null ? stdParallel2 : phiOrigin;
   const cone = computeCone(phiOrigin, phi2c, radius, scaleFactor);
 
-  const globe = lonLatToVec3(lon, lat, radius);
+  let globe = lonLatToVec3(lon, lat, radius);
   let start: Vec3;
   let localEnd: Vec3 | null = null;
 
@@ -816,10 +808,14 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
     const r = radius * scaleFactor;
     localEnd = cylinderLocalEnd(projFlat, lon, lat, r, cy, wpp);
     const vdef = variantDef(params.variant ?? defaultVariant(family));
+    // The globe point is drawn at its ROLLED position (the geography layer
+    // carries the Долгота/Параллель rotation), while the ray itself belongs to
+    // the static apparatus: the light stays fixed and the landing follows the
+    // slid map position of the hovered continent.
+    globe = matVec(projectionRotationMatrix(-lambda0, -phiOrigin, 0), globe);
     if (vdef.lightIsParallel) {
-      const latRad = (lat * Math.PI) / 180;
-      const globeLocal: Vec3 = [radius * Math.cos(latRad) * Math.cos(((lon - lambda0) * Math.PI) / 180), radius * Math.sin(latRad), radius * Math.cos(latRad) * Math.sin(((lon - lambda0) * Math.PI) / 180)];
-      start = auxPointToWorld(surface, [-PARALLEL_LEN, globeLocal[1], globeLocal[2]]);
+      // Parallel beam along +X through the rolled point.
+      start = [-PARALLEL_LEN, globe[1], globe[2]];
     } else {
       start = [0, 0, 0];
     }

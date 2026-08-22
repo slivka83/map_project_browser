@@ -298,27 +298,23 @@ describe('computeCentralMeridianRays', () => {
     }
   });
 
-  it('cylindrical rays stay on the cylinder and tilt with the central latitude', () => {
-    // Changing the central latitude φ₀ tilts the whole cylinder (its axis leaves
-    // Earth's pole by φ₀), so the ray fan must follow the tilt — every ray still
-    // lands exactly on the cylinder's lateral surface (distance to the tilted axis
-    // = the cylinder radius), never in empty space. At φ₀ = 0 the fan is the
-    // equatorial one; for φ₀ ≠ 0 it is the same fan rigidly rotated by φ₀.
+  it('cylindrical rays are a STATIC apparatus fan — independent of Долгота/Параллель', () => {
+    // The rays belong to the fixed graduated cylinder (like the grid and the
+    // light): they never move. Only the geography layer slides beneath them.
     const ref = computeCentralMeridianRays({ ...base, family: 'cylindrical', phiOrigin: 0 });
-    for (const phi of [0, 30, -45]) {
-      const segs = computeCentralMeridianRays({ ...base, family: 'cylindrical', phiOrigin: phi });
-      const surface = computeAuxSurfaceParams('cylindrical', 0, phi, 1, RADIUS, null, 0, 'equalArea', 'center')!;
-      if (surface.kind !== 'cylinder') throw new Error('expected cylinder');
-      const axis: [number, number, number] = [surface.orient[1], surface.orient[4], surface.orient[7]];
-      for (let i = 0; i < segs.length; i++) {
-        const end = segs[i].end;
-        const proj = end[0] * axis[0] + end[1] * axis[1] + end[2] * axis[2];
-        const distToAxis = Math.sqrt(end[0] * end[0] + end[1] * end[1] + end[2] * end[2] - proj * proj);
-        expect(distToAxis < 1e-9 || Math.abs(distToAxis - surface.radius) < 1e-6).toBe(true);
-        if (phi === 0) {
+    const surface = computeAuxSurfaceParams('cylindrical', 0, 0, 1, RADIUS, null, 0, 'equalArea', 'center')!;
+    if (surface.kind !== 'cylinder') throw new Error('expected cylinder');
+    // The tube stays upright for every slider state.
+    expect([surface.orient[1], surface.orient[4], surface.orient[7]]).toEqual([0, 1, 0]);
+    for (const phi of [30, -45]) {
+      for (const lam of [0, 70]) {
+        const segs = computeCentralMeridianRays({ ...base, family: 'cylindrical', phiOrigin: phi, lambda0: lam });
+        for (let i = 0; i < segs.length; i++) {
+          const end = segs[i].end;
+          // Every ray still lands exactly on the lateral surface (or rim).
+          const distToAxis = Math.hypot(end[0], end[2]);
+          expect(distToAxis < 1e-9 || Math.abs(distToAxis - surface.radius) < 1e-6).toBe(true);
           closeTo(0, Math.hypot(end[0] - ref[i].end[0], end[1] - ref[i].end[1], end[2] - ref[i].end[2]), 1e-9);
-        } else {
-          expect(Math.hypot(end[0] - ref[i].end[0], end[1] - ref[i].end[1], end[2] - ref[i].end[2])).toBeGreaterThan(1e-3);
         }
       }
     }
@@ -798,27 +794,24 @@ describe('computeTangentBasis orthonormality', () => {
 });
 
 describe('computeAuxSurfaceParams surface-kind invariants', () => {
-  it('cylindrical: radius is R·scaleFactor and orientation matches the d3 rotation', () => {
+  it('cylindrical: radius is R·scaleFactor and the tube stays upright and static', () => {
     const p = computeAuxSurfaceParams('cylindrical', 30, 0, 1.05)!;
     if (p.kind !== 'cylinder') throw new Error('expected cylinder');
     expect(p.radius).toBeCloseTo(RADIUS * 1.05, 9);
-    // The orientation matrix must rotate the local +Y axis (cylinder axis) to the
-    // d3-rotated pole direction, and the central meridian seam to lambda0.
-    const axisWorld = [p.orient[1], p.orient[4], p.orient[7]];
-    expect(Math.hypot(...axisWorld)).toBeCloseTo(1, 9);
-    // For phiOrigin=0, gamma=0 the cylinder axis must stay aligned with the pole.
-    expect(axisWorld[1]).toBeCloseTo(1, 9);
+    // The TWO-LAYER model: the tube is STATIC — upright for every slider state
+    // (Долгота/Параллель slide only the geography layer inside it).
+    expect(p.orient).toEqual([1, 0, 0, 0, 1, 0, 0, 0, 1]);
+    // The seam keeps pointing at lambda0 (the graduation is fixed to the tube).
     const seamX = p.orient[0];
     const seamZ = p.orient[2];
-    expect(Math.atan2(-seamZ, seamX)).toBeCloseTo((30 * Math.PI) / 180, 9);
+    expect(Math.atan2(-seamZ, seamX)).toBeCloseTo(0, 9);
   });
 
-  it('cylindrical: gamma tilts the cylinder axis away from the pole', () => {
+  it('cylindrical: gamma does not move the static tube at all', () => {
     const p = computeAuxSurfaceParams('cylindrical', 0, 0, 1, undefined, null, 30)!;
     if (p.kind !== 'cylinder') throw new Error('expected cylinder');
-    const axisWorld = [p.orient[1], p.orient[4], p.orient[7]];
-    expect(axisWorld[1]).toBeLessThan(1 - 1e-6);
-    expect(Math.hypot(...axisWorld)).toBeCloseTo(1, 9);
+    // γ belongs to other families; the upright cylinder ignores it entirely.
+    expect(p.orient).toEqual([1, 0, 0, 0, 1, 0, 0, 0, 1]);
   });
 
   it('conic northern: positive positionY, flip +1', () => {

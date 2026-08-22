@@ -55,6 +55,19 @@ export default function Map2D() {
   const width = size.width || 800;
   const height = size.height || 600;
 
+  // TWO-LAYER cylindrical model: the graduated frame (graticule, poles) is
+  // FIXED to the static cylinder and rendered without any slider rotations;
+  // the geography layer (continents, borders) slides over it — Долгота spins
+  // it horizontally, Параллель slides it vertically. Non-cylindrical families
+  // render everything through a single fitted projection as before.
+  const isCylindrical = params.family === 'cylindrical';
+  const gridPathGen = useMemo(() => {
+    const p = getD3Projection(isCylindrical ? { ...params, lambda0: 0, phiOrigin: 0 } : params);
+    fitProjectionToView(p, width, height, FIT_MARGIN);
+    return d3Geo.geoPath().projection(p);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCylindrical, params.family, params.distortion, params.scaleFactor, params.stdParallel2, width, height]);
+
   const pathGenerator = useMemo(() => {
     const proj = getD3Projection(params);
     fitProjectionToView(proj, width, height, FIT_MARGIN);
@@ -62,8 +75,8 @@ export default function Map2D() {
   }, [params, width, height]);
 
   const graticulePath = useMemo(
-    () => (showGraticule ? pathGenerator(d3Geo.geoGraticule().step([graticuleStep, graticuleStep])()) ?? '' : ''),
-    [pathGenerator, showGraticule, graticuleStep],
+    () => (showGraticule ? gridPathGen(d3Geo.geoGraticule().step([graticuleStep, graticuleStep])()) ?? '' : ''),
+    [gridPathGen, showGraticule, graticuleStep],
   );
 
   const areaDistortion = useMemo(() => computeAreaDistortion(params), [params]);
@@ -160,12 +173,12 @@ export default function Map2D() {
               <path key={`border-${i}`} d={pathGenerator(feature) ?? ''} fill="none" stroke={NEON_BLUE_LINE} strokeWidth={0.6} />
             ))}
           {tissotCircles.map((circle, i) => (
-            <path key={`tissot-${i}`} d={pathGenerator(circle) ?? ''} fill={NEON_ORANGE_SOFT} stroke={NEON_ORANGE} />
+            <path key={`tissot-${i}`} d={gridPathGen(circle) ?? ''} fill={NEON_ORANGE_SOFT} stroke={NEON_ORANGE} />
           ))}
           {intersectionRings.map((ring, i) => (
             <path
               key={`intersection-${i}`}
-              d={pathGenerator({ type: 'LineString', coordinates: ring }) ?? ''}
+              d={gridPathGen({ type: 'LineString', coordinates: ring }) ?? ''}
               fill="none"
               stroke={NEON_WHITE}
               strokeWidth={1.3}
