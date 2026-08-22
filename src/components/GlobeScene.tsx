@@ -21,6 +21,9 @@ export default function GlobeScene() {
   const hoverLonLat = useAppStore((s) => s.hoverLonLat);
   const hoverSource = useAppStore((s) => s.hoverSource);
   const showHoverRay = useAppStore((s) => s.showHoverRay);
+  // The «Линии пересечения» toggle drives the white apparatus lines (intersection
+  // rings + seam/cut line) in BOTH views — the 3D scene and the 2D map.
+  const showIntersection = useAppStore((s) => s.showIntersection);
   const setHoverLonLat = useAppStore((s) => s.setHoverLonLat);
   const setParam = useAppStore((s) => s.setParam);
 
@@ -76,9 +79,13 @@ export default function GlobeScene() {
       {surface && (
         <>
           <AuxSurface surface={surface} />
-          <IntersectionDisks surface={surface} params={params} />
           <LightSource surface={surface} params={params} />
-          <CutLine surface={surface} params={params} />
+          {showIntersection && (
+            <>
+              <IntersectionDisks surface={surface} params={params} />
+              <CutLine surface={surface} params={params} />
+            </>
+          )}
         </>
       )}
       <Rays params={params} />

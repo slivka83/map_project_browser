@@ -106,6 +106,12 @@ export function matTranspose(m: Mat3): Mat3 {
 // of truth for how the developable surface (and its rays) must be oriented so
 // the 3D scene always matches the 2D map — including tilted / transverse
 // aspects, where a naive `Rx(gamma)` tilt is wrong.
+//
+// NOTE the MINUS sign on the third basis image: in our world frame
+// (`lonLatToVec3` stores longitude as −Z) the direction (lon 90°, lat 0) sits
+// at −Z, i.e. it is −e₃, not +e₃. Forgetting the minus mirrors the matrix
+// through the screen plane and renders the continents HORIZONTALLY FLIPPED
+// (east to the left) while every marker built from `lonLatToVec3` stays put.
 export function projectionRotationMatrix(lambda0: number, phiOrigin: number, gamma: number): Mat3 {
   const rot = geoRotation([lambda0, phiOrigin, gamma]);
   const img = (lon: number, lat: number): Vec3 => {
@@ -114,8 +120,8 @@ export function projectionRotationMatrix(lambda0: number, phiOrigin: number, gam
   };
   const cX = img(0, 0); // +X (lon 0, lat 0)
   const cY = img(0, 90); // +Y (north pole)
-  const cZ = img(90, 0); // +Z-ish (lon 90, lat 0)
-  return [cX[0], cY[0], cZ[0], cX[1], cY[1], cZ[1], cX[2], cY[2], cZ[2]];
+  const cZneg = img(90, 0); // lon 90, lat 0 — lives at −e₃ (see note above)
+  return [cX[0], cY[0], -cZneg[0], cX[1], cY[1], -cZneg[1], cX[2], cY[2], -cZneg[2]];
 }
 
 // East / north tangent basis at the sphere point (lambda0, phiOrigin). The
@@ -593,6 +599,30 @@ export function computeAuxSphereIntersectionsLonLat(
   return rings.map((ring) =>
     ring.map((p) => (surface.kind === 'plane' ? vec3ToLonLat(p) : vec3ToLonLat(auxPointToWorld(surface, p)))),
   );
+}
+
+// Convenience wrapper for the 2D map: returns the developable surface's
+// seam / cut line as a single [lon, lat] ring, ready to be fed to the D3 path
+// generator — so the flat map draws EXACTLY the same white seam line the 3D
+// scene does (`CutLine`). Empty for the azimuthal tangent plane (a plane has
+// no seam) — mirrors the 3D component, which renders nothing there either.
+export function computeCutLineLonLat(
+  family: ProjectionParams['family'],
+  lambda0: number,
+  phiOrigin: number,
+  scaleFactor: number,
+  radius = RADIUS,
+  stdParallel2: number | null = null,
+  gamma = 0,
+  distortion: ProjectionParams['distortion'] = 'equidistant',
+  azLight: ProjectionParams['azLight'] = 'center',
+  variant?: ProjectionParams['variant'],
+  numPoints = 64,
+): [number, number][] {
+  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, variant)!;
+  if (!surface || (surface.kind !== 'cylinder' && surface.kind !== 'cone')) return [];
+  const pts = computeCutLine(surface, lambda0, family, numPoints);
+  return pts.map((p) => vec3ToLonLat(p));
 }
 
 export function computeCutLine(

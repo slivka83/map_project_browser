@@ -51,6 +51,24 @@ describe('Map2D', () => {
     });
   });
 
+  it('draws and hides the white intersection + cut-line layers with the toggle', async () => {
+    // The «Линии пересечения и линия разреза» button drives BOTH apparatus
+    // layers on the map (the same flag also gates the 3D rings + seam line).
+    useAppStore.setState({ showIntersection: true });
+    const { container } = render(<Map2D />);
+    await waitFor(() => {
+      expect(container.querySelector('svg[data-map="true"]')).not.toBeNull();
+    });
+    expect(container.querySelector('[data-testid="intersection-lines"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="cut-line"]')).not.toBeNull();
+
+    act(() => {
+      useAppStore.getState().setShowIntersection(false);
+    });
+    expect(container.querySelector('[data-testid="intersection-lines"]')).toBeNull();
+    expect(container.querySelector('[data-testid="cut-line"]')).toBeNull();
+  });
+
   it('renders country border paths when borders are enabled', async () => {
     useAppStore.setState({ detailedMap: true, showBorders: true, countriesGeoJson: sampleFc });
     const { container } = render(<Map2D />);
@@ -110,7 +128,7 @@ describe('Map2D', () => {
     const grid = getByRole('button', { name: 'Сетка' });
     const detail = getByRole('button', { name: 'Детализация карты' });
     const borders = getByRole('button', { name: 'Границы стран' });
-    const intersection = getByRole('button', { name: 'Линии пересечения поверхности с глобусом' });
+    const intersection = getByRole('button', { name: 'Линии пересечения и линия разреза' });
     const hoverRay = getByRole('button', {
       name: 'Луч проекции по курсору (показывать при наведении на карту)',
     });

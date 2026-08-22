@@ -7,7 +7,7 @@ import { useProjectionParams, useVisualizationParams } from '../store/selectors'
 import { createProjectionTiles, computeAreaDistortion, isPointerOverGlobe, makeFrameRotation } from '../utils/projectionMapper';
 import { cutFeatureCollectionToBand, rotateFeatureCollection, rotatePolygon } from '../utils/geoBandClip';
 import { computeTissotCircles } from '../utils/tissot';
-import { computeAuxSphereIntersectionsLonLat } from '../utils/auxSurfaceGeometry';
+import { computeAuxSphereIntersectionsLonLat, computeCutLineLonLat } from '../utils/auxSurfaceGeometry';
 import { variantDef } from '../utils/projectionVariants';
 import { RADIUS } from '../constants/geometry';
 import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT, NEON_YELLOW, NEON_WHITE, GRATICULE_STROKE } from '../constants/designTokens';
@@ -139,6 +139,17 @@ export default function Map2D() {
     [showIntersection, family, lambda0, phiOrigin, scaleFactor, stdParallel2, params],
   );
 
+  // The seam/cut line of the developable surface — the same white line the 3D
+  // scene draws (`CutLine`), here as a lon/lat ring. Empty for the azimuthal
+  // tangent plane (no seam), mirroring the 3D component.
+  const cutLine = useMemo(
+    () =>
+      showIntersection
+        ? computeCutLineLonLat(family, lambda0, phiOrigin, scaleFactor, RADIUS, stdParallel2, family === 'cylindrical' ? 0 : params.gamma, params.distortion, params.azLight)
+        : [],
+    [showIntersection, family, lambda0, phiOrigin, scaleFactor, stdParallel2, params],
+  );
+
   const containerStyle: CSSProperties = {
     position: 'relative',
     width: '100%',
@@ -239,16 +250,30 @@ export default function Map2D() {
               <path key={`tissot-${ti}-${i}`} d={pg(circle) ?? ''} fill={NEON_ORANGE_SOFT} stroke={NEON_ORANGE} />
             )),
           )}
-          {intersectionRings.map((ring, i) => (
-            <path
-              key={`intersection-${i}`}
-              d={gridPathGens[0]({ type: 'LineString', coordinates: ring }) ?? ''}
-              fill="none"
-              stroke={NEON_WHITE}
-              strokeWidth={1.3}
-              opacity={0.9}
-            />
-          ))}
+          {showIntersection && (
+            <g data-testid="intersection-lines">
+              {intersectionRings.map((ring, i) => (
+                <path
+                  key={`intersection-${i}`}
+                  d={gridPathGens[0]({ type: 'LineString', coordinates: ring }) ?? ''}
+                  fill="none"
+                  stroke={NEON_WHITE}
+                  strokeWidth={1.3}
+                  opacity={0.9}
+                />
+              ))}
+              {cutLine.length > 0 && (
+                <path
+                  data-testid="cut-line"
+                  d={gridPathGens[0]({ type: 'LineString', coordinates: cutLine }) ?? ''}
+                  fill="none"
+                  stroke={NEON_WHITE}
+                  strokeWidth={1.6}
+                  opacity={0.95}
+                />
+              )}
+            </g>
+          )}
           {hoverPoint && (
             <circle data-testid="hover-marker" cx={hoverPoint[0]} cy={hoverPoint[1]} r={5} fill="none" stroke={NEON_YELLOW} strokeWidth={1.5} />
           )}
@@ -267,7 +292,14 @@ export default function Map2D() {
         <button title="Границы стран" aria-label="Границы стран" onClick={() => setShowBorders(!showBorders)} aria-pressed={showBorders} className={iconBtnPlain} style={{ color: showBorders ? NEON_BLUE : undefined, filter: iconGlow(showBorders) }}>
           <BorderIcon />
         </button>
-        <button title="Линии пересечения поверхности с глобусом" aria-label="Линии пересечения поверхности с глобусом" onClick={() => setShowIntersection(!showIntersection)} aria-pressed={showIntersection} className={iconBtnPlain} style={{ color: showIntersection ? NEON_BLUE : undefined, filter: iconGlow(showIntersection) }}>
+        <button
+          title="Линии пересечения и линия разреза"
+          aria-label="Линии пересечения и линия разреза"
+          onClick={() => setShowIntersection(!showIntersection)}
+          aria-pressed={showIntersection}
+          className={iconBtnPlain}
+          style={{ color: showIntersection ? NEON_BLUE : undefined, filter: iconGlow(showIntersection) }}
+        >
           <IntersectionIcon />
         </button>
         <button title="Луч проекции по курсору (показывать при наведении на карту)" aria-label="Луч проекции по курсору (показывать при наведении на карту)" onClick={() => setShowHoverRay(!showHoverRay)} aria-pressed={showHoverRay} className={iconBtnPlain} style={{ color: showHoverRay ? NEON_BLUE : undefined, filter: iconGlow(showHoverRay) }}>

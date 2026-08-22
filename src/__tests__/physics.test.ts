@@ -305,21 +305,43 @@ describe('cylindrical honest roll: centre = least distortion, edges stretch', ()
   it('the 2D data roll describes the same Earth rotation as the 3D coastline matrix', () => {
     // Globe.tsx rolls coastlines with projectionRotationMatrix(-λ₀,-φ₀,0)
     // applied to lonLatToVec3 vectors; the flat map rolls its geography with
-    // makeFrameRotation. The world frame stores Z mirrored relative to the
-    // spherical embedding (see lonLatToVec3), so reading the matrix-rolled
-    // vector back through vec3ToLonLat must reproduce the frame coordinates
-    // EXACTLY — otherwise the two views would show differently rolled Earths.
+    // makeFrameRotation. Applying the matrix to a globe vector and reading the
+    // lon/lat back must reproduce the frame coordinates EXACTLY — otherwise
+    // the two views would show differently rolled Earths. (A missing minus on
+    // the matrix's third column used to mirror the globe horizontally.)
     for (const [l0, f0] of [[37, 58], [-140, -50], [10, 80], [0, -90]] as [number, number][]) {
       const roll = makeFrameRotation(l0, f0);
       const M = projectionRotationMatrix(-l0, -f0, 0);
       for (const [lon, lat] of [[10, 20], [-45, 8], [120, 35], [l0, f0]] as [number, number][]) {
         const r = roll([lon, lat]);
-        const S = lonLatToVec3(lon, lat, RADIUS);
-        const back = vec3ToLonLat(matVec(M, [S[0], S[1], -S[2]]));
+        const back = vec3ToLonLat(matVec(M, lonLatToVec3(lon, lat, RADIUS)));
         closeTo(normalizeLon(back[0]) - normalizeLon(r[0]), 0, 1e-6);
         closeTo(back[1], r[1], 1e-6);
       }
     }
+  });
+
+  it('the coastline roll matrix is a PROPER rotation (det = +1) — the globe is never mirrored', () => {
+    // Regression lock for the horizontal mirror: with the third basis image
+    // un-negated the matrix had det = −1 (a reflection), flipping east/west on
+    // the rendered globe while every marker stayed in place.
+    for (const [l0, f0] of [[37, 58], [-140, -50], [10, 80], [0, -90], [0, 0]] as [number, number][]) {
+      const M = projectionRotationMatrix(-l0, -f0, 0);
+      const det =
+        M[0] * (M[4] * M[8] - M[5] * M[7]) -
+        M[1] * (M[3] * M[8] - M[5] * M[6]) +
+        M[2] * (M[3] * M[7] - M[4] * M[6]);
+      closeTo(det, 1, 1e-9);
+      // orthonormal columns (rigid rotation)
+      for (const c of [[M[0], M[3], M[6]], [M[1], M[4], M[7]], [M[2], M[5], M[8]]] as [number, number, number][]) {
+        closeTo(Math.hypot(...c), 1, 1e-9);
+      }
+    }
+    // identity state → identity matrix
+    const I = projectionRotationMatrix(0, 0, 0);
+    closeTo(I[0], 1);closeTo(I[1], 0);closeTo(I[2], 0);
+    closeTo(I[3], 0);closeTo(I[4], 1);closeTo(I[5], 0);
+    closeTo(I[6], 0);closeTo(I[7], 0);closeTo(I[8], 1);
   });
 
   it('projectToAuxWorld lands the hovered point where the rolled map draws it', () => {

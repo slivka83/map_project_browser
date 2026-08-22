@@ -1,18 +1,19 @@
 import { useMemo } from 'react';
 import { Line } from '@react-three/drei';
-import { NEON_GREEN } from '../constants/designTokens';
+import { NEON_WHITE } from '../constants/designTokens';
 import { computeAuxSphereIntersections, auxPointToWorld, type AuxSurfaceParams } from '../utils/auxSurfaceGeometry';
 import { RADIUS } from '../constants/geometry';
 import type { ProjectionParams } from '../store/useAppStore';
 
-// Hollow neon-green rings marking where the auxiliary surface meets the globe.
+// Hollow white rings marking where the auxiliary surface meets the globe.
 // The rings are the actual intersection circles (computed analytically), so the
 // surface can touch the globe in one place, two places, or not at all — in the
 // last case nothing is drawn. Every ring is pushed through `auxPointToWorld`,
 // the exact transform the aux-surface wireframe uses, so the ring always sits on
 // the REAL intersection of the (possibly tilted) surface with the globe. A
 // cylinder tilts with its axis, so its intersection circles MOVE when the tilt
-// (gamma) changes — exactly like the 3D tube does.
+// (gamma) changes — exactly like the 3D tube does. Rendered only while the
+// «Линии пересечения» toggle is on (the same flag drives the 2D lines).
 export default function IntersectionDisks({
   surface,
   params,
@@ -39,7 +40,7 @@ export default function IntersectionDisks({
         <Line
           key={i}
           points={pts}
-          color={NEON_GREEN}
+          color={NEON_WHITE}
           lineWidth={1.5}
           transparent
           opacity={0.95}
