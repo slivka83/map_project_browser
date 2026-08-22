@@ -4,7 +4,8 @@ import * as d3Geo from 'd3-geo';
 import type { FeatureCollection } from 'geojson';
 import { useAppStore } from '../store/useAppStore';
 import { useProjectionParams, useVisualizationParams } from '../store/selectors';
-import { getD3Projection, fitProjectionToView, computeAreaDistortion, isPointerOverGlobe } from '../utils/projectionMapper';
+import { createProjectionTiles, computeAreaDistortion, isPointerOverGlobe } from '../utils/projectionMapper';
+import { cutFeatureCollectionToBand } from '../utils/geoBandClip';
 import { computeTissotCircles } from '../utils/tissot';
 import { computeAuxSphereIntersectionsLonLat } from '../utils/auxSurfaceGeometry';
 import { variantDef } from '../utils/projectionVariants';
@@ -61,22 +62,35 @@ export default function Map2D() {
   // it horizontally, Параллель slides it vertically. Non-cylindrical families
   // render everything through a single fitted projection as before.
   const isCylindrical = params.family === 'cylindrical';
-  const gridPathGen = useMemo(() => {
-    const p = getD3Projection(isCylindrical ? { ...params, lambda0: 0, phiOrigin: 0 } : params);
-    fitProjectionToView(p, width, height, FIT_MARGIN);
-    return d3Geo.geoPath().projection(p);
+
+  // TWO-LAYER + infinite vertical wrap: the folded height law makes the band
+  // periodic, so THREE stacked copies of every layer form a seamless endless
+  // tape — scrolling past a pole wraps to the opposite one. Geography data is
+  // pre-cut at ±CLIP_LAT so nothing crosses the wrap seam.
+  const gridPathGens = useMemo(() => {
+    const tiles = createProjectionTiles(isCylindrical ? { ...params, lambda0: 0, phiOrigin: 0 } : params, width, height, FIT_MARGIN);
+    return tiles.map((proj) => d3Geo.geoPath().projection(proj));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCylindrical, params.family, params.distortion, params.scaleFactor, params.stdParallel2, width, height]);
 
-  const pathGenerator = useMemo(() => {
-    const proj = getD3Projection(params);
-    fitProjectionToView(proj, width, height, FIT_MARGIN);
-    return d3Geo.geoPath().projection(proj);
-  }, [params, width, height]);
+  const pathGenerators = useMemo(
+    () => createProjectionTiles(params, width, height, FIT_MARGIN).map((proj) => d3Geo.geoPath().projection(proj)),
+    [params, width, height],
+  );
+  const pathGenerator = pathGenerators[0];
 
-  const graticulePath = useMemo(
-    () => (showGraticule ? gridPathGen(d3Geo.geoGraticule().step([graticuleStep, graticuleStep])()) ?? '' : ''),
-    [gridPathGen, showGraticule, graticuleStep],
+  const bandLand = useMemo(
+    () => (isCylindrical && baseLand ? cutFeatureCollectionToBand(baseLand as FeatureCollection) : baseLand),
+    [isCylindrical, baseLand],
+  ) as FeatureCollection | null;
+  const bandBorders = useMemo(
+    () => (isCylindrical && borders ? cutFeatureCollectionToBand(borders as FeatureCollection) : borders),
+    [isCylindrical, borders],
+  ) as FeatureCollection | null;
+
+  const graticuleObj = useMemo(
+    () => (showGraticule ? d3Geo.geoGraticule().step([graticuleStep, graticuleStep])() : null),
+    [showGraticule, graticuleStep],
   );
 
   const areaDistortion = useMemo(() => computeAreaDistortion(params), [params]);
@@ -163,22 +177,31 @@ export default function Map2D() {
           onPointerLeave={() => setHoverLonLat(null)}
           onClick={handleMapClick}
         >
-          <path d={graticulePath} fill="none" stroke={GRATICULE_STROKE} strokeWidth={0.5} />
-          {(baseLand as FeatureCollection).features.map((feature, i) => (
-            <path key={i} d={pathGenerator(feature) ?? ''} fill={BG} stroke={NEON_BLUE} strokeWidth={1} />
-          ))}
-          {showBorders &&
-            borders &&
-            (borders as FeatureCollection).features.map((feature, i) => (
-              <path key={`border-${i}`} d={pathGenerator(feature) ?? ''} fill="none" stroke={NEON_BLUE_LINE} strokeWidth={0.6} />
+          {gridPathGens.map((pg, ti) =>
+            graticuleObj ? (
+              <path key={`grat-${ti}`} d={pg(graticuleObj) ?? ''} fill="none" stroke={GRATICULE_STROKE} strokeWidth={0.5} />
+            ) : null,
+          )}
+          {bandLand &&
+            pathGenerators.map((pg, ti) => (
+              <g key={`land-${ti}`}>
+                {(bandLand as FeatureCollection).features.map((feature, i) => (
+                  <path key={i} d={pg(feature) ?? ''} fill={BG} stroke={NEON_BLUE} strokeWidth={1} />
+                ))}
+                {showBorders &&
+                  bandBorders &&
+                  (bandBorders as FeatureCollection).features.map((feature, i) => (
+                    <path key={`border-${i}`} d={pg(feature) ?? ''} fill="none" stroke={NEON_BLUE_LINE} strokeWidth={0.6} />
+                  ))}
+              </g>
             ))}
           {tissotCircles.map((circle, i) => (
-            <path key={`tissot-${i}`} d={gridPathGen(circle) ?? ''} fill={NEON_ORANGE_SOFT} stroke={NEON_ORANGE} />
+            <path key={`tissot-${i}`} d={gridPathGens[0](circle) ?? ''} fill={NEON_ORANGE_SOFT} stroke={NEON_ORANGE} />
           ))}
           {intersectionRings.map((ring, i) => (
             <path
               key={`intersection-${i}`}
-              d={gridPathGen({ type: 'LineString', coordinates: ring }) ?? ''}
+              d={gridPathGens[0]({ type: 'LineString', coordinates: ring }) ?? ''}
               fill="none"
               stroke={NEON_WHITE}
               strokeWidth={1.3}

@@ -23,17 +23,16 @@ const cylCenterMap = new WeakMap<GeoProjection, number>();
 //     grid (straight parallels/meridians, poles at the window edges) is FIXED
 //     to it and is rendered from a fully static projection (no rotations).
 //   • The GEOGRAPHY layer (continents + borders) SLIDES over that graduated
-//     drum: Долгота spins it horizontally, Параллель slides it vertically so
-//     the chosen parallel sits on the middle row. The geography layer is a
-//     rigid translation — continents keep their shapes, parallels stay straight
-//     horizontal lines at every slider position, nothing ever tilts or curls.
-// The map shows both layers together: the moving geography over the static
-// graduation, projected onto the cylinder exactly as positioned during the
-// scroll.
-// The cylinder is a FINITE tube of radius r = scaleFactor·R touching the globe
-// at the contact latitudes ±φ_s measured from its axis; each layer is clipped
-// to those finite band rows, so the pole zone where the height laws misbehave
-// is never on screen.
+//     drum: Долгота spins it horizontally, Параллель slides it vertically — a
+//     rigid translation, so continents keep their shapes and parallels stay
+//     straight horizontal lines at every slider position.
+// The VERTICAL coordinate is PERIODIC (folded with the band period 2·CLIP_LAT,
+// exactly like longitude's horizontal periodicity): scrolling past a pole wraps
+// to the opposite one — the south pole enters from the top, the north from the
+// bottom — giving an infinite seamless scroll in both directions. Geography
+// data is pre-cut at ±CLIP_LAT (see Map2D) so nothing crosses the wrap seam.
+// Each layer is clipped to the viewport frame; the pole zone beyond ±CLAMP_LAT
+// never exists on screen.
 function makeCylindricalProjection(
   distortion: ProjectionParams['distortion'],
   scaleFactor: number,
@@ -41,13 +40,26 @@ function makeCylindricalProjection(
   const s = clampScale(scaleFactor);
   const phiS = Math.acos(s); // contact latitude from the cylinder axis (radians)
   const cosS = Math.cos(phiS);
-  // The raw height law is clamped only to ±CLAMP_LAT (just beyond the visible
-  // window edge, which never exceeds ±CLIP_LAT) purely to keep the Mercator law
-  // finite at the pole (y = ln(tan(π/4+φ/2)) → ∞ at φ = 90°) and d3 robust
-  // against non-finite coordinates. The clamped cap is always outside the map
-  // window (see fitProjectionToView) and is never drawn.
+  // The VERTICAL coordinate is PERIODIC: latitude is folded into the finite
+  // band ±CLIP_LAT with period 2·CLIP_LAT (exactly like longitude's horizontal
+  // periodicity). Scrolling Параллель 1 past a pole therefore wraps seamlessly
+  // to the opposite one — an infinite vertical tape, no copies needed.
+  const periodRad = 2 * ((CLIP_LAT * Math.PI) / 180);
+  const halfPeriodRad = (CLIP_LAT * Math.PI) / 180;
+  // Symmetric modulo: folds into [-CLIP_LAT, +CLIP_LAT] and keeps the edges
+  // EXACTLY on their own sides (+85 stays +85 — critical for band probing).
+  const foldPhi = (φ: number): number => {
+    let f = φ % periodRad;
+    if (f > halfPeriodRad) f -= periodRad;
+    else if (f < -halfPeriodRad) f += periodRad;
+    return f;
+  };
+  // The folded height law is additionally clamped to ±CLAMP_LAT (just beyond
+  // the visible window edge) purely to keep the Mercator law finite at the
+  // pole (y = ln(tan(π/4+φ/2)) → ∞ as φ approaches the fold edge ±90°).
   const clampRad = (CLAMP_LAT * Math.PI) / 180;
   const clampPhi = (φ: number): number => Math.max(-clampRad, Math.min(clampRad, φ));
+  const φf = (φ: number): number => clampPhi(foldPhi(φ));
   type RawProjection = ((λ: number, φ: number) => [number, number]) & {
     invert?: (x: number, y: number) => [number, number];
   };
@@ -57,7 +69,7 @@ function makeCylindricalProjection(
     // Uniform scale cosφ_s keeps it conformal and makes φ_s true-to-scale.
     raw = ((λ: number, φ: number): [number, number] => [
       λ * cosS,
-      cosS * Math.log(Math.tan(Math.PI / 4 + clampPhi(φ) / 2)),
+      cosS * Math.log(Math.tan(Math.PI / 4 + φf(φ) / 2)),
     ]) as RawProjection;
     raw.invert = (x: number, y: number): [number, number] => [
       x / cosS,
@@ -65,11 +77,11 @@ function makeCylindricalProjection(
     ];
   } else if (distortion === 'equalArea') {
     // x = λ·cosφ_s, y = sinφ / cosφ_s  → area scale = cosφ_s (constant) on the band.
-    raw = ((λ: number, φ: number): [number, number] => [λ * cosS, Math.sin(clampPhi(φ)) / cosS]) as RawProjection;
+    raw = ((λ: number, φ: number): [number, number] => [λ * cosS, Math.sin(φf(φ)) / cosS]) as RawProjection;
     raw.invert = (x: number, y: number): [number, number] => [x / cosS, Math.asin(Math.max(-1, Math.min(1, y * cosS)))];
   } else {
     // Equidistant: x = λ·cosφ_s, y = φ  (aspect narrows as the diameter shrinks).
-    raw = ((λ: number, φ: number): [number, number] => [λ * cosS, clampPhi(φ)]) as RawProjection;
+    raw = ((λ: number, φ: number): [number, number] => [λ * cosS, φf(φ)]) as RawProjection;
     raw.invert = (x: number, y: number): [number, number] => [x / cosS, y];
   }
   const proj = d3Geo.geoProjection(raw);
@@ -348,15 +360,16 @@ export function fitProjectionToView(
     // sliders: moving them only SLIDES the geography layer over the static
     // graduated frame — exactly how longitude shifts it horizontally. No zoom.
     const s = Math.min((width - 2 * margin) / (2 * halfWidth), (height - 2 * margin) / (botY - topY));
-    // Slide the geography so the chosen parallel sits on the middle row
-    // (centerRow is screen-style — negative for north — hence minus).
+    // Slide the geography so the chosen parallel sits on the middle row. The
+    // height law is PERIODIC (folded), so beyond a pole the scroll simply wraps
+    // to the opposite pole — an endless vertical tape, like longitude.
     const t: [number, number] = [width / 2, height / 2 - centerRow * s];
     proj.scale(s).translate(t);
-    // Clip this layer to its own slid band rows (screen pixels, set AFTER the
-    // final translate).
+    // Clip to the fixed viewport frame: the periodic law fills every row of
+    // the window with wrapped map content.
     proj.clipExtent([
-      [t[0] - halfWidth * s, Math.max(margin, t[1] + topY * s)],
-      [t[0] + halfWidth * s, Math.min(height - margin, t[1] + botY * s)],
+      [t[0] - halfWidth * s, margin],
+      [t[0] + halfWidth * s, height - margin],
     ]);
     return proj;
   }
@@ -368,4 +381,37 @@ export function fitProjectionToView(
     fitTarget ?? FIT_SPHERE,
   );
   return proj;
+}
+
+// The flat cylindrical maps scroll INFINITELY vertically: the folded height
+// law makes the band PERIODIC, so identical copies stacked one band height
+// apart continue each other seamlessly — scrolling past a pole wraps to the
+// opposite one (the south pole enters from the top, the north from the
+// bottom), exactly like longitude's horizontal wrap. Returns fully-fitted
+// projections: index 0 is the central tile; other families return a single
+// tile.
+export function createProjectionTiles(
+  params: ProjectionParams,
+  width: number,
+  height: number,
+  margin = FIT_MARGIN,
+): GeoProjection[] {
+  const main = fitProjectionToView(getD3Projection(params), width, height, margin);
+  if (!cylCenterMap.has(main)) return [main];
+  const s = main.scale();
+  const t = main.translate();
+  // Band height in pixels (identity-frame probe).
+  const rot = main.rotate();
+  const tr = main.translate();
+  main.rotate([0, 0, 0]).scale(1).translate([0, 0]);
+  const topY = (main([0, CLIP_LAT]) as [number, number])[1];
+  const botY = (main([0, -CLIP_LAT]) as [number, number])[1];
+  main.rotate(rot).scale(s).translate(tr);
+  const bandPx = (botY - topY) * s;
+  const neighbour = (dy: number): GeoProjection => {
+    const p = fitProjectionToView(getD3Projection(params), width, height, margin);
+    p.translate([t[0], t[1] + dy]);
+    return p;
+  };
+  return [main, neighbour(-bandPx), neighbour(bandPx)];
 }

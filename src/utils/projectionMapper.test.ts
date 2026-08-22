@@ -311,7 +311,7 @@ describe('computeAreaDistortion', () => {
         600,
         16,
       );
-      const b = d3Geo.geoPath(p).bounds(FIT_SPHERE);
+      const b = p.clipExtent()!;
       return (b[1][0] - b[0][0]) / (b[1][1] - b[0][1]);
     };
     const ea1 = aspectOf('equalArea', 1);
@@ -338,7 +338,10 @@ describe('fitProjectionToView (map always fills the viewport)', () => {
   const families: ProjectionFamily[] = ['cylindrical', 'conic', 'azimuthalPerspective'];
   const distortions: DistortionModel[] = ['conformal', 'equalArea', 'equidistant'];
 
-  const fitBounds = (p: d3Geo.GeoProjection) => d3Geo.geoPath(p).bounds(FIT_SPHERE);
+  // For the cylindrical family the fitted window IS the clip rectangle (the
+  // folded band), so measure it there; FIT_SPHERE crosses the fold seam and
+  // cannot be measured through the projection.
+  const fitBounds = (p: d3Geo.GeoProjection) => p.clipExtent() ?? d3Geo.geoPath(p).bounds(FIT_SPHERE);
 
   for (const family of families) {
     for (const distortion of distortions) {

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { ProjectionParams } from '../store/useAppStore';
 import { defaultParamsForFamily } from '../store/useAppStore';
-import { RADIUS, RAY_COUNT, VIEW_CENTER_Y, MAP_SCALE } from '../constants/geometry';
+import { RADIUS, RAY_COUNT, VIEW_CENTER_Y, MAP_SCALE, CLIP_LAT } from '../constants/geometry';
 import { getD3Projection } from '../utils/projectionMapper';
 import {
   lonLatToVec3,
@@ -361,7 +361,9 @@ describe('computeCentralMeridianRays', () => {
         // with the fan.
         const proj = getD3Projection(makeTestParams({ distortion, scaleFactor: 1, azLight: 'center', variant: 'mercator' }));
         segs.forEach((seg, i) => {
-          const lat = -90 + (i * 180) / (segs.length - 1);
+          // Mirror the production fan sampling: the static tube covers ONE
+          // period of grid latitudes (−CLIP_LAT..+CLIP_LAT), front meridian.
+          const lat = -CLIP_LAT + (i * 2 * CLIP_LAT) / (segs.length - 1);
           const local = cylinderLocalEndWithPole(proj, 0, lat, surface);
           const world = auxPointToWorld(surface, clampLocalToSurface(surface, local));
           closeTo(world[0], seg.end[0], 1e-6);

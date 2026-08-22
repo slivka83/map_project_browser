@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as d3Geo from 'd3-geo';
 import type { ProjectionParams, ProjectionFamily, DistortionModel } from '../store/useAppStore';
-import { RADIUS, RAY_COUNT, MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y } from '../constants/geometry';
+import { RADIUS, RAY_COUNT, MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y, CLIP_LAT } from '../constants/geometry';
 import { getD3Projection, computeAreaDistortion, FIT_SPHERE, fitProjectionToView } from '../utils/projectionMapper';
 import {
   lonLatToVec3,
@@ -259,15 +259,16 @@ describe('rays link globe point to map point', () => {
 
        it(`${family}/${distortion}: the ray landing, fed back through the projection, returns the globe (lon,lat)`, () => {
         const segs = computeCentralMeridianRays({ ...p, radius: RADIUS, rayCount: RAY_COUNT });
-        // The cylinder rays are built from the UNTILTED (gamma = 0) projection so
-        // the tilt only rotates the rigid tube; the rebuild must use the same flat
-        // projection to agree with the fan.
-        const proj = getD3Projection({ ...p, gamma: 0 });
+        // The static cylindrical fan is anchored to the GRID's central meridian
+        // (lambda0 = phiOrigin = 0) and covers ONE period of grid latitudes —
+        // the rebuild must mirror exactly that sampling.
+        const proj = getD3Projection({ ...p, gamma: 0, lambda0: 0, phiOrigin: 0 });
         const surface = computeAuxSurfaceParams(family, p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, p.gamma, distortion, p.azLight)!;
         for (let i = 0; i < segs.length; i++) {
-          const lat = -90 + (i * 180) / (segs.length - 1);
-          // The landing local frame used by projectToAuxWorld must reproduce end.
-          const local = cylinderLocalEndOrNull(family, surface, proj, p.lambda0, lat);
+          const lat =
+            family === 'cylindrical' ? -CLIP_LAT + (i * 2 * CLIP_LAT) / (segs.length - 1) : -90 + (i * 180) / (segs.length - 1);
+          const lonArg = family === 'cylindrical' ? 0 : p.lambda0;
+          const local = cylinderLocalEndOrNull(family, surface, proj, lonArg, lat);
           if (!local) continue;
           const world = auxPointToWorld(surface, clampLocalToSurface(surface, local));
           closeTo(world[0], segs[i].end[0], 1e-6);
@@ -364,26 +365,20 @@ describe('rays link globe point to map point', () => {
       });
 
        it(`${family}/${distortion}: the 3D ray lands on the tube exactly where the 2D map draws the globe point`, () => {
-        // One logic: the globe point (λ₀, lat) is projected onto the tube by a ray,
-        // and the 2D map is the SAME projection (now tilted/transverse under gamma).
-        // The 3D scene keeps its tilted-tube look, but the landing on the tube and
-        // the 2D map pixel must agree. The 3D tube is oriented by `orient` (gamma);
-        // its CONTENT is the untilted projection, so unrolling it (orientInv) must
-        // reproduce the untilted projection of the globe point. The 2D map, which
-        // bakes gamma, is the same content rotated into the plane — so the two show
-        // the identical projection, just one is a tube in space and the other flat.
+        // The static fan is anchored to the GRID's central meridian over one
+        // period of grid latitudes; the unrolled landing must equal the same
+        // zeroed projection the fan was built from.
         if (family !== 'cylindrical') return;
         const segs = computeCentralMeridianRays({ ...p, radius: RADIUS, rayCount: RAY_COUNT });
-        const projFlat = getD3Projection({ ...p, gamma: 0 }); // untilted content
+        const projFlat = getD3Projection({ ...p, gamma: 0, lambda0: 0, phiOrigin: 0 });
         const surface = computeAuxSurfaceParams(family, p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, p.gamma, distortion, p.azLight)!;
         if (surface.kind !== 'cylinder') throw new Error('expected cylinder');
         const [cx, cy] = projFlat.translate();
         const scale = projFlat.scale() || 1;
         const wpp = RADIUS / MAP_SCALE;
         for (let i = 0; i < segs.length; i++) {
-          const lat = -90 + (i * 180) / (segs.length - 1);
-          if (Math.abs(lat) >= 90 - 1e-9) continue; // pole rays are clamped to the tube rim in 3D
-          const mapFlat = projFlat([p.lambda0, lat]) as [number, number];
+          const lat = -CLIP_LAT + (i * 2 * CLIP_LAT) / (segs.length - 1);
+          const mapFlat = projFlat([0, lat]) as [number, number];
           const local = matVec(surface.orientInv, segs[i].end);
           const projX = (cx ?? 0) + scale * Math.atan2(local[2], local[0]);
           const projY = (cy ?? 0) - local[1] / wpp;

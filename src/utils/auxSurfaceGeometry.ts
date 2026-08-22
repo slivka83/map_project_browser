@@ -686,8 +686,11 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
   const result: RaySegment[] = [];
 
   for (let i = 0; i < rayCount; i++) {
-    const lat = -90 + (i * 180) / (rayCount - 1);
-    let globe = lonLatToVec3(lambda0, lat, radius);
+    // Cylindrical: the static fan covers ONE period of the graduated tube
+    // (grid latitudes −CLIP_LAT..+CLIP_LAT) — beams never double back.
+    const lat = family === 'cylindrical' ? -CLIP_LAT + (i * 2 * CLIP_LAT) / (rayCount - 1) : -90 + (i * 180) / (rayCount - 1);
+    // The static fan is anchored to the GRID's central meridian (front).
+    let globe = lonLatToVec3(family === 'cylindrical' ? 0 : lambda0, lat, radius);
 
     let start: Vec3;
     let localEnd: Vec3;
