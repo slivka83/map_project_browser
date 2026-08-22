@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import * as d3Geo from 'd3-geo';
-import type { FeatureCollection } from 'geojson';
+import type { FeatureCollection, Polygon } from 'geojson';
 import { useAppStore } from '../store/useAppStore';
 import { useProjectionParams, useVisualizationParams } from '../store/selectors';
-import { createProjectionTiles, computeAreaDistortion, isPointerOverGlobe } from '../utils/projectionMapper';
-import { cutFeatureCollectionToBand } from '../utils/geoBandClip';
+import { createProjectionTiles, computeAreaDistortion, isPointerOverGlobe, makeFrameRotation } from '../utils/projectionMapper';
+import { cutFeatureCollectionToBand, rotateFeatureCollection, rotatePolygon } from '../utils/geoBandClip';
 import { computeTissotCircles } from '../utils/tissot';
 import { computeAuxSphereIntersectionsLonLat } from '../utils/auxSurfaceGeometry';
 import { variantDef } from '../utils/projectionVariants';
@@ -58,15 +58,25 @@ export default function Map2D() {
 
   // TWO-LAYER cylindrical model: the graduated frame (graticule, poles) is
   // FIXED to the static cylinder and rendered without any slider rotations;
-  // the geography layer (continents, borders) slides over it — Долгота spins
-  // it horizontally, Параллель slides it vertically. Non-cylindrical families
-  // render everything through a single fitted projection as before.
+  // the geography layer is a TRUE projection of the Earth rolled INSIDE the
+  // tube — Долгота/Параллель are a spherical rotation baked into the data, so
+  // the chosen central point lands on the middle row with least distortion.
+  // Non-cylindrical families render everything through a single fitted
+  // projection as before.
   const isCylindrical = params.family === 'cylindrical';
+
+  // The drum-frame rotation: rolls the globe so the chosen central point
+  // arrives at the frame origin (the map's middle row). Null for other families.
+  const frameRotation = useMemo(
+    () => (isCylindrical ? makeFrameRotation(lambda0, phiOrigin) : null),
+    [isCylindrical, lambda0, phiOrigin],
+  );
 
   // TWO-LAYER + infinite vertical wrap: the folded height law makes the band
   // periodic, so THREE stacked copies of every layer form a seamless endless
   // tape — scrolling past a pole wraps to the opposite one. Geography data is
-  // pre-cut at ±CLIP_LAT so nothing crosses the wrap seam.
+  // pre-rotated into the drum frame and then cut at ±CLIP_LAT so nothing
+  // crosses the wrap seam.
   const gridPathGens = useMemo(() => {
     const tiles = createProjectionTiles(isCylindrical ? { ...params, lambda0: 0, phiOrigin: 0 } : params, width, height, FIT_MARGIN);
     return tiles.map((proj) => d3Geo.geoPath().projection(proj));
@@ -79,14 +89,16 @@ export default function Map2D() {
   );
   const pathGenerator = pathGenerators[0];
 
-  const bandLand = useMemo(
-    () => (isCylindrical && baseLand ? cutFeatureCollectionToBand(baseLand as FeatureCollection) : baseLand),
-    [isCylindrical, baseLand],
-  ) as FeatureCollection | null;
-  const bandBorders = useMemo(
-    () => (isCylindrical && borders ? cutFeatureCollectionToBand(borders as FeatureCollection) : borders),
-    [isCylindrical, borders],
-  ) as FeatureCollection | null;
+  const bandLand = useMemo(() => {
+    if (!baseLand) return null;
+    if (!isCylindrical || !frameRotation) return baseLand;
+    return cutFeatureCollectionToBand(rotateFeatureCollection(baseLand as FeatureCollection, frameRotation));
+  }, [isCylindrical, frameRotation, baseLand]) as FeatureCollection | null;
+  const bandBorders = useMemo(() => {
+    if (!borders) return null;
+    if (!isCylindrical || !frameRotation) return borders;
+    return cutFeatureCollectionToBand(rotateFeatureCollection(borders as FeatureCollection, frameRotation));
+  }, [isCylindrical, frameRotation, borders]) as FeatureCollection | null;
 
   const graticuleObj = useMemo(
     () => (showGraticule ? d3Geo.geoGraticule().step([graticuleStep, graticuleStep])() : null),
@@ -98,6 +110,25 @@ export default function Map2D() {
   const tissotCircles = useMemo(
     () => (showTissot ? computeTissotCircles(graticuleStep) : []),
     [showTissot, graticuleStep],
+  );
+  // Tissot indicatrices are inked onto the Earth's surface, so they ride with
+  // the rolled geography layer: rotated into the drum frame they show exactly
+  // how the projection distorts each region — nearly circular at the chosen
+  // centre (least distortion), stretched toward the window edges. Circles are
+  // also band-cut so none straddles the wrap seam.
+  const frameTissot = useMemo(
+    () =>
+      tissotCircles
+        .map((c) => {
+          if (!frameRotation) return c;
+          const cut = cutFeatureCollectionToBand({
+            type: 'FeatureCollection',
+            features: [{ type: 'Feature', properties: {}, geometry: rotatePolygon(c, frameRotation) }],
+          });
+          return (cut.features[0]?.geometry as Polygon | undefined) ?? null;
+        })
+        .filter((c): c is Polygon => c != null),
+    [tissotCircles, frameRotation],
   );
 
   const intersectionRings = useMemo(
@@ -145,13 +176,21 @@ export default function Map2D() {
     const inv = projRef?.invert?.([x, y]);
     if (!inv) return;
     if (!isPointerOverGlobe(pathGenerator, x, y)) return;
-    setHoverLonLat([inv[0], inv[1]], 'map');
+    // The cylindrical projection lives in the drum frame: un-roll the frame
+    // coordinates back to geographic lon/lat for the shared hover state.
+    const geo = frameRotation ? frameRotation.invert(inv) : inv;
+    setHoverLonLat([geo[0], geo[1]], 'map');
   };
 
   const showHoverMarker = showHoverRay && hoverSource === 'map';
-  const hoverPoint = showHoverMarker && hoverLonLat
-    ? (projRef?.([hoverLonLat[0], hoverLonLat[1]]) ?? null)
-    : null;
+  const hoverPoint = (() => {
+    if (!showHoverMarker || !hoverLonLat || !projRef) return null;
+    // Roll the geographic hover point into the drum frame before projecting.
+    const p = frameRotation ? frameRotation([hoverLonLat[0], hoverLonLat[1]]) : hoverLonLat;
+    const pt = projRef([p[0], p[1]]) as [number, number] | null;
+    if (!pt || !isFinite(pt[0]) || !isFinite(pt[1])) return null;
+    return pt;
+  })();
 
   return (
     <div ref={ref} style={containerStyle}>
@@ -195,9 +234,11 @@ export default function Map2D() {
                   ))}
               </g>
             ))}
-          {tissotCircles.map((circle, i) => (
-            <path key={`tissot-${i}`} d={gridPathGens[0](circle) ?? ''} fill={NEON_ORANGE_SOFT} stroke={NEON_ORANGE} />
-          ))}
+          {frameTissot.map((circle, i) =>
+            pathGenerators.map((pg, ti) => (
+              <path key={`tissot-${ti}-${i}`} d={pg(circle) ?? ''} fill={NEON_ORANGE_SOFT} stroke={NEON_ORANGE} />
+            )),
+          )}
           {intersectionRings.map((ring, i) => (
             <path
               key={`intersection-${i}`}

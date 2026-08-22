@@ -18,21 +18,26 @@ const clampScale = (s: number): number => Math.max(0, Math.min(1, s));
 // them analytically to the finite tube band.
 const cylCenterMap = new WeakMap<GeoProjection, number>();
 
-// The TWO-LAYER model of the flat cylindrical map:
-//   • The CYLINDER is static — it never tilts or spins itself. Its graduation
-//     grid (straight parallels/meridians, poles at the window edges) is FIXED
-//     to it and is rendered from a fully static projection (no rotations).
-//   • The GEOGRAPHY layer (continents + borders) SLIDES over that graduated
-//     drum: Долгота spins it horizontally, Параллель slides it vertically — a
-//     rigid translation, so continents keep their shapes and parallels stay
-//     straight horizontal lines at every slider position.
-// The VERTICAL coordinate is PERIODIC (folded with the band period 2·CLIP_LAT,
-// exactly like longitude's horizontal periodicity): scrolling past a pole wraps
-// to the opposite one — the south pole enters from the top, the north from the
-// bottom — giving an infinite seamless scroll in both directions. Geography
-// data is pre-cut at ±CLIP_LAT (see Map2D) so nothing crosses the wrap seam.
-// Each layer is clipped to the viewport frame; the pole zone beyond ±CLAMP_LAT
-// never exists on screen.
+// The flat cylindrical map is drawn in the STATIC drum frame: the graduated
+// cylinder never tilts or spins, and its D3 projection carries NO rotation.
+// Долгота/Параллель are a TRUE spherical rotation of the Earth inside the tube
+// (makeFrameRotation below) baked into the input coordinates — so the chosen
+// parallel/meridian always lands on the middle row with the LEAST distortion,
+// while the old equator stretches toward the window edges. This mirrors the 3D
+// scene exactly (static upright tube + coastlines rolled by the same rotation).
+// The VERTICAL coordinate stays PERIODIC in the drum frame (folded with the
+// band period 2·CLIP_LAT), so the three stacked tile copies keep forming a
+// seamless endless tape at every slider position. Geography data is pre-rotated
+// and pre-cut at ±CLIP_LAT (see Map2D) so nothing crosses the wrap seam.
+
+// Spherical rotation that rolls the globe inside the static cylinder: it brings
+// the chosen central point (lambda0, phiOrigin) to the drum-frame origin (0,0)
+// — the map's centre row, where distortion is least. Returns a d3 rotation
+// callable with `.invert()` for the reverse mapping (frame → geographic).
+export function makeFrameRotation(lambda0: number, phiOrigin: number): d3Geo.GeoRotation {
+  return d3Geo.geoRotation([-lambda0, -phiOrigin]);
+}
+
 function makeCylindricalProjection(
   distortion: ProjectionParams['distortion'],
   scaleFactor: number,
@@ -40,10 +45,10 @@ function makeCylindricalProjection(
   const s = clampScale(scaleFactor);
   const phiS = Math.acos(s); // contact latitude from the cylinder axis (radians)
   const cosS = Math.cos(phiS);
-  // The VERTICAL coordinate is PERIODIC: latitude is folded into the finite
-  // band ±CLIP_LAT with period 2·CLIP_LAT (exactly like longitude's horizontal
-  // periodicity). Scrolling Параллель 1 past a pole therefore wraps seamlessly
-  // to the opposite one — an infinite vertical tape, no copies needed.
+  // The VERTICAL coordinate is PERIODIC in the drum frame: frame latitude is
+  // folded into the finite band ±CLIP_LAT with period 2·CLIP_LAT (exactly like
+  // longitude's horizontal periodicity). Content past a drum rim therefore
+  // wraps to the opposite one — an infinite vertical tape via the tile copies.
   const periodRad = 2 * ((CLIP_LAT * Math.PI) / 180);
   const halfPeriodRad = (CLIP_LAT * Math.PI) / 180;
   // Symmetric modulo: folds into [-CLIP_LAT, +CLIP_LAT] and keeps the edges
@@ -85,10 +90,11 @@ function makeCylindricalProjection(
     raw.invert = (x: number, y: number): [number, number] => [x / cosS, y];
   }
   const proj = d3Geo.geoProjection(raw);
-  // precision(0) disables adaptive resampling. With it ON, d3's resampler
-  // approximates each segment with great-circle arcs, which would bend the
-  // straight parallels into arcs (the "egg"). The map is always the standard
-  // (non-oblique) cylindrical projection, so resampling is never needed.
+  // precision(0) disables adaptive resampling. The projection IS the graduated
+  // drum: its own rows (constant frame latitude) must stay ruler-straight
+  // horizontal lines — resampling along great-circle arcs would bend them into
+  // arcs (the "egg"). The rolled geography reaches this projection already cut
+  // into dense per-vertex form, so chords are invisible at map detail.
   proj.precision(0);
   return proj;
 }
@@ -106,28 +112,14 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
     } else {
       proj = makeCylindricalProjection('equidistant', scaleFactor);
     }
-    // The GEOGRAPHY layer of the flat cylindrical map: Долгота spins it
-    // horizontally (rotation about Earth's axis), Параллель slides it
-    // vertically — the vertical slide is applied here as a rigid translate
-    // offset so the chosen parallel lands on the middle row (the exact slide
-    // amount is finalised in fitProjectionToView at map scale; here it is
-    // baked in at the scene scale for the 3D ray math).
-    proj.rotate([-lambda0, 0, 0]).scale(MAP_SCALE * scaleFactor);
-    if (phiOrigin !== 0) {
-      const tr: [number, number] = [VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing];
-      const rot = proj.rotate();
-      proj.rotate([0, 0, 0]).scale(1).translate([0, 0]);
-      const dy = (proj([0, phiOrigin]) as [number, number])[1]; // negative for north
-      proj.rotate(rot).scale(MAP_SCALE * scaleFactor).translate([tr[0], tr[1] + dy * MAP_SCALE * scaleFactor]);
-    } else {
-      proj.translate([VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing]);
-    }
+    // The projection is the STATIC drum frame — no rotations at all. Долгота /
+    // Параллель roll the geography via makeFrameRotation BEFORE coordinates
+    // reach this projection (see Map2D / projectToAuxWorld), so the chosen
+    // central point always lands on the middle row with least distortion.
+    proj.scale(MAP_SCALE * scaleFactor).translate([VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing]);
     // Mark cylindrical projections so fitProjectionToView sizes them to the
-    // finite tube band and slides them by the chosen parallel.
-    cylCenterMap.set(proj, phiOrigin);
-    // precision(0): the geography layer never tilts, parallels stay straight
-    // horizontal lines at every slider position (no "egg").
-    proj.precision(0);
+    // finite tube band (value unused — there is no vertical slide any more).
+    cylCenterMap.set(proj, 0);
     return proj;
   }
 
@@ -224,22 +216,25 @@ const ARTIFACT_SCALE_LIMIT = 50;
 export function computeAreaDistortion(params: ProjectionParams): number {
   const proj = getD3Projection(params);
   const d = 0.25; // half-size of the sampling quad, degrees (small → low curvature error)
+  // The cylindrical drum is static; Долгота/Параллель roll the Earth inside it.
+  // Every sampled geographic cell is therefore first rolled into the drum
+  // frame, and its distortion is measured at the rolled position.
+  const roll = params.family === 'cylindrical' ? makeFrameRotation(params.lambda0, params.phiOrigin) : null;
   let aRef: number | null;
   if (params.family === 'cylindrical') {
     const s = Math.max(0, Math.min(1, params.scaleFactor));
     const phiS = (Math.acos(s) * 180) / Math.PI; // standard-parallel latitude magnitude, in degrees
-    // The 2D cylindrical map is the STANDARD (un-tilted) projection, so the
-    // contact (least-distorted) parallels sit at geographic ±phiS regardless of
-    // Параллель 1 — the map only shifts its window, it does not rotate.
+    // The least-distorted rows are the surface–globe contact parallels, fixed
+    // to the DRUM (frame latitudes ±phiS) — they do not move with the sliders.
     const cands = [phiS, -phiS];
     let best: number | null = null;
     for (const lat of cands) {
-      const a = localAreaScale(proj, params.lambda0, lat, d);
+      const a = localAreaScale(proj, 0, lat, d);
       if (a != null && a > 0) best = best == null ? a : Math.min(best, a);
     }
     if (best == null) {
-      const centre = localAreaScale(proj, params.lambda0, params.phiOrigin, d);
-      best = centre != null && centre > 0 ? centre : null;
+      const centreRow = localAreaScale(proj, 0, 0, d);
+      best = centreRow != null && centreRow > 0 ? centreRow : null;
     }
     aRef = best;
   } else if (params.family === 'conic') {
@@ -261,7 +256,20 @@ export function computeAreaDistortion(params: ProjectionParams): number {
       // Skip quads that straddle the antimeridian (lon ±180): the projection
       // wraps them across the whole map, producing a phantom huge area-scale.
       if (lon - d <= -180 || lon + d >= 180) continue;
-      const a = localAreaScale(proj, lon, lat, d);
+      // Roll the geographic cell into the drum frame for cylindrical maps.
+      let fx = lon;
+      let fy = lat;
+      if (roll) {
+        const r = roll([lon, lat]);
+        if (!r || !isFinite(r[0]) || !isFinite(r[1])) continue;
+        fx = ((r[0] % 360) + 540) % 360 - 180;
+        fy = r[1];
+        // Skip cells straddling the fold seam at the drum rim (±CLIP_LAT):
+        // their projected quad folds onto itself and measures nothing real.
+        // The seam content is cut from the map anyway.
+        if (Math.abs(fy) + d >= CLIP_LAT) continue;
+      }
+      const a = localAreaScale(proj, fx, fy, d);
       if (a == null || a <= 0) continue;
       // Drop cells stretched far past the centre scale (discontinuity artifacts).
       if (aRef != null && a > aRef * ARTIFACT_SCALE_LIMIT) continue;
@@ -331,14 +339,14 @@ export function isPointerOverGlobe(path: d3Geo.GeoPath, x: number, y: number): b
 // finite. The 3D scene keeps the fixed `scale(100)` from getD3Projection; only
 // the 2D map overrides it via this helper.
 //
-// The cylindrical family is different: the map is the TWO-LAYER flat model.
-// The window size is computed once from the full ±CLIP_LAT band and never
-// depends on the sliders; Параллель 1 slides the geography layer vertically so
-// the chosen parallel sits on the middle row. Every layer is clipped to its
-// OWN ±CLIP_LAT band rows (computed AFTER the final translate — d3 clipExtent
-// works in screen pixels): neighbouring layers butt against these rows exactly,
-// so no polar-cap garbage can ever leak onto the screen, while the static grid
-// layer keeps its graduation fixed to the cylinder.
+// The cylindrical family is different: the map is the static-drum flat model.
+// The window size is computed once from the full ±CLIP_LAT band of the drum and
+// never depends on the sliders — Долгота/Параллель roll the geography INSIDE the
+// tube (a spherical rotation baked into the data), so the drum itself never
+// zooms or slides: the chosen central point arrives at the middle row already
+// rotated, exactly like a real unrolled cylinder. Every layer is clipped to the
+// fixed viewport frame (clipExtent is set AFTER the final translate — d3
+// clipExtent works in screen pixels).
 export function fitProjectionToView(
   proj: GeoProjection,
   width: number,
@@ -346,24 +354,19 @@ export function fitProjectionToView(
   margin = FIT_MARGIN,
   fitTarget: Polygon | null = null,
 ): GeoProjection {
-  const phiOrigin = cylCenterMap.get(proj);
-  if (phiOrigin !== undefined && fitTarget == null) {
+  if (cylCenterMap.has(proj) && fitTarget == null) {
     const rot = proj.rotate();
-    // Probe the band rows and the chosen parallel in the identity frame.
+    // Probe the band rows in the identity frame (the drum never rotates).
     proj.rotate([0, 0, 0]).scale(1).translate([0, 0]);
     const halfWidth = (proj([180, 0]) as [number, number])[0];
     const topY = (proj([0, CLIP_LAT]) as [number, number])[1];
     const botY = (proj([0, -CLIP_LAT]) as [number, number])[1];
-    const centerRow = (proj([0, phiOrigin]) as [number, number])[1];
     proj.rotate(rot);
     // The scale comes from the FULL ±CLIP_LAT band and is INDEPENDENT of the
-    // sliders: moving them only SLIDES the geography layer over the static
-    // graduated frame — exactly how longitude shifts it horizontally. No zoom.
+    // sliders: rolling them only re-projects the geography inside the static
+    // graduated frame — no zoom, no slide.
     const s = Math.min((width - 2 * margin) / (2 * halfWidth), (height - 2 * margin) / (botY - topY));
-    // Slide the geography so the chosen parallel sits on the middle row. The
-    // height law is PERIODIC (folded), so beyond a pole the scroll simply wraps
-    // to the opposite pole — an endless vertical tape, like longitude.
-    const t: [number, number] = [width / 2, height / 2 - centerRow * s];
+    const t: [number, number] = [width / 2, height / 2];
     proj.scale(s).translate(t);
     // Clip to the fixed viewport frame: the periodic law fills every row of
     // the window with wrapped map content.

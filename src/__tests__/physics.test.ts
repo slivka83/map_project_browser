@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import * as d3Geo from 'd3-geo';
 import type { ProjectionParams, ProjectionFamily, DistortionModel } from '../store/useAppStore';
 import { RADIUS, RAY_COUNT, MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y, CLIP_LAT } from '../constants/geometry';
-import { getD3Projection, computeAreaDistortion, FIT_SPHERE, fitProjectionToView } from '../utils/projectionMapper';
+import { getD3Projection, computeAreaDistortion, FIT_SPHERE, fitProjectionToView, makeFrameRotation } from '../utils/projectionMapper';
+import { normalizeLon } from '../utils/geoBandClip';
 import {
   lonLatToVec3,
   vec3ToLonLat,
@@ -69,8 +70,19 @@ describe('globe ↔ map projection consistency', () => {
       });
 
       it(`${family}/${distortion}: central meridian sits at map-centre x`, () => {
-        const c = proj([p.lambda0, p.phiOrigin])!;
-        closeTo(c[0], VIEW_CENTER_X + p.falseEasting, 1e-6);
+        if (family === 'cylindrical') {
+          // The drum is static: the ROLLED central point (λ₀, φ₀) must land on
+          // the map centre — the honest-roll contract of the flat cylindrical
+          // map. The roll mirrors projectionRotationMatrix(-λ₀,-φ₀,0), which
+          // drives the 3D coastlines, so both views agree by construction.
+          const roll = makeFrameRotation(p.lambda0, p.phiOrigin);
+          const c = proj(roll([p.lambda0, p.phiOrigin]) as [number, number])!;
+          closeTo(c[0], VIEW_CENTER_X + p.falseEasting, 1e-6);
+          closeTo(c[1], VIEW_CENTER_Y + p.falseNorthing, 1e-6);
+        } else {
+          const c = proj([p.lambda0, p.phiOrigin])!;
+          closeTo(c[0], VIEW_CENTER_X + p.falseEasting, 1e-6);
+        }
       });
     }
   }
@@ -151,27 +163,28 @@ describe('globe ↔ map projection consistency', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 1b. REGRESSION: the cylindrical 2D map is a FLAT standard projection. Параллель
-//     1 (the 3D tube's tilt angle) must NOT tilt the map — it only shifts the
-//     viewport window so the chosen parallel sits on the middle row, with the
-//     parallels staying straight and the scale never changing (pure scroll).
+// 1b. CONTRACT: the flat cylindrical map is a STATIC drum. Параллель 1 does NOT
+//     slide a finished picture — it ROLLS the Earth inside the tube, so the
+//     chosen central parallel always lands on the middle row while the drum's
+//     graduation, scale and clip frame never move.
 // ---------------------------------------------------------------------------
-describe('cylindrical flat map: Параллель 1 only shifts the window (no tilt)', () => {
+describe('cylindrical static drum: Параллель 1 rolls the Earth inside the tube', () => {
   for (const distortion of DISTORTIONS) {
     for (const phi1 of [10, 30, 60]) {
-      it(`cylindrical/${distortion}: φ₁=${phi1} sits on the map's middle row`, () => {
+      it(`cylindrical/${distortion}: rolled φ₁=${phi1} sits on the map's middle row`, () => {
         const proj = getD3Projection(base({ family: 'cylindrical', distortion, phiOrigin: phi1 }));
         fitProjectionToView(proj, 800, 600, 16);
-        const y = (proj([0, phi1]) as [number, number])[1];
+        const roll = makeFrameRotation(0, phi1);
+        const y = (proj(roll([0, phi1]) as [number, number]) as [number, number])[1];
         expect(Math.abs(y - 300)).toBeLessThan(1);
       });
     }
   }
 
-  it('cylindrical: the map scale does not depend on φ₁ (pure vertical scroll, no zoom)', () => {
-    // Moving Параллель 1 must only SHIFT the flat map vertically (like longitude
-    // shifts it horizontally). The scale is computed from the full ±CLIP_LAT
-    // band and therefore stays identical at every central latitude.
+  it('cylindrical: the map scale does not depend on φ₁ (the drum never zooms)', () => {
+    // Rolling Параллель 1 re-projects the geography inside the fixed graduated
+    // band. The scale comes from the full ±CLIP_LAT band of the drum itself and
+    // therefore stays identical at every central latitude — no zoom, no slide.
     for (const distortion of DISTORTIONS) {
       const scales = [0, 10, 30, 60].map((phi1) => {
         const proj = getD3Projection(base({ family: 'cylindrical', distortion, phiOrigin: phi1 }));
@@ -184,26 +197,28 @@ describe('cylindrical flat map: Параллель 1 only shifts the window (no 
     }
   });
 
-  it('cylindrical: every layer is clipped to its own slid band rows', () => {
-    // The geography layer slides with Параллель 1, so its clip rows slide with
-    // it — always bracketing the chosen parallel and never leaving the
-    // viewport. No polar-cap garbage can leak past them.
+  it('cylindrical: every layer is clipped to the fixed viewport frame', () => {
+    // The drum never moves, so its clip rectangle brackets the viewport rows at
+    // every slider position. No polar-cap garbage can leak past it.
     for (const distortion of DISTORTIONS) {
       for (const phi1 of [0, 30]) {
         const proj = getD3Projection(base({ family: 'cylindrical', distortion, phiOrigin: phi1 }));
         fitProjectionToView(proj, 800, 600, 16);
         const clip = proj.clipExtent();
         expect(clip).not.toBeNull();
-        const yPhi = (proj([0, phi1]) as [number, number])[1];
-        expect(clip![0][1]).toBeLessThan(yPhi);
-        expect(clip![1][1]).toBeGreaterThan(yPhi);
         expect(clip![0][1]).toBeGreaterThanOrEqual(15);
         expect(clip![1][1]).toBeLessThanOrEqual(585);
+        // the middle row always stays inside the visible window
+        expect(clip![0][1]).toBeLessThan(300);
+        expect(clip![1][1]).toBeGreaterThan(300);
       }
     }
   });
 
-  it('cylindrical: parallels stay straight (horizontal) at any φ₁ — no egg, no rim smear', () => {
+  it('cylindrical: drum graduation rows stay straight (horizontal) at any φ₁', () => {
+    // The projection IS the graduated tube: a row of constant FRAME latitude
+    // must render as a straight horizontal line — the rolled geography bends,
+    // the ruler under it never does.
     for (const phi1 of [0, 30]) {
       for (const distortion of DISTORTIONS) {
         const proj = getD3Projection(base({ family: 'cylindrical', distortion, phiOrigin: phi1 }));
@@ -213,6 +228,111 @@ describe('cylindrical flat map: Параллель 1 only shifts the window (no 
           expect((proj([lon, 60]) as [number, number])[1]).toBeCloseTo(y0, 6);
         }
       }
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 1c. HONEST-ROLL PHYSICS: rolling Параллель 1 must genuinely re-project the
+//     continents onto the cylinder — least distortion at the chosen centre,
+//     growing toward the window edges; the roll must agree with the 3D scene's
+//     coastline matrix and round-trip through its inverse.
+// ---------------------------------------------------------------------------
+describe('cylindrical honest roll: centre = least distortion, edges stretch', () => {
+  const W = 800;
+  const H = 600;
+
+  it('the drum middle row carries the least area scale (conformal / equidistant)', () => {
+    for (const distortion of ['conformal', 'equidistant'] as const) {
+      const proj = fitProjectionToView(getD3Projection(base({ family: 'cylindrical', distortion })), W, H, 16);
+      const c = localAreaScaleApprox(proj, 0, 0);
+      for (const frameLat of [40, 55, -55]) {
+        const e = localAreaScaleApprox(proj, 0, frameLat);
+        expect(e).toBeGreaterThan(c * 1.15);
+      }
+    }
+  });
+
+  it('equal-area keeps a uniform area scale across the whole band (any aspect)', () => {
+    const proj = fitProjectionToView(getD3Projection(base({ family: 'cylindrical', distortion: 'equalArea' })), W, H, 16);
+    const c = localAreaScaleApprox(proj, 0, 0);
+    for (const frameLat of [40, -55, 70]) {
+      expect(Math.abs(localAreaScaleApprox(proj, 0, frameLat) / c - 1)).toBeLessThan(0.02);
+    }
+  });
+
+  it('south pole centred ⇒ pole nearly true-scale, former equator stretched ~100×', () => {
+    // The user-facing contract: with φ₀ = −90 the pole sits in the middle with
+    // minimal distortion while the former equator (now ±90° away, past the
+    // drum-rim fold) is enormously stretched.
+    const proj = fitProjectionToView(getD3Projection(base({ family: 'cylindrical', distortion: 'conformal', phiOrigin: -90 })), W, H, 16);
+    const roll = makeFrameRotation(0, -90);
+    const rp = roll([0, -90]) as [number, number];
+    const atPole = localAreaScaleApprox(proj, rp[0], rp[1]);
+    // halfway to the old equator (60° away from the pole along the meridian)
+    const mid = roll([0, -30]) as [number, number];
+    const atMid = localAreaScaleApprox(proj, mid[0], mid[1]);
+    // the old equator itself lies beyond the ±CLIP_LAT fold, so probe the same
+    // meridian just inside the visible band: Mercator stretch there is ~80×.
+    const nearRim = localAreaScaleApprox(proj, 0, CLIP_LAT - 1);
+    expect(atMid).toBeGreaterThan(atPole * 2);
+    expect(nearRim).toBeGreaterThan(atPole * 20);
+  });
+
+  it('rotation round-trips through invert and brings (λ₀, φ₀) to the frame origin', () => {
+    for (const [l0, f0] of [[37, 58], [-140, -50], [0, 0], [25, -89]] as [number, number][]) {
+      const rot = makeFrameRotation(l0, f0);
+      const c = rot([l0, f0]);
+      closeTo(c[0], 0, 1e-9);
+      closeTo(c[1], 0, 1e-9);
+      const back = rot.invert(rot([10, -25]));
+      closeTo(back[0], 10, 1e-9);
+      closeTo(back[1], -25, 1e-9);
+    }
+  });
+
+  it('drum-frame fold wraps past the rim with period 2·CLIP_LAT', () => {
+    // Frame latitudes just past +CLIP_LAT fold to the opposite side of the
+    // tape: y(+86°) must continue y(−84°) so the tile copies stay seamless.
+    for (const distortion of DISTORTIONS) {
+      const proj = getD3Projection(base({ family: 'cylindrical', distortion }));
+      const a = proj([0, CLIP_LAT + 5]) as [number, number];
+      const b = proj([0, -(CLIP_LAT - 5)]) as [number, number];
+      closeTo(a[1], b[1], 1e-6);
+    }
+  });
+
+  it('the 2D data roll describes the same Earth rotation as the 3D coastline matrix', () => {
+    // Globe.tsx rolls coastlines with projectionRotationMatrix(-λ₀,-φ₀,0)
+    // applied to lonLatToVec3 vectors; the flat map rolls its geography with
+    // makeFrameRotation. The world frame stores Z mirrored relative to the
+    // spherical embedding (see lonLatToVec3), so reading the matrix-rolled
+    // vector back through vec3ToLonLat must reproduce the frame coordinates
+    // EXACTLY — otherwise the two views would show differently rolled Earths.
+    for (const [l0, f0] of [[37, 58], [-140, -50], [10, 80], [0, -90]] as [number, number][]) {
+      const roll = makeFrameRotation(l0, f0);
+      const M = projectionRotationMatrix(-l0, -f0, 0);
+      for (const [lon, lat] of [[10, 20], [-45, 8], [120, 35], [l0, f0]] as [number, number][]) {
+        const r = roll([lon, lat]);
+        const S = lonLatToVec3(lon, lat, RADIUS);
+        const back = vec3ToLonLat(matVec(M, [S[0], S[1], -S[2]]));
+        closeTo(normalizeLon(back[0]) - normalizeLon(r[0]), 0, 1e-6);
+        closeTo(back[1], r[1], 1e-6);
+      }
+    }
+  });
+
+  it('projectToAuxWorld lands the hovered point where the rolled map draws it', () => {
+    // The hover ray must follow the ROLLED continent: the centred point lands
+    // on the front generator at the drum's middle row, and moving toward the
+    // old equator moves the landing down (and eventually out).
+    for (const distortion of DISTORTIONS) {
+      const params = base({ family: 'cylindrical', distortion, lambda0: 37, phiOrigin: 58 });
+      const centre = projectToAuxWorld(params, 37, 58, RADIUS)!;
+      expect(Math.abs(centre.end[1])).toBeLessThan(0.05);
+      expect(centre.end[0]).toBeGreaterThan(0);
+      const lower = projectToAuxWorld(params, 37, -2, RADIUS)!;
+      expect(lower.end[1]).toBeLessThan(centre.end[1] - 0.01);
     }
   });
 });

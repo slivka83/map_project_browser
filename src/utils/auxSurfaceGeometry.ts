@@ -1,4 +1,5 @@
-import { getD3Projection } from './projectionMapper';
+import { getD3Projection, makeFrameRotation } from './projectionMapper';
+import { normalizeLon } from './geoBandClip';
 import { geoRotation } from 'd3-geo';
 import type { GeoProjection } from 'd3-geo';
 import type { ProjectionParams } from '../store/useAppStore';
@@ -408,11 +409,11 @@ export function computeAuxSurfaceParams(
 ): AuxSurfaceParams {
   const v = variant ?? defaultVariant(family);
   if (family === 'cylindrical') {
-    // The TWO-LAYER model: the cylinder is STATIC — upright, axis along Earth's
-    // polar axis, never tilted. Долгота/Параллель only SLIDE the geography
-    // layer (the continents) inside it; the graduation grid and the tube stay
-    // put. The height is sized from the standard (un-rotated, un-slid)
-    // projection band; γ does not apply to the cylindrical family at all.
+    // The static drum: upright cylinder, axis along Earth's polar axis, never
+    // tilted. Долгота/Параллель ROLL the geography (the continents) inside it
+    // as a true spherical rotation; the graduation grid and the tube stay
+    // put. The height is sized from the standard (un-rotated) projection
+    // band; γ does not apply to the cylindrical family at all.
     const proj = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin: 0, scaleFactor, gamma: 0, stdParallel2, azLight, variant: v }));
     const yTop = proj([lambda0, CLIP_LAT])?.[1] ?? 0;
     const yBot = proj([lambda0, -CLIP_LAT])?.[1] ?? 0;
@@ -788,10 +789,10 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
 
   const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, params.variant)!;
   const proj = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight, variant: params.variant }));
-  // The projection carrying the actual Долгота/Параллель state: for the
-  // cylindrical family its translate contains the vertical slide of the
-  // geography layer, so the landing math follows the slid continents —
-  // matching the flat two-layer map. γ stays out of the cylindrical family.
+  // The static drum-frame projection: for the cylindrical family it carries NO
+  // rotation — the hovered point is rolled into the frame explicitly below, so
+  // the landing follows the ROLLED continents exactly like the flat map draws
+  // them. γ stays out of the cylindrical family.
   const projFlat = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, gamma: 0, stdParallel2, azLight, variant: params.variant }));
   const cy = VIEW_CENTER_Y;
   const wpp = worldPerPixel(radius);
@@ -806,10 +807,17 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
   let localEnd: Vec3 | null = null;
 
   if (family === 'cylindrical') {
-    const p = projFlat([lon, lat]);
+    // Roll the hovered geographic point into the static drum frame first —
+    // the landing must follow the ROLLED continent (honest rotation inside
+    // the fixed tube), exactly like the flat map draws it.
+    const fr = makeFrameRotation(lambda0, phiOrigin);
+    const rp = fr([lon, lat]);
+    const rlon = rp && isFinite(rp[0]) ? normalizeLon(rp[0]) : lon;
+    const rlat = rp && isFinite(rp[1]) ? rp[1] : lat;
+    const p = projFlat([rlon, rlat]);
     if (!p || !isFinite(p[0]) || !isFinite(p[1])) return null;
     const r = radius * scaleFactor;
-    localEnd = cylinderLocalEnd(projFlat, lon, lat, r, cy, wpp);
+    localEnd = cylinderLocalEnd(projFlat, rlon, rlat, r, cy, wpp);
     const vdef = variantDef(params.variant ?? defaultVariant(family));
     // The globe point is drawn at its ROLLED position (the geography layer
     // carries the Долгота/Параллель rotation), while the ray itself belongs to

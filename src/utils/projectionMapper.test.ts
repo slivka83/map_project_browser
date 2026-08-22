@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as d3Geo from 'd3-geo';
-import { getD3Projection, fitProjectionToView, FIT_SPHERE, computeAreaDistortion, isPointerOverGlobe } from './projectionMapper';
+import { getD3Projection, fitProjectionToView, FIT_SPHERE, computeAreaDistortion, isPointerOverGlobe, makeFrameRotation } from './projectionMapper';
 import type { ProjectionParams, ProjectionFamily, DistortionModel } from '../store/useAppStore';
 import type { ProjectionVariant } from '../utils/projectionVariants';
 
@@ -22,25 +22,19 @@ const makeState = (over: Partial<ProjectionParams> = {}): ProjectionParams => ({
 });
 
 describe('getD3Projection (spec §9.2)', () => {
-  it('applies rotation, scale and translate from the store state', () => {
-    // The default family is cylindrical, whose 2D map is FLAT: the rotation only
-    // carries the central meridian; phiOrigin (Параллель 1) shifts the window in
-    // fitProjectionToView instead of tilting the map.
+  it('applies scale and translate from the store state (static drum, no rotation)', () => {
+    // The cylindrical 2D projection IS the static graduated drum: it carries NO
+    // rotation at all. Долгота/Параллель roll the DATA before it reaches the
+    // projection (makeFrameRotation), so the chosen central point arrives at
+    // the map centre by construction and the drum itself never moves.
     const p = getD3Projection(
       makeState({ lambda0: 30, phiOrigin: 15, scaleFactor: 1.05, falseEasting: 50, falseNorthing: -25 }),
     );
-    const rot = p.rotate();
-    expect(rot[0]).toBeCloseTo(-30);
-    expect(rot[1]).toBeCloseTo(0);
-    expect(rot[2]).toBeCloseTo(0);
+    expect(p.rotate()).toEqual([0, 0, 0]);
     expect(p.scale()).toBe(105);
     const t = p.translate();
     expect(t[0]).toBeCloseTo(450);
-    // Параллель 1 slides the geography layer vertically: the translate carries
-    // the exact height-law offset for φ₁ = 15° (Mercator law, cosφ_s = 1 since
-    // scaleFactor is clamped to the [0,1] tangent range).
-    const dyRaw = -Math.log(Math.tan(Math.PI / 4 + (15 * Math.PI) / 180 / 2));
-    expect(t[1]).toBeCloseTo(275 + dyRaw * 105, 6);
+    expect(t[1]).toBeCloseTo(275);
   });
 
   it('cylindrical conformal matches d3 geoMercator at the origin', () => {
@@ -129,33 +123,28 @@ describe('getD3Projection — light source & visual params (spec концепт)
     expect(p([0, 0])).toEqual(ref([0, 0]));
   });
 
-  it('cylindrical 2D map ignores the tilt (gamma) and the central latitude (phiOrigin) — it is a flat map', () => {
-    // The 2D cylindrical map is a FLAT standard projection: neither the cylinder's
-    // tilt in space (gamma) nor the central latitude (Параллель 1 / phiOrigin)
-    // rotate it. Параллель 1 only shifts the viewport window (fitProjectionToView
-    // centres it); the tilt is visible in the 3D scene only.
+  it('cylindrical 2D map ignores gamma/lambda0/phiOrigin — it is the static drum frame', () => {
+    // The flat cylindrical map is the STATIC graduated tube: no slider rotates
+    // it. The tilt (gamma) and both central sliders roll the DATA instead —
+    // makeFrameRotation brings (λ₀, φ₀) to the frame origin, which is where
+    // the projection places its least-distorted middle row.
     const p = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', lambda0: 15, phiOrigin: 5, gamma: 40 }));
-    const rot = p.rotate();
-    expect(rot[0]).toBeCloseTo(-15);
-    expect(rot[1]).toBeCloseTo(0);
-    expect(rot[2]).toBeCloseTo(0);
+    expect(p.rotate()).toEqual([0, 0, 0]);
+    const c = makeFrameRotation(15, 5)([15, 5]);
+    expect(c[0]).toBeCloseTo(0, 6);
+    expect(c[1]).toBeCloseTo(0, 6);
   });
 
-  it('cylindrical rotation uses lambda0 only and leaves gamma out', () => {
-    // The central meridian is set by lambda0 (the "Поворот вокруг Земли" control);
-    // neither the tilt (gamma) nor the central latitude rotates the flat map —
-    // Параллель 1 only slides the layer vertically via its translate.
-    const p = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', lambda0: 15 }));
-    expect(p.rotate()[0]).toBeCloseTo(-15);
-    const tilted = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', lambda0: 15, gamma: 30 }));
-    expect(tilted.rotate()[2]).toBeCloseTo(0);
-    expect(tilted.rotate()[1]).toBeCloseTo(0);
-    // The same globe point lands at the identical pixel regardless of gamma
-    // (both states share the same Параллель 1 slide).
-    const a = p([15, 20]) as [number, number];
-    const b = tilted([15, 20]) as [number, number];
-    expect(a[0]).toBeCloseTo(b[0]);
-    expect(a[1]).toBeCloseTo(b[1]);
+  it('cylindrical drum frame is identical for every slider state (the roll lives in the data)', () => {
+    // Whatever Долгота/Параллель/наклон do, the projection itself never
+    // changes — the same geographic point drawn in the frame always lands on
+    // the same pixel.
+    const ref = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal' }))([15, 20])!;
+    for (const over of [{ lambda0: 15 }, { gamma: 30 }, { phiOrigin: 25 }, { lambda0: -170, phiOrigin: -80, gamma: 45 }]) {
+      const q = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', ...over }))([15, 20])!;
+      expect(q[0]).toBeCloseTo(ref[0], 9);
+      expect(q[1]).toBeCloseTo(ref[1], 9);
+    }
   });
 
   it('azimuthalPerspective gnomonic honours lambda0/phiOrigin/gamma in its rotation', () => {
@@ -250,15 +239,19 @@ describe('computeAreaDistortion', () => {
     expect(d).toBeGreaterThan(40);
   });
 
-  it('is invariant to Параллель 1 for the cylindrical family (the map is flat, it only shifts)', () => {
-    // The 2D cylindrical map is a standard (un-tilted) projection: the contact
-    // (least-distorted) parallels stay at geographic ±phiS and Параллель 1 only
-    // shifts the window, so the reported distortion must not depend on it.
+  it('responds to Параллель 1: rolling changes the visible distortion mix, equal-area stays ~0', () => {
+    // The window now rolls THROUGH the fixed distortion field of the drum, so
+    // the weighted mean genuinely changes with the central latitude — while an
+    // equal-area projection keeps ~0% at every roll (it preserves area
+    // everywhere by construction).
     const centred = computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'conformal', scaleFactor: 0.7, phiOrigin: 0 }));
     const shifted = computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'conformal', scaleFactor: 0.7, phiOrigin: 20 }));
     expect(centred).toBeGreaterThanOrEqual(0);
     expect(shifted).toBeGreaterThanOrEqual(0);
-    expect(shifted).toBeCloseTo(centred, 6);
+    expect(Math.abs(shifted - centred)).toBeGreaterThan(0.5);
+    for (const phi1 of [0, 20, -55, 80]) {
+      expect(computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'equalArea', scaleFactor: 0.7, phiOrigin: phi1 }))).toBeCloseTo(0, 1);
+    }
   });
 
   it('is invariant to a true zoom (scaleFactor) for conic/azimuthal families', () => {
@@ -461,9 +454,16 @@ describe('getD3Projection parameter boundaries', () => {
     expect(t[1]).toBeCloseTo(300 - 1000, 5);
   });
 
-  it('rotates correctly for a 180° central meridian', () => {
+  it('keeps the cylindrical drum unrotated for λ₀=180 and rolls the data instead', () => {
     const p = getD3Projection(makeState({ lambda0: 180 }));
-    expect(p.rotate()[0]).toBeCloseTo(-180, 5);
+    expect(p.rotate()).toEqual([0, 0, 0]);
+    // The roll brings the antimeridian to the frame origin…
+    const c = makeFrameRotation(180, 0)([180, 0]);
+    expect(c[0]).toBeCloseTo(0, 6);
+    expect(c[1]).toBeCloseTo(0, 6);
+    // …while other families keep their native d3 rotation.
+    const az = getD3Projection(makeState({ family: 'azimuthalPerspective', azLight: 'center', lambda0: 180 }));
+    expect(az.rotate()[0]).toBeCloseTo(-180, 5);
   });
 
   it('all 4 families × distortion combinations yield a callable, finite projection', () => {
