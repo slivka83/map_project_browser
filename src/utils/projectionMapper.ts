@@ -309,12 +309,24 @@ export function isPointerOverGlobe(path: d3Geo.GeoPath, x: number, y: number): b
 // OWN aspect ratio — like `object-fit: contain`. The map thus always occupies
 // the full viewport regardless of `scaleFactor`; a changing diameter is visible
 // through the projection's aspect (equal-area/equidistant change shape with the
-// standard parallel), not through the overall map size. `fitExtent` uses a
-// **clipped ±85° sphere** (`FIT_SPHERE`), NOT a full `{type:'Sphere'}`: for
-// `geoConicConformal` the pole maps to infinity, so a full-Sphere `fitExtent`
-// collapses the scale to near-zero (the globe renders as an empty half-disk);
-// the clip keeps the fitted scale finite. The 3D scene keeps the fixed
-// `scale(100)` from getD3Projection; only the 2D map overrides it via this helper.
+// standard parallel), not through the overall map size.
+//
+// For the conic / azimuthal families `fitExtent` uses a **clipped ±85° sphere**
+// (`FIT_SPHERE`), NOT a full `{type:'Sphere'}`: for `geoConicConformal` the pole
+// maps to infinity, so a full-Sphere `fitExtent` collapses the scale to near-zero
+// (the globe renders as an empty half-disk); the clip keeps the fitted scale
+// finite. The 3D scene keeps the fixed `scale(100)` from getD3Projection; only
+// the 2D map overrides it via this helper.
+//
+// The cylindrical family is different: the map IS the unrolled finite tube — the
+// band |local φ| ≤ CLIP_LAT unrolls to the exact rectangle [−π·cosφ_s, π·cosφ_s]
+// × [−y(CLIP_LAT), y(CLIP_LAT)] regardless of aspect, so its scale/translate are
+// computed analytically and a `clipExtent` is installed at the same rim rows
+// (off-tube cap content is dropped, never smeared onto the map rows). Fitting
+// the geographic box instead would be wrong in the oblique aspect: the box
+// extends off the tube into the clamped cap, whose Mercator height explodes
+// (y(89.5°) ≈ 5.4 vs 3.1 at the rim), collapsing the fitted scale and squeezing
+// the visible map into the middle of the viewport.
 export function fitProjectionToView(
   proj: GeoProjection,
   width: number,
@@ -322,6 +334,23 @@ export function fitProjectionToView(
   margin = FIT_MARGIN,
   fitTarget: Polygon | null = null,
 ): GeoProjection {
+  if (cylRimMap.has(proj) && fitTarget == null) {
+    const rot = proj.rotate();
+    // Probe the tube band in the raw (un-rotated, unit-scale) frame.
+    proj.rotate([0, 0, 0]).scale(1).translate([0, 0]);
+    const halfWidth = (proj([180, 0]) as [number, number])[0];
+    const topY = (proj([0, CLIP_LAT]) as [number, number])[1];
+    const botY = (proj([0, -CLIP_LAT]) as [number, number])[1];
+    proj.rotate(rot);
+    const s = Math.min((width - 2 * margin) / (2 * halfWidth), (height - 2 * margin) / (botY - topY));
+    const t: [number, number] = [width / 2, height / 2];
+    proj.scale(s).translate(t);
+    proj.clipExtent([
+      [t[0] - halfWidth * s, t[1] + topY * s],
+      [t[0] + halfWidth * s, t[1] + botY * s],
+    ]);
+    return proj;
+  }
   proj.fitExtent(
     [
       [margin, margin],
@@ -329,16 +358,16 @@ export function fitProjectionToView(
     ],
     fitTarget ?? FIT_SPHERE,
   );
-  // For the cylindrical family, drop the off-tube cap content by clipping the
-  // rendered map exactly at the tube rim (local ±CLIP_LAT). The rim rows are
-  // straight horizontal lines in screen space, so the screen-space rectangle cut
-  // is exact; geometry beyond it (which the raw safety-clamp only holds finite)
-  // is removed instead of being smeared across the row.
+  // For the cylindrical family (explicit fitTarget path), drop the off-tube cap
+  // content by clipping the rendered map exactly at the tube rim (local
+  // ±CLIP_LAT). The rim rows are straight horizontal lines in screen space, so
+  // the screen-space rectangle cut is exact; geometry beyond it (which the raw
+  // safety-clamp only holds finite) is removed instead of being smeared across
+  // the row.
   if (cylRimMap.has(proj)) {
     const s = proj.scale();
     const t = proj.translate();
     const rot = proj.rotate();
-    // Probe the rim in the raw (un-rotated, unit-scale) frame.
     proj.rotate([0, 0, 0]).scale(1).translate([0, 0]);
     const halfWidth = (proj([180, 0]) as [number, number])[0];
     const topY = (proj([0, CLIP_LAT]) as [number, number])[1];

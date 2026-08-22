@@ -181,6 +181,22 @@ describe('globe ↔ map projection consistency', () => {
       });
     }
   }
+
+  it('cylindrical conformal: oblique fit is NOT dominated by the invisible cap (map fills the viewport)', () => {
+    // The raw Mercator law explodes near the pole (y(89.5°) ≈ 5.4 vs 3.1 at the
+    // rim), so fitting the geographic ±85° box in the oblique aspect collapsed
+    // the scale (90.7 → 52.3) and squeezed the map into the middle third of the
+    // viewport. The fit must target the tube band itself: the rim rows stay at
+    // the viewport edges for any Параллель 1.
+    for (const phi1 of [10, 30, 60]) {
+      const proj = getD3Projection(base({ family: 'cylindrical', distortion: 'conformal', phiOrigin: phi1 }));
+      fitProjectionToView(proj, 800, 600, 16);
+      const clip = proj.clipExtent();
+      expect(clip).not.toBeNull();
+      expect(clip![0][1]).toBeLessThan(40);
+      expect(clip![1][1]).toBeGreaterThan(560);
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
