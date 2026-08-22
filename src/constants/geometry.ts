@@ -26,8 +26,19 @@ export const VIEW_CENTER_X = 400;
 export const VIEW_CENTER_Y = 300;
 
 // Latitude band used to clip the fit target (a full Sphere is infinite for
-// conic conformal, where the pole maps to infinity).
+// conic conformal, where the pole maps to infinity). Also the visible tube rim
+// for the cylindrical family: content beyond ±CLIP_LAT (from the cylinder axis,
+// in the local frame) is off the tube and clipped out.
 export const CLIP_LAT = 85;
+
+// Safety clamp for the cylindrical raw projection: held just beyond the visible
+// tube rim (CLIP_LAT). It exists only to keep the Mercator height law finite at
+// the pole (y = ln(tan(π/4+φ/2)) → ∞ at φ = 90°) and to keep d3 robust against
+// non-finite coordinates. The off-tube cap content itself is removed by the rim
+// clip in fitProjectionToView — so cap geometry is never smeared onto the map
+// rows (the old "ram's horn" artefact). Nothing between CLIP_LAT and CLAMP_LAT
+// is ever drawn.
+export const CLAMP_LAT = 89.5;
 
 // Uniform margin (px) used when fitting the 2D map to its viewport.
 export const FIT_MARGIN = 16;

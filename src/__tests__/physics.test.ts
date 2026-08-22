@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as d3Geo from 'd3-geo';
 import type { ProjectionParams, ProjectionFamily, DistortionModel } from '../store/useAppStore';
 import { RADIUS, RAY_COUNT, MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y } from '../constants/geometry';
-import { getD3Projection, computeAreaDistortion, FIT_SPHERE } from '../utils/projectionMapper';
+import { getD3Projection, computeAreaDistortion, FIT_SPHERE, fitProjectionToView } from '../utils/projectionMapper';
 import {
   lonLatToVec3,
   vec3ToLonLat,
@@ -146,6 +146,40 @@ describe('globe ↔ map projection consistency', () => {
         expect(Math.max(...ys) - Math.min(...ys)).toBeLessThan(0.01);
       }
     });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 1b. REGRESSION: in an OBLIQUE cylindrical aspect (Параллель 1 ≠ 0) the old raw
+//     latitude clamp smeared the off-tube cap across the map's top/bottom rows,
+//     folding the map into a "ram's horn". The tube rim is now clipped, so no
+//     flat horizontal segment should span a large fraction of the map on the
+//     rim rows — the crests are cut cleanly at the rim instead.
+// ---------------------------------------------------------------------------
+  describe('cylindrical oblique aspect: no clamped rim smear (no ram-horn)', () => {
+  for (const distortion of DISTORTIONS) {
+    for (const phi1 of [30, 60, 80]) {
+      it(`cylindrical/${distortion}: φ₁=${phi1} renders with no long flat rim segments`, () => {
+        const proj = getD3Projection(base({ family: 'cylindrical', distortion, phiOrigin: phi1 }));
+        // Emulate Map2D: fit to the viewport, which installs the rim clip.
+        fitProjectionToView(proj, 800, 600, 16);
+        const path = d3Geo.geoPath().projection(proj);
+        const d = path(d3Geo.geoGraticule().step([30, 30])())!;
+        const segs = d
+          .split(/M/)
+          .filter(Boolean)
+          .map((s) => s.split(/[LZ]/).filter(Boolean).map((c) => c.split(',').map(Number)));
+        let flat = 0;
+        for (const seg of segs) {
+          for (let i = 1; i < seg.length; i++) {
+            const a = seg[i - 1];
+            const b = seg[i];
+            if (Math.abs(a[1] - b[1]) < 0.5 && Math.abs(b[0] - a[0]) > 60) flat++;
+          }
+        }
+        expect(flat).toBe(0);
+      });
+    }
   }
 });
 

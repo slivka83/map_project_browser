@@ -7,11 +7,17 @@ import {
   VIEW_CENTER_X,
   VIEW_CENTER_Y,
   CLIP_LAT,
+  CLAMP_LAT,
   FIT_MARGIN,
   signedStandardParallelDeg,
 } from '../constants/geometry';
 
 const clampScale = (s: number): number => Math.max(0, Math.min(1, s));
+
+// Tags the cylindrical GeoProjection instances so fitProjectionToView can clip
+// the rendered map exactly at the tube rim (local ±CLIP_LAT) — content beyond
+// the finite tube is dropped, never smeared onto the map rows.
+const cylRimMap = new WeakMap<GeoProjection, true>();
 
 // Geometric cylindrical projection in the CYLINDER-LOCAL frame (the cylinder
 // axis is the local y-axis; a d3 rotation of [-lambda0, -phiOrigin, 0] brings
@@ -39,15 +45,16 @@ function makeCylindricalProjection(
   const phiS = Math.acos(s); // contact latitude from the cylinder axis (radians)
   const cosS = Math.cos(phiS);
   // The tube is finite: latitudes beyond ±CLIP_LAT (measured from the cylinder
-  // axis, i.e. the LOCAL frame) are off the surface. We clamp φ into that band
-  // INSIDE the height law rather than using proj.clipAngle(): clipAngle cuts by a
-  // small-circle around the projection centre, which bends the top/bottom edges
-  // of the map into an arc (the "egg") — a normal cylindrical map's parallels
-  // must stay straight horizontal lines. Clamping φ keeps every parallel straight
-  // and the map a proper rectangular band, while still finite (no Mercator-pole
-  // infinity under a tilt).
-  const clipRad = (CLIP_LAT * Math.PI) / 180;
-  const clampPhi = (φ: number): number => Math.max(-clipRad, Math.min(clipRad, φ));
+  // axis, i.e. the LOCAL frame) are off the surface and are clipped out at the
+  // tube rim by fitProjectionToView, so the off-tube cap is never smeared onto
+  // the map rows. The raw height law here is clamped only to ±CLAMP_LAT — just
+  // beyond the visible rim — purely to keep the Mercator law finite at the pole
+  // (y = ln(tan(π/4+φ/2)) → ∞ at φ = 90°). Content between CLIP_LAT and
+  // CLAMP_LAT is cut by the rim clip and never drawn. We do NOT clamp to the rim
+  // directly: that maps the off-tube cap onto the row and smears any line
+  // through the local pole across the whole map (the "ram's horn" artefact).
+  const clampRad = (CLAMP_LAT * Math.PI) / 180;
+  const clampPhi = (φ: number): number => Math.max(-clampRad, Math.min(clampRad, φ));
   type RawProjection = ((λ: number, φ: number) => [number, number]) & {
     invert?: (x: number, y: number) => [number, number];
   };
@@ -76,10 +83,10 @@ function makeCylindricalProjection(
   // precision(0) disables adaptive resampling. With it ON, d3's resampler treats
   // the rotate-wrapped cylindrical projection as oblique and approximates each
   // segment with great-circle arcs — bending the straight top/bottom parallels
-  // into an arc, so the whole map looked like an "egg". Turning it off keeps the
-  // parallels straight (a proper rectangular cylindrical map); the input data
-  // (graticule / coastlines) already carry enough vertices to stay smooth, and
-  // under a tilt the straight-in-data lines correctly bend on the globe.
+  // into an arc, so the whole map looked like an "egg". This stays OFF in the
+  // equatorial aspect (φ₁ = 0), where parallels must be straight; getD3Projection
+  // re-enables adaptive resampling for oblique aspects (φ₁ ≠ 0) so the crests
+  // curve correctly and the rim clip cuts cleanly.
   proj.precision(0);
   return proj;
 }
@@ -102,6 +109,12 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
       .rotate([-lambda0, -phiOrigin, rotZ])
       .scale(MAP_SCALE * scaleFactor)
       .translate([VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing]);
+    // Mark cylindrical projections so fitProjectionToView clips the rendered map
+    // at the tube rim (removing the off-tube cap instead of smearing it).
+    cylRimMap.set(proj, true);
+    // Straight parallels in the equatorial aspect (no "egg"); adaptive resampling
+    // for oblique aspects (φ₁ ≠ 0) so the rim-clipped crests curve correctly.
+    proj.precision(phiOrigin === 0 ? 0 : Math.SQRT1_2);
     return proj;
   }
 
@@ -316,5 +329,25 @@ export function fitProjectionToView(
     ],
     fitTarget ?? FIT_SPHERE,
   );
+  // For the cylindrical family, drop the off-tube cap content by clipping the
+  // rendered map exactly at the tube rim (local ±CLIP_LAT). The rim rows are
+  // straight horizontal lines in screen space, so the screen-space rectangle cut
+  // is exact; geometry beyond it (which the raw safety-clamp only holds finite)
+  // is removed instead of being smeared across the row.
+  if (cylRimMap.has(proj)) {
+    const s = proj.scale();
+    const t = proj.translate();
+    const rot = proj.rotate();
+    // Probe the rim in the raw (un-rotated, unit-scale) frame.
+    proj.rotate([0, 0, 0]).scale(1).translate([0, 0]);
+    const halfWidth = (proj([180, 0]) as [number, number])[0];
+    const topY = (proj([0, CLIP_LAT]) as [number, number])[1];
+    const botY = (proj([0, -CLIP_LAT]) as [number, number])[1];
+    proj.rotate(rot).scale(s).translate(t);
+    proj.clipExtent([
+      [t[0] - halfWidth * s, t[1] + topY * s],
+      [t[0] + halfWidth * s, t[1] + botY * s],
+    ]);
+  }
   return proj;
 }
