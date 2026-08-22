@@ -410,22 +410,23 @@ export function computeAuxSurfaceParams(
   if (family === 'cylindrical') {
     // The cylinder is a secant tube through the globe centre. For an oblique
     // aspect (central latitude φ₀ ≠ 0) the WHOLE tube is rigidly tilted by φ₀ so
-    // its axis leaves Earth's polar axis — that is exactly what makes the
-    // geographic parallels bow in the 2D map (the projection is rotated by φ₀).
-    // The height is sized from the *equatorial* projection (φ₀ = 0, γ = 0): γ only
-    // rotates the rigid tube and must not resize it, and the rays are built from
-    // the same untilted (φ₀ = 0) projection so the tube + rays always stay in
-    // sync (they are bound to each other, not to the obliquely-rotated 2D map).
+    // its axis leaves Earth's polar axis — the tilt is a 3D-only effect: the 2D
+    // map is a FLAT standard cylindrical map that only shifts its window (see
+    // projectionMapper.fitProjectionToView). The height is sized from the
+    // equatorial projection (φ₀ = 0, γ = 0): γ only rotates the rigid tube and
+    // must not resize it, and the rays are built from the same untilted (φ₀ = 0)
+    // projection so the tube + rays always stay in sync (they are bound to each
+    // other, not to the flat 2D map).
     const proj = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin: 0, scaleFactor, gamma: 0, stdParallel2, azLight, variant: v }));
     const yTop = proj([lambda0, CLIP_LAT])?.[1] ?? 0;
     const yBot = proj([lambda0, -CLIP_LAT])?.[1] ?? 0;
     const band = Math.abs(yTop - yBot) * worldPerPixel(radius);
     const height = Math.min(AUX_LENGTH * radius * AUX_SIZE_CAP, Math.max(AUX_LENGTH * radius * 0.5, band));
-    // The cylinder axis tilts with the central-latitude slider (φ₀) so the 3D
-    // tube matches the obliquely-rotated 2D map: the angle between Earth's polar
-    // axis and the tilted cylinder axis equals the φ₀ fed into the projection.
-    // γ only ROTATES the rigid tube in space (its size is fixed at γ = 0); the
-    // rays are bound to the tube and rotate with it via auxPointToWorld.
+    // The cylinder axis tilts with the central-latitude slider (φ₀); the 3D tube
+    // shows the tilt, while the flat 2D map only shifts its window to centre the
+    // chosen parallel. γ only ROTATES the rigid tube in space (its size is fixed
+    // at γ = 0); the rays are bound to the tube and rotate with it via
+    // auxPointToWorld.
     const orient = projectionRotationMatrix(lambda0, phiOrigin, gamma);
     return { kind: 'cylinder', radius: radius * scaleFactor, height, orient, orientInv: matTranspose(orient), positionY: 0 };
   }

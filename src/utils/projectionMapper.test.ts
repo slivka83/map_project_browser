@@ -23,12 +23,15 @@ const makeState = (over: Partial<ProjectionParams> = {}): ProjectionParams => ({
 
 describe('getD3Projection (spec §9.2)', () => {
   it('applies rotation, scale and translate from the store state', () => {
+    // The default family is cylindrical, whose 2D map is FLAT: the rotation only
+    // carries the central meridian; phiOrigin (Параллель 1) shifts the window in
+    // fitProjectionToView instead of tilting the map.
     const p = getD3Projection(
       makeState({ lambda0: 30, phiOrigin: 15, scaleFactor: 1.05, falseEasting: 50, falseNorthing: -25 }),
     );
     const rot = p.rotate();
     expect(rot[0]).toBeCloseTo(-30);
-    expect(rot[1]).toBeCloseTo(-15);
+    expect(rot[1]).toBeCloseTo(0);
     expect(rot[2]).toBeCloseTo(0);
     expect(p.scale()).toBe(105);
     const t = p.translate();
@@ -122,28 +125,26 @@ describe('getD3Projection — light source & visual params (spec концепт)
     expect(p([0, 0])).toEqual(ref([0, 0]));
   });
 
-  it('cylindrical 2D map ignores the tilt (gamma) — it is the unrolled tube', () => {
-    // The map is the projection ONTO the cylinder in the cylinder's own frame, so
-    // it must NOT know about the cylinder's tilt in space. gamma is left out of the
-    // d3 rotation for the cylindrical family (unlike conic / azimuthal): tilting the
-    // 3D tube merely rotates it in space; its flat development (the map) is invariant.
-    // The rays are bound to the tube and rotate with it, so the map still shows
-    // exactly what the rays project onto the tube — in the tube's own frame.
+  it('cylindrical 2D map ignores the tilt (gamma) and the central latitude (phiOrigin) — it is a flat map', () => {
+    // The 2D cylindrical map is a FLAT standard projection: neither the cylinder's
+    // tilt in space (gamma) nor the central latitude (Параллель 1 / phiOrigin)
+    // rotate it. Параллель 1 only shifts the viewport window (fitProjectionToView
+    // centres it); the tilt is visible in the 3D scene only.
     const p = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', lambda0: 15, phiOrigin: 5, gamma: 40 }));
     const rot = p.rotate();
     expect(rot[0]).toBeCloseTo(-15);
-    expect(rot[1]).toBeCloseTo(-5);
+    expect(rot[1]).toBeCloseTo(0);
     expect(rot[2]).toBeCloseTo(0);
   });
 
-  it('cylindrical rotation uses lambda0/phiOrigin and leaves gamma out', () => {
+  it('cylindrical rotation uses lambda0 only and leaves gamma out', () => {
     // The central meridian is set by lambda0 (the "Поворот вокруг Земли" control);
-    // the tilt (gamma) does NOT change the unrolled map — the map does not know the
-    // cylinder is tilted in space.
+    // neither the tilt (gamma) nor the central latitude rotates the flat map.
     const p = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', lambda0: 15 }));
     expect(p.rotate()[0]).toBeCloseTo(-15);
-    const tilted = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', lambda0: 15, gamma: 30 }));
+    const tilted = getD3Projection(makeState({ family: 'cylindrical', distortion: 'conformal', lambda0: 15, gamma: 30, phiOrigin: 20 }));
     expect(tilted.rotate()[2]).toBeCloseTo(0);
+    expect(tilted.rotate()[1]).toBeCloseTo(0);
     // And the same globe point lands at the identical pixel regardless of gamma.
     const a = p([15, 20]) as [number, number];
     const b = tilted([15, 20]) as [number, number];
@@ -243,19 +244,15 @@ describe('computeAreaDistortion', () => {
     expect(d).toBeGreaterThan(40);
   });
 
-  it('uses the correct reference latitude when phiOrigin != 0 (cylindrical)', () => {
-    // The contact (standard) parallel is ±acos(scaleFactor) in the cylinder-local
-    // frame; after the d3 rotation by +phiOrigin the geographic latitude is
-    // ±phiS + phiOrigin. Shifting phiOrigin must move the reference, so the
-    // reported distortion for an oblique cylinder differs from the centred one.
+  it('is invariant to Параллель 1 for the cylindrical family (the map is flat, it only shifts)', () => {
+    // The 2D cylindrical map is a standard (un-tilted) projection: the contact
+    // (least-distorted) parallels stay at geographic ±phiS and Параллель 1 only
+    // shifts the window, so the reported distortion must not depend on it.
     const centred = computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'conformal', scaleFactor: 0.7, phiOrigin: 0 }));
-    const oblique = computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'conformal', scaleFactor: 0.7, phiOrigin: 20 }));
+    const shifted = computeAreaDistortion(makeState({ family: 'cylindrical', distortion: 'conformal', scaleFactor: 0.7, phiOrigin: 20 }));
     expect(centred).toBeGreaterThanOrEqual(0);
-    expect(oblique).toBeGreaterThanOrEqual(0);
-    // A centred secant cylinder leaves the standard parallel at the equator; an
-    // oblique one at +20° puts it at the same geographic latitude only via the
-    // corrected sign, so the two numbers must not be identical.
-    expect(oblique).not.toBeCloseTo(centred, 6);
+    expect(shifted).toBeGreaterThanOrEqual(0);
+    expect(shifted).toBeCloseTo(centred, 6);
   });
 
   it('is invariant to a true zoom (scaleFactor) for conic/azimuthal families', () => {

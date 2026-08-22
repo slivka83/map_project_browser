@@ -150,51 +150,44 @@ describe('globe ↔ map projection consistency', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 1b. REGRESSION: in an OBLIQUE cylindrical aspect (Параллель 1 ≠ 0) the old raw
-//     latitude clamp smeared the off-tube cap across the map's top/bottom rows,
-//     folding the map into a "ram's horn". The tube rim is now clipped, so no
-//     flat horizontal segment should span a large fraction of the map on the
-//     rim rows — the crests are cut cleanly at the rim instead.
+// 1b. REGRESSION: the cylindrical 2D map is a FLAT standard projection. Параллель
+//     1 (the 3D tube's tilt angle) must NOT tilt the map — it only shifts the
+//     viewport window so the chosen parallel sits on the middle row, with the
+//     parallels staying straight and the map staying inside the viewport.
 // ---------------------------------------------------------------------------
-  describe('cylindrical oblique aspect: no clamped rim smear (no ram-horn)', () => {
+describe('cylindrical flat map: Параллель 1 only shifts the window (no tilt)', () => {
   for (const distortion of DISTORTIONS) {
-    for (const phi1 of [30, 60, 80]) {
-      it(`cylindrical/${distortion}: φ₁=${phi1} renders with no long flat rim segments`, () => {
+    for (const phi1 of [10, 30, 60]) {
+      it(`cylindrical/${distortion}: φ₁=${phi1} sits on the map's middle row`, () => {
         const proj = getD3Projection(base({ family: 'cylindrical', distortion, phiOrigin: phi1 }));
-        // Emulate Map2D: fit to the viewport, which installs the rim clip.
         fitProjectionToView(proj, 800, 600, 16);
-        const path = d3Geo.geoPath().projection(proj);
-        const d = path(d3Geo.geoGraticule().step([30, 30])())!;
-        const segs = d
-          .split(/M/)
-          .filter(Boolean)
-          .map((s) => s.split(/[LZ]/).filter(Boolean).map((c) => c.split(',').map(Number)));
-        let flat = 0;
-        for (const seg of segs) {
-          for (let i = 1; i < seg.length; i++) {
-            const a = seg[i - 1];
-            const b = seg[i];
-            if (Math.abs(a[1] - b[1]) < 0.5 && Math.abs(b[0] - a[0]) > 60) flat++;
-          }
-        }
-        expect(flat).toBe(0);
+        const y = (proj([0, phi1]) as [number, number])[1];
+        expect(Math.abs(y - 300)).toBeLessThan(1);
+      });
+
+      it(`cylindrical/${distortion}: φ₁=${phi1} — the map window fits inside the viewport`, () => {
+        const proj = getD3Projection(base({ family: 'cylindrical', distortion, phiOrigin: phi1 }));
+        fitProjectionToView(proj, 800, 600, 16);
+        // The window is ±CLIP_LAT around the central parallel, clamped to the
+        // ±CLIP_LAT band (the clamped Mercator cap must never enter it).
+        const top = (proj([0, Math.min(85, phi1 + 85)]) as [number, number])[1];
+        const bot = (proj([0, Math.max(-85, phi1 - 85)]) as [number, number])[1];
+        expect(top).toBeGreaterThanOrEqual(-5);
+        expect(bot).toBeLessThanOrEqual(605);
       });
     }
   }
 
-  it('cylindrical conformal: oblique fit is NOT dominated by the invisible cap (map fills the viewport)', () => {
-    // The raw Mercator law explodes near the pole (y(89.5°) ≈ 5.4 vs 3.1 at the
-    // rim), so fitting the geographic ±85° box in the oblique aspect collapsed
-    // the scale (90.7 → 52.3) and squeezed the map into the middle third of the
-    // viewport. The fit must target the tube band itself: the rim rows stay at
-    // the viewport edges for any Параллель 1.
-    for (const phi1 of [10, 30, 60]) {
-      const proj = getD3Projection(base({ family: 'cylindrical', distortion: 'conformal', phiOrigin: phi1 }));
-      fitProjectionToView(proj, 800, 600, 16);
-      const clip = proj.clipExtent();
-      expect(clip).not.toBeNull();
-      expect(clip![0][1]).toBeLessThan(40);
-      expect(clip![1][1]).toBeGreaterThan(560);
+  it('cylindrical: parallels stay straight (horizontal) at any φ₁ — no egg, no rim smear', () => {
+    for (const phi1 of [0, 30]) {
+      for (const distortion of DISTORTIONS) {
+        const proj = getD3Projection(base({ family: 'cylindrical', distortion, phiOrigin: phi1 }));
+        fitProjectionToView(proj, 800, 600, 16);
+        const y0 = (proj([-180, 60]) as [number, number])[1];
+        for (const lon of [-90, 0, 90, 180]) {
+          expect((proj([lon, 60]) as [number, number])[1]).toBeCloseTo(y0, 6);
+        }
+      }
     }
   });
 });
