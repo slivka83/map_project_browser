@@ -153,7 +153,7 @@ describe('globe ↔ map projection consistency', () => {
 // 1b. REGRESSION: the cylindrical 2D map is a FLAT standard projection. Параллель
 //     1 (the 3D tube's tilt angle) must NOT tilt the map — it only shifts the
 //     viewport window so the chosen parallel sits on the middle row, with the
-//     parallels staying straight and the map staying inside the viewport.
+//     parallels staying straight and the scale never changing (pure scroll).
 // ---------------------------------------------------------------------------
 describe('cylindrical flat map: Параллель 1 only shifts the window (no tilt)', () => {
   for (const distortion of DISTORTIONS) {
@@ -164,19 +164,24 @@ describe('cylindrical flat map: Параллель 1 only shifts the window (no 
         const y = (proj([0, phi1]) as [number, number])[1];
         expect(Math.abs(y - 300)).toBeLessThan(1);
       });
-
-      it(`cylindrical/${distortion}: φ₁=${phi1} — the map window fits inside the viewport`, () => {
-        const proj = getD3Projection(base({ family: 'cylindrical', distortion, phiOrigin: phi1 }));
-        fitProjectionToView(proj, 800, 600, 16);
-        // The window is ±CLIP_LAT around the central parallel, clamped to the
-        // ±CLIP_LAT band (the clamped Mercator cap must never enter it).
-        const top = (proj([0, Math.min(85, phi1 + 85)]) as [number, number])[1];
-        const bot = (proj([0, Math.max(-85, phi1 - 85)]) as [number, number])[1];
-        expect(top).toBeGreaterThanOrEqual(-5);
-        expect(bot).toBeLessThanOrEqual(605);
-      });
     }
   }
+
+  it('cylindrical: the map scale does not depend on φ₁ (pure vertical scroll, no zoom)', () => {
+    // Moving Параллель 1 must only SHIFT the flat map vertically (like longitude
+    // shifts it horizontally). The scale is computed from the full ±CLIP_LAT
+    // band and therefore stays identical at every central latitude.
+    for (const distortion of DISTORTIONS) {
+      const scales = [0, 10, 30, 60].map((phi1) => {
+        const proj = getD3Projection(base({ family: 'cylindrical', distortion, phiOrigin: phi1 }));
+        fitProjectionToView(proj, 800, 600, 16);
+        return proj.scale();
+      });
+      for (let i = 1; i < scales.length; i++) {
+        expect(scales[i]).toBeCloseTo(scales[0], 6);
+      }
+    }
+  });
 
   it('cylindrical: parallels stay straight (horizontal) at any φ₁ — no egg, no rim smear', () => {
     for (const phi1 of [0, 30]) {

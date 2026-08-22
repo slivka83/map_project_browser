@@ -314,11 +314,12 @@ export function isPointerOverGlobe(path: d3Geo.GeoPath, x: number, y: number): b
 //
 // The cylindrical family is different: the 2D map is a FLAT standard cylindrical
 // projection, and Параллель 1 (the 3D tube's tilt angle) only SHIFTS the map —
-// the visible window is ±CLIP_LAT around that parallel, fitted to the viewport.
-// The window never extends beyond the ±CLIP_LAT band (the clamped cap — whose
-// Mercator height explodes, y(89.5°) ≈ 5.4 vs 3.1 at the edge — must not leak
-// into the fit), so the scale/translate are computed analytically from the raw
-// window rows and a `clipExtent` is installed at the same rows.
+// the scale is computed once from the full ±CLIP_LAT band and never depends on
+// it, so moving the parallel is a pure vertical scroll (like longitude's
+// horizontal wrap). The translate centres the chosen parallel on the middle row,
+// and a `clipExtent` at the band rows keeps the clamped Mercator cap (whose
+// height explodes, y(89.5°) ≈ 5.4 vs 3.1 at the edge) off the scrolled map —
+// beyond the band edges only background remains.
 export function fitProjectionToView(
   proj: GeoProjection,
   width: number,
@@ -332,26 +333,25 @@ export function fitProjectionToView(
     // Probe the projection in the raw (un-rotated, unit-scale) frame.
     proj.rotate([0, 0, 0]).scale(1).translate([0, 0]);
     const halfWidth = (proj([180, 0]) as [number, number])[0];
+    const topY = (proj([0, CLIP_LAT]) as [number, number])[1];
+    const botY = (proj([0, -CLIP_LAT]) as [number, number])[1];
     const rawY = (lat: number): number => (proj([0, lat]) as [number, number])[1];
     proj.rotate(rot);
-    const y85 = -rawY(CLIP_LAT); // raw height of the ±CLIP_LAT band edge
-    // The window: ±CLIP_LAT around the central parallel, clamped to the band
-    // (so the Mercator cap at ±CLAMP_LAT never dominates the fit) and to the
-    // poles. The central parallel row is clamped to the window as well.
-    const winTopRaw = Math.min(y85, -rawY(Math.min(90, phiOrigin + CLIP_LAT)));
-    const winBotRaw = Math.max(-y85, -rawY(Math.max(-90, phiOrigin - CLIP_LAT)));
-    const centerRaw = Math.min(winTopRaw, Math.max(winBotRaw, -rawY(phiOrigin)));
-    // object-fit: contain — the whole window fits with the central parallel on
-    // the middle row.
-    const s = Math.min(
-      (width - 2 * margin) / (2 * halfWidth),
-      (height / 2 - margin) / Math.max(winTopRaw - centerRaw, centerRaw - winBotRaw),
-    );
+    const y85 = -topY; // raw height of the ±CLIP_LAT band edge
+    // The scale comes from the FULL ±CLIP_LAT band and is INDEPENDENT of
+    // Параллель 1: moving it only SHIFTS the map vertically — exactly how
+    // longitude shifts it horizontally. No zoom.
+    const s = Math.min((width - 2 * margin) / (2 * halfWidth), (height - 2 * margin) / (botY - topY));
+    // Centre the chosen parallel on the middle row (clamped into the band).
+    const centerRaw = Math.min(y85, Math.max(-y85, -rawY(phiOrigin)));
     const t: [number, number] = [width / 2, height / 2 + centerRaw * s];
     proj.scale(s).translate(t);
+    // Clip at the BAND rows: with a fixed scale and a shifted centre the screen
+    // can reach past ±CLIP_LAT into the clamped Mercator cap — that area stays
+    // empty background instead of showing smeared cap geometry.
     proj.clipExtent([
-      [t[0] - halfWidth * s, t[1] - winTopRaw * s],
-      [t[0] + halfWidth * s, t[1] - winBotRaw * s],
+      [t[0] - halfWidth * s, t[1] + topY * s],
+      [t[0] + halfWidth * s, t[1] + botY * s],
     ]);
     return proj;
   }
