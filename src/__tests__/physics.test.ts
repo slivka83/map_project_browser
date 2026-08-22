@@ -183,6 +183,23 @@ describe('cylindrical flat map: Параллель 1 only shifts the window (no 
     }
   });
 
+  it('cylindrical: the viewport frame is fixed — the clip never moves with φ₁', () => {
+    // True scrolling means a STABLE window: the clip frame must stay exactly at
+    // the fitted screen box for every Параллель 1, while only the content
+    // translates beneath it (like longitude, whose frame never moves either).
+    for (const distortion of DISTORTIONS) {
+      const clips = [0, 30].map((phi1) => {
+        const proj = getD3Projection(base({ family: 'cylindrical', distortion, phiOrigin: phi1 }));
+        fitProjectionToView(proj, 800, 600, 16);
+        return proj.clipExtent();
+      });
+      expect(clips[0]).not.toBeNull();
+      expect(clips[1]).toEqual(clips[0]);
+      expect(clips[0]![0][1]).toBeCloseTo(16, 6);
+      expect(clips[0]![1][1]).toBeCloseTo(584, 6);
+    }
+  });
+
   it('cylindrical: parallels stay straight (horizontal) at any φ₁ — no egg, no rim smear', () => {
     for (const phi1 of [0, 30]) {
       for (const distortion of DISTORTIONS) {

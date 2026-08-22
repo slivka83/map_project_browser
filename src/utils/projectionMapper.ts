@@ -317,9 +317,8 @@ export function isPointerOverGlobe(path: d3Geo.GeoPath, x: number, y: number): b
 // the scale is computed once from the full ±CLIP_LAT band and never depends on
 // it, so moving the parallel is a pure vertical scroll (like longitude's
 // horizontal wrap). The translate centres the chosen parallel on the middle row,
-// and a `clipExtent` at the band rows keeps the clamped Mercator cap (whose
-// height explodes, y(89.5°) ≈ 5.4 vs 3.1 at the edge) off the scrolled map —
-// beyond the band edges only background remains.
+// and the clipExtent is the FIXED viewport frame: it never moves — only the
+// content scrolls beneath a stable window, exactly like longitude.
 export function fitProjectionToView(
   proj: GeoProjection,
   width: number,
@@ -346,12 +345,12 @@ export function fitProjectionToView(
     const centerRaw = Math.min(y85, Math.max(-y85, -rawY(phiOrigin)));
     const t: [number, number] = [width / 2, height / 2 + centerRaw * s];
     proj.scale(s).translate(t);
-    // Clip at the BAND rows: with a fixed scale and a shifted centre the screen
-    // can reach past ±CLIP_LAT into the clamped Mercator cap — that area stays
-    // empty background instead of showing smeared cap geometry.
+    // The clip is the FIXED viewport frame: it never moves with Параллель 1 —
+    // the content SCROLLS beneath a stable window (like longitude's horizontal
+    // wrap), so the map never slides as a sheet. Only the translate moves.
     proj.clipExtent([
-      [t[0] - halfWidth * s, t[1] + topY * s],
-      [t[0] + halfWidth * s, t[1] + botY * s],
+      [t[0] - halfWidth * s, margin],
+      [t[0] + halfWidth * s, height - margin],
     ]);
     return proj;
   }
