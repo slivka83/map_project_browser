@@ -41,7 +41,6 @@ function projParams(
     gamma: 0,
     stdParallel2: null,
     azLight: 'center',
-    coneHemisphere: 'north',
     ...over,
   };
 }
@@ -65,9 +64,6 @@ export function vec3ToLonLat(v: Vec3): [number, number] {
 }
 
 // --- Vec3 helpers ---
-export function vec3Distance(a: Vec3, b: Vec3): number {
-  return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
-}
 export function vec3Normalize(v: Vec3): Vec3 {
   const len = Math.hypot(v[0], v[1], v[2]) || 1;
   return [v[0] / len, v[1] / len, v[2] / len];
@@ -163,7 +159,7 @@ export function auxPointToWorld(surface: AuxSurfaceParams, p: Vec3): Vec3 {
   return planePointToWorld(surface.center, surface.normal, surface.tilt, p);
 }
 
-export function planePointToWorld(center: Vec3, normal: Vec3, tiltDeg: number, p: Vec3): Vec3 {
+function planePointToWorld(center: Vec3, normal: Vec3, tiltDeg: number, p: Vec3): Vec3 {
   const { east, north } = basisFromNormal(normal);
   const g = (tiltDeg * Math.PI) / 180;
   const x = p[0] * Math.cos(g) - p[1] * Math.sin(g);
@@ -684,8 +680,6 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
     lambda0,
     phiOrigin,
     scaleFactor,
-    falseEasting,
-    falseNorthing,
     gamma,
     stdParallel2,
     azLight,
@@ -701,15 +695,20 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
   // The ray apparatus is STATIC — part of the fixed graduated cylinder (like
   // the grid and the light): the fan does not depend on Долгота/Параллель at
   // all. Only the geography layer slides beneath these stationary beams.
-  // Conic / azimuthal keep their own projection for the fan as before.
-  const projFlat = getD3Projection(projParams(family, distortion, { lambda0: 0, phiOrigin: 0, scaleFactor, gamma: 0, stdParallel2, azLight, variant: params.variant }));
-  const proj = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight, variant: params.variant }));
+  // Conic / azimuthal keep their own projection for the fan as before. Built
+  // lazily per family: cylindrical needs only the static frame projection.
+  const projFlat = family === 'cylindrical'
+    ? getD3Projection(projParams(family, distortion, { lambda0: 0, phiOrigin: 0, scaleFactor, gamma: 0, stdParallel2, azLight, variant: params.variant ?? defaultVariant(family) }))
+    : null;
+  let proj: GeoProjection | null = null;
 
-  const { center, normal } = computeTangentBasis(lambda0, phiOrigin, radius);
   // The conic cone keeps phiOrigin's sign (like the 3D aux surface) so a
   // southern phiOrigin yields a southern cone matching the rendered mesh.
   const phi2c = stdParallel2 != null ? stdParallel2 : phiOrigin;
-  const cone = computeCone(phiOrigin, phi2c, radius, scaleFactor);
+  const cone = family === 'conic' ? computeCone(phiOrigin, phi2c, radius, scaleFactor) : null;
+  // Cylindrical beams are parallel to the tube axis for the "parallel" light mode.
+  // (RayParamsFull extends Partial<ProjectionParams>, so variant may be absent.)
+  const lightIsParallel = variantDef(params.variant ?? defaultVariant(family)).lightIsParallel;
 
   const result: RaySegment[] = [];
 
@@ -717,28 +716,26 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
     // Cylindrical: the static fan covers ONE period of the graduated tube
     // (grid latitudes −CLIP_LAT..+CLIP_LAT) — beams never double back.
     const lat = family === 'cylindrical' ? -CLIP_LAT + (i * 2 * CLIP_LAT) / (rayCount - 1) : -90 + (i * 180) / (rayCount - 1);
-    // The static fan is anchored to the GRID's central meridian (front).
-    let globe = lonLatToVec3(family === 'cylindrical' ? 0 : lambda0, lat, radius);
 
+    let globe: Vec3;
     let start: Vec3;
     let localEnd: Vec3;
 
     if (family === 'cylindrical') {
-      const vdef = variantDef(params.variant ?? defaultVariant(family));
       const r = radius * scaleFactor;
       // The fan belongs to the STATIC graduated cylinder: sample its own
       // central meridian (grid longitude 0), never the slid geography.
-      localEnd = cylinderLocalEnd(projFlat, 0, lat, r, cy, wpp);
-      const latRad = (lat * Math.PI) / 180;
-      const globeLocal: Vec3 = [radius * Math.cos(latRad), radius * Math.sin(latRad), 0];
+      localEnd = cylinderLocalEnd(projFlat!, 0, lat, r, cy, wpp);
+      const globeLocal: Vec3 = [radius * Math.cos((lat * Math.PI) / 180), radius * Math.sin((lat * Math.PI) / 180), 0];
       globe = auxPointToWorld(surface, globeLocal);
-      if (vdef.lightIsParallel) {
-        const localStart: Vec3 = [-PARALLEL_LEN, globeLocal[1], 0];
-        start = auxPointToWorld(surface, localStart);
+      if (lightIsParallel) {
+        start = auxPointToWorld(surface, [-PARALLEL_LEN, globeLocal[1], 0]);
       } else {
         start = [0, 0, 0];
       }
-    } else if (family === 'azimuthalPerspective' ) {
+    } else if (family === 'azimuthalPerspective') {
+      proj = proj ?? getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, falseEasting: params.falseEasting ?? 0, falseNorthing: params.falseNorthing ?? 0, gamma, stdParallel2, azLight, variant: params.variant }));
+      const { center } = computeTangentBasis(lambda0, phiOrigin, radius);
       const c = proj([lambda0, phiOrigin]);
       const p = proj([lambda0, lat]);
       const dx = (p ? p[0] : 0) - (c ? c[0] : 0);
@@ -746,17 +743,16 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
       // disc coords (east, north); the in-plane gamma rotation is applied by
       // `auxPointToWorld` → the endpoints always lie on the tangent plane.
       localEnd = [dx * wpp, -dy * wpp, 0];
+      globe = lonLatToVec3(lambda0, lat, radius);
       if (azLight === 'antipode') {
         start = [-center[0], -center[1], -center[2]];
       } else {
         start = [0, 0, 0];
       }
     } else if (family === 'conic') {
-      const latRad = (lat * Math.PI) / 180;
-      const yCone = coneAxialHeight(latRad, cone, radius);
-      const radCone = scaleFactor * Math.abs(cone.sign * cone.apex - yCone) * cone.tanA;
-      const localY = cone.flip * (yCone - cone.positionY);
-      localEnd = [radCone, localY, 0];
+      const { r, y } = coneLanding(lat, cone!, scaleFactor, radius);
+      localEnd = [r, y, 0];
+      globe = lonLatToVec3(lambda0, lat, radius);
       start = coneApexWorld(surface as Extract<AuxSurfaceParams, { kind: 'cone' }>, gamma);
     } else {
       continue;
@@ -768,7 +764,8 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
     // Light travels from the "viewer at infinity" (in the -normal direction, in front of the
     // globe) THROUGH the globe point to the tangent plane (behind the globe, +normal). So
     // `start` must sit at globe - normal·LEN (in front), not beyond the plane.
-    if ((family === 'azimuthalPerspective' ) && azLight === 'infinity') {
+    if (family === 'azimuthalPerspective' && azLight === 'infinity') {
+      const { normal } = computeTangentBasis(lambda0, phiOrigin, radius);
       start = [globe[0] - normal[0] * PARALLEL_LEN, globe[1] - normal[1] * PARALLEL_LEN, globe[2] - normal[2] * PARALLEL_LEN];
     }
 
@@ -778,29 +775,37 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
   return result;
 }
 
-// Local-frame conic ray endpoint: the point on the cone lateral surface that the
-// ray from the apex through the globe point (lon=λ0, lat) lands on. With `clamp`
-// it applies the same finite-extent clamp used by the rendered surface, so tests
-// can verify the exact `localEnd` the source transforms onto the cone.
+// Radius and axial position of the point where latitude `latDeg` lands on the
+// cone's lateral surface, in the cone's LOCAL frame (y measured from the base,
+// apex at +height/2). Shared by every conic-ray builder so they cannot drift.
+function coneLanding(latDeg: number, cone: ConeParams, scaleFactor: number, radius: number): { r: number; y: number } {
+  const latRad = (latDeg * Math.PI) / 180;
+  const yAxial = coneAxialHeight(latRad, cone, radius);
+  return {
+    r: scaleFactor * Math.abs(cone.sign * cone.apex - yAxial) * cone.tanA,
+    y: cone.flip * (yAxial - cone.positionY),
+  };
+}
+
+// Local-frame conic ray endpoint for a central-meridian latitude: the point on
+// the cone lateral surface that the ray from the apex through (λ₀, lat) lands
+// on. With `clamp` it applies the same finite-extent clamp used by the rendered
+// surface, so tests can verify the exact local point the source transforms onto
+// the cone.
 export function computeConicRayEnd(
-  lambda0: number,
   lat: number,
   phiOrigin: number,
-  scaleFactor: number,
+  scaleFactor = 1,
   radius = RADIUS,
   stdParallel2: number | null = null,
-  gamma = 0,
   clamp = false,
 ): Vec3 {
   const phi2 = stdParallel2 != null ? stdParallel2 : phiOrigin;
   const cone = computeCone(phiOrigin, phi2, radius, scaleFactor);
-  const latRad = (lat * Math.PI) / 180;
-  const yCone = coneAxialHeight(latRad, cone, radius);
-  const radCone = scaleFactor * Math.abs(cone.sign * cone.apex - yCone) * cone.tanA;
-  const localY = cone.flip * (yCone - cone.positionY);
-  const local: Vec3 = [radCone, localY, 0];
+  const { r, y } = coneLanding(lat, cone, scaleFactor, radius);
+  const local: Vec3 = [r, y, 0];
   if (!clamp) return local;
-  const surface = computeAuxSurfaceParams('conic', lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma);
+  const surface = computeAuxSurfaceParams('conic', 0, phiOrigin, scaleFactor, radius, stdParallel2);
   return clampLocalToSurface(surface, local);
 }
 
@@ -813,19 +818,18 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
   const { family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight } = params;
 
   const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, params.variant);
-  const proj = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight, variant: params.variant }));
   // The static drum-frame projection: for the cylindrical family it carries NO
   // rotation — the hovered point is rolled into the frame explicitly below, so
   // the landing follows the ROLLED continents exactly like the flat map draws
-  // them. γ stays out of the cylindrical family.
-  const projFlat = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, gamma: 0, stdParallel2, azLight, variant: params.variant }));
+  // them. γ stays out of the cylindrical family. Other families use the fully
+  // rotated projection; built lazily per family.
+  const projFlat = family === 'cylindrical'
+    ? getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, gamma: 0, stdParallel2, azLight, variant: params.variant }))
+    : null;
+  let proj: GeoProjection | null = null;
   const cy = VIEW_CENTER_Y;
   const wpp = worldPerPixel(radius);
   const PARALLEL_LEN = parallelBeamLength(radius);
-
-  const { center, normal } = computeTangentBasis(lambda0, phiOrigin, radius);
-  const phi2c = stdParallel2 != null ? stdParallel2 : phiOrigin;
-  const cone = computeCone(phiOrigin, phi2c, radius, scaleFactor);
 
   let globe = lonLatToVec3(lon, lat, radius);
   let start: Vec3;
@@ -839,23 +843,24 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
     const rp = fr([lon, lat]);
     const rlon = rp && isFinite(rp[0]) ? normalizeLon(rp[0]) : lon;
     const rlat = rp && isFinite(rp[1]) ? rp[1] : lat;
-    const p = projFlat([rlon, rlat]);
+    const p = projFlat!([rlon, rlat]);
     if (!p || !isFinite(p[0]) || !isFinite(p[1])) return null;
     const r = radius * scaleFactor;
-    localEnd = cylinderLocalEnd(projFlat, rlon, rlat, r, cy, wpp);
-    const vdef = variantDef(params.variant ?? defaultVariant(family));
+    localEnd = cylinderLocalEnd(projFlat!, rlon, rlat, r, cy, wpp);
     // The globe point is drawn at its ROLLED position (the geography layer
     // carries the Долгота/Параллель rotation), while the ray itself belongs to
     // the static apparatus: the light stays fixed and the landing follows the
     // slid map position of the hovered continent.
     globe = matVec(projectionRotationMatrix(-lambda0, -phiOrigin, 0), globe);
-    if (vdef.lightIsParallel) {
+    if (variantDef(params.variant).lightIsParallel) {
       // Parallel beam along +X through the rolled point.
       start = [-PARALLEL_LEN, globe[1], globe[2]];
     } else {
       start = [0, 0, 0];
     }
-  } else if (family === 'azimuthalPerspective' ) {
+  } else if (family === 'azimuthalPerspective') {
+    proj = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight, variant: params.variant }));
+    const { center } = computeTangentBasis(lambda0, phiOrigin, radius);
     const c = proj([lambda0, phiOrigin]);
     const p = proj([lon, lat]);
     if (!p || !c || !isFinite(p[0]) || !isFinite(p[1])) return null;
@@ -875,15 +880,15 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
     if (azLight === 'antipode') start = [-center[0], -center[1], -center[2]];
     else start = [0, 0, 0];
   } else if (family === 'conic') {
+    proj = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight, variant: params.variant }));
     const p = proj([lon, lat]);
     const c = proj([lambda0, phiOrigin]);
     if (!p || !c || !isFinite(p[0]) || !isFinite(p[1])) return null;
     const dx = p[0] - c[0];
-    const latRad = (lat * Math.PI) / 180;
-    const yCone = coneAxialHeight(latRad, cone, radius);
-    const radCone = scaleFactor * Math.abs(cone.sign * cone.apex - yCone) * cone.tanA;
+    const phi2c = stdParallel2 != null ? stdParallel2 : phiOrigin;
+    const cone = computeCone(phiOrigin, phi2c, radius, scaleFactor);
+    const { r: radCone, y: localY } = coneLanding(lat, cone, scaleFactor, radius);
     const theta = radCone > 1e-9 ? (dx * wpp) / radCone : 0;
-    const localY = cone.flip * (yCone - cone.positionY);
     localEnd = [radCone * Math.cos(theta), localY, radCone * Math.sin(theta)];
     start = coneApexWorld(surface as Extract<AuxSurfaceParams, { kind: 'cone' }>, gamma);
   } else {
@@ -893,7 +898,8 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
   if (!localEnd) return null;
   const end = auxPointToWorld(surface, clampLocalToSurface(surface, localEnd));
 
-  if ((family === 'azimuthalPerspective' ) && azLight === 'infinity') {
+  if (family === 'azimuthalPerspective' && azLight === 'infinity') {
+    const { normal } = computeTangentBasis(lambda0, phiOrigin, radius);
     start = [globe[0] - normal[0] * PARALLEL_LEN, globe[1] - normal[1] * PARALLEL_LEN, globe[2] - normal[2] * PARALLEL_LEN];
   }
 

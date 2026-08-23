@@ -1,7 +1,6 @@
 import type {
   ProjectionFamily,
   DistortionModel,
-  ConeHemisphere,
   AzimuthalLight,
 } from '../../store/useAppStore';
 
@@ -25,15 +24,10 @@ export const DISTORTION_LABEL: Record<DistortionModel, string> = Object.fromEntr
   DISTORTION_OPTIONS.map((o) => [o.value, o.label]),
 ) as Record<DistortionModel, string>;
 
-export const CONE_HEMISPHERE_OPTIONS: { value: ConeHemisphere; label: string }[] = [
-  { value: 'north', label: 'Север' },
-  { value: 'south', label: 'Юг' },
-];
-
 // Azimuthal light-source labels / icons keyed by azLight mode.
 export const AZ_LIGHT_LABEL_MAP: Record<AzimuthalLight, string> = {
   center: 'Центр Земли',
-  antipode: 'Противоположный полюс',
+  antipode: 'Антипод точки касания',
   infinity: 'Бесконечность',
 };
 

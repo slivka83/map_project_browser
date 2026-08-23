@@ -164,8 +164,11 @@ object-fit: contain), поэтому глобус всегда заполняе�
 npm run test
 ```
 
-Покрываются: стор, маппер проекций, геометрия `auxSurfaceGeometry`, `ControlPanel`,
-`Map2D` и монтирование `App`. Намеренно **не** тестируются
+Покрываются: стор и селекторы, маппер проекций, геометрия `auxSurfaceGeometry`, константы,
+`ControlPanel`, `ProjectionHeader`, `ProjectionSummary`, `Map2D`, `ErrorBoundary`,
+монтирование `App`, а также два «сторожевых» набора — физика геометрии
+(`src/__tests__/physics.test.ts`) и соответствие документации коду
+(`src/__tests__/docsConsistency.test.ts`). Намеренно **не** тестируются
 WebGL/`<Canvas>` и атрибуты `d` SVG-путей (хрупко и зависит от размеров экрана) —
 это проверяется только вручную.
 

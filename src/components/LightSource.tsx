@@ -8,7 +8,7 @@ import {
   type Vec3,
   type AuxSurfaceParams,
 } from '../utils/auxSurfaceGeometry';
-import { variantDef, defaultVariant } from '../utils/projectionVariants';
+import { variantDef } from '../utils/projectionVariants';
 import type { ProjectionParams } from '../store/useAppStore';
 
 export default function LightSource({
@@ -20,7 +20,7 @@ export default function LightSource({
 }) {
   const { family, lambda0, phiOrigin, azLight } = params;
 
-  const def = useMemo(() => variantDef(params.variant ?? defaultVariant(family)), [params.variant, family]);
+  const def = useMemo(() => variantDef(params.variant), [params.variant]);
 
   const lamp = useMemo(
     () =>

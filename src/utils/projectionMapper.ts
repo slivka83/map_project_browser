@@ -125,7 +125,10 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
     // signedStandardParallelDeg), so NO extra hemisphere sign is applied — that
     // would double-flip and build a northern cone for a southern phiOrigin.
     const phi1 = signedStandardParallelDeg(phiOrigin);
-    const phi2 = state.stdParallel2 != null ? state.stdParallel2 : phi1;
+    // A secant φ₂ must share φ₁'s hemisphere: parallels([−40°, +60°]) is an
+    // impossible cone spanning both hemispheres and degenerates the map. The
+    // store already normalizes on write; this guards every other caller.
+    const phi2 = state.stdParallel2 != null ? Math.sign(phi1) * Math.abs(state.stdParallel2) : phi1;
     proj = (proj as GeoConicProjection).parallels([phi1, phi2]);
     const rotZ = -gamma;
     proj

@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore, type ProjectionFamily } from '../store/useAppStore';
 import { useProjectionParams } from '../store/selectors';
 import {
-  defaultVariant,
   variantDef,
   CYLINDRICAL_VARIANT_OPTIONS,
   CONIC_VARIANT_OPTIONS,
@@ -53,7 +52,7 @@ export default function ProjectionHeader() {
   const { variant, family } = params;
   const setVariant = useAppStore((s) => s.setVariant);
 
-  const current = variant ?? defaultVariant(family);
+  const current = variant;
   const def = useMemo(() => variantDef(current), [current]);
   const highlightedValue = ALL_OPTIONS[highlight]?.value;
 

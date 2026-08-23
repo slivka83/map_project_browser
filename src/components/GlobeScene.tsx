@@ -13,7 +13,7 @@ import CutLine from './CutLine';
 import { computeAuxSurfaceParams, lonLatToVec3, vec3ToLonLat, projectionRotationMatrix, matTranspose, matVec } from '../utils/auxSurfaceGeometry';
 import { RADIUS } from '../constants/geometry';
 import { NEON_YELLOW } from '../constants/designTokens';
-import { variantDef, defaultVariant } from '../utils/projectionVariants';
+import { variantDef } from '../utils/projectionVariants';
 
 export default function GlobeScene() {
   const params = useProjectionParams();
@@ -27,10 +27,7 @@ export default function GlobeScene() {
   const setHoverLonLat = useAppStore((s) => s.setHoverLonLat);
   const setParam = useAppStore((s) => s.setParam);
 
-  const def = useMemo(
-    () => variantDef(params.variant ?? defaultVariant(params.family)),
-    [params.variant, params.family],
-  );
+  const def = useMemo(() => variantDef(params.variant), [params.variant]);
 
   // Single source of truth: compute the developable-surface geometry ONCE per
   // frame-input change and hand it to every 3D sub-component, instead of each

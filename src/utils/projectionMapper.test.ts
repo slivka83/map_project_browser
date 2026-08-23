@@ -16,7 +16,6 @@ const makeState = (over: Partial<ProjectionParams> = {}): ProjectionParams => ({
   gamma: 0,
   stdParallel2: null,
   azLight: 'center',
-  coneHemisphere: 'north',
   variant: 'mercator',
   ...over,
 });
@@ -177,6 +176,17 @@ describe('getD3Projection — light source & visual params (spec концепт)
     const p = getD3Projection(makeState({ family: 'conic', distortion: 'conformal', phiOrigin: -45, stdParallel2: -60 }));
     const ref = d3Geo.geoConicConformal().parallels([-45, -60]).rotate([0, 45]).scale(100).translate([400, 300]);
     expect(p([0, 0])).toEqual(ref([0, 0]));
+  });
+
+  it('coerces a mismatched-sign secant phi2 into phi1 hemisphere (defensive)', () => {
+    // parallels([−45°, +60°]) would be an impossible cone spanning both
+    // hemispheres and degenerate the map. Whatever sign arrives, φ₂ must be
+    // coerced into φ₁'s hemisphere — matching the 3D cone, which uses |φ₂| in
+    // φ₀'s hemisphere.
+    const p = getD3Projection(makeState({ family: 'conic', distortion: 'conformal', phiOrigin: -45, stdParallel2: 60 }));
+    const ref = d3Geo.geoConicConformal().parallels([-45, -60]).rotate([0, 45]).scale(100).translate([400, 300]);
+    expect(p([0, 0])).toEqual(ref([0, 0]));
+    expect(p([0, -50])![1]).toBeCloseTo(ref([0, -50])![1], 6);
   });
 });
 

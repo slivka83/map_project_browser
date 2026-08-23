@@ -2,10 +2,7 @@ import { useMemo } from 'react';
 import { useAppStore } from '../store/useAppStore';
 
 import { useProjectionParams } from '../store/selectors';
-import {
-  variantDef,
-  defaultVariant,
-} from '../utils/projectionVariants';
+import { variantDef, type VariantDef } from '../utils/projectionVariants';
 import ParamSlider from './ui/ParamSlider';
 import PresetChips from './ui/PresetChips';
 import {
@@ -14,16 +11,8 @@ import {
   inactiveTab,
   sliderClass,
   fieldRow,
-  radioGroup,
-  radioOption,
-  radioOptionActive,
-  radioOptionInactive,
 } from './ui/styles';
-import {
-  CONE_HEMISPHERE_OPTIONS,
-  AZ_LIGHT_LABEL_MAP,
-  AZ_LIGHT_ICON_MAP,
-} from './ui/labels';
+import { AZ_LIGHT_LABEL_MAP, AZ_LIGHT_ICON_MAP } from './ui/labels';
 import { signedStandardParallelDeg } from '../constants/geometry';
 
 function StdParallel2Control({
@@ -40,14 +29,18 @@ function StdParallel2Control({
   tooltip?: string | null;
 }) {
   const secant = value != null;
-  const defaultMag = Math.min(89, Math.abs(signedStandardParallelDeg(phiOrigin)) + 20);
+  // The cone hemisphere follows φ₀'s sign, so φ₂ must carry the same sign:
+  // a southern cone's second parallel is NEGATIVE (parallels([−40°, +60°])
+  // would be an impossible cone spanning both hemispheres).
+  const sign = signedStandardParallelDeg(phiOrigin) < 0 ? -1 : 1;
+  const defaultMag = sign * Math.min(89, Math.abs(signedStandardParallelDeg(phiOrigin)) + 20);
 
   if (disabled) {
     return (
       <div className={fieldRow} title={tooltip ?? undefined}>
         <span className={`${labelClass} w-36 shrink-0 cursor-help opacity-40`}>🔗 Параллель 2</span>
         <div className="flex min-w-0 flex-1 items-center gap-[4px]">
-          <input type="range" min={0} max={90} step={1} value={value ?? 30} disabled className={sliderClass} />
+          <input type="range" min={0} max={90} step={1} value={value ?? defaultMag} disabled className={sliderClass} />
           <span className="w-9 shrink-0 text-right text-[12px] text-gray-500">—</span>
         </div>
       </div>
@@ -69,8 +62,8 @@ function StdParallel2Control({
       </button>
       <input
         type="range"
-        min={0}
-        max={90}
+        min={sign > 0 ? 1 : -89}
+        max={sign > 0 ? 89 : -1}
         step={1}
         value={value ?? defaultMag}
         disabled={!secant}
@@ -84,17 +77,23 @@ function StdParallel2Control({
 }
 
 // Top-level projection parameter controls (context-driven by VariantDef).
-function ProjectionParamsSection({ def }: { def: ReturnType<typeof variantDef> }) {
+function ProjectionParamsSection({ def }: { def: VariantDef }) {
   const params = useProjectionParams();
   const setParam = useAppStore((s) => s.setParam);
-  const { family, lambda0, phiOrigin, scaleFactor, gamma, stdParallel2, coneHemisphere } = params;
+  const { family, lambda0, phiOrigin, scaleFactor, gamma, stdParallel2 } = params;
+
+  // For the conic family φ₀ IS the first standard parallel; for cylindrical /
+  // azimuthal it is simply the central latitude (for cylindrical it rolls the
+  // Earth inside the static drum), so the label must not claim a standard
+  // parallel where there is none.
+  const phiLabel = family === 'conic' ? 'Параллель 1 (φ₁)' : 'Центральная параллель (φ₀)';
 
   return (
     <div className="flex flex-col gap-2.5">
       <ParamSlider label="Долгота (λ₀)" value={lambda0} min={-180} max={180} step={1} onChange={(v) => setParam('lambda0', v)} />
 
       {def.showParallel1 && (
-        <ParamSlider label="Параллель 1 (φ₁)" value={phiOrigin} min={-90} max={90} step={1} onChange={(v) => setParam('phiOrigin', v)} />
+        <ParamSlider label={phiLabel} value={phiOrigin} min={-90} max={90} step={1} onChange={(v) => setParam('phiOrigin', v)} />
       )}
 
       {def.showParallel2 && (
@@ -104,25 +103,6 @@ function ProjectionParamsSection({ def }: { def: ReturnType<typeof variantDef> }
           onChange={(v) => setParam('stdParallel2', v)}
           disabled={!def.parallel2Editable}
         />
-      )}
-
-      {def.showNorthSouth && (
-        <div className={fieldRow}>
-          <span className={`${labelClass} w-36 shrink-0`}>Полушарие</span>
-          <div className={radioGroup}>
-            {CONE_HEMISPHERE_OPTIONS.map((o) => (
-              <button
-                key={o.value}
-                type="button"
-                aria-pressed={coneHemisphere === o.value}
-                onClick={() => useAppStore.getState().setConeHemisphere(o.value)}
-                className={`${radioOption} ${coneHemisphere === o.value ? radioOptionActive : radioOptionInactive}`}
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
-        </div>
       )}
 
       {family === 'azimuthalPerspective' && (
@@ -174,9 +154,7 @@ function ProjectionParamsSection({ def }: { def: ReturnType<typeof variantDef> }
 
 export default function ControlPanel() {
   const params = useProjectionParams();
-  const { variant, family } = params;
-
-  const def = useMemo(() => variantDef(variant ?? defaultVariant(family)), [variant, family]);
+  const def = useMemo(() => variantDef(params.variant), [params.variant]);
 
   return (
     <div className="flex flex-col gap-3.5 px-3 py-3">

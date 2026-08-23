@@ -56,6 +56,20 @@ describe('ControlPanel', () => {
     expect(useAppStore.getState().phiOrigin).toBe(25);
   });
 
+  it('labels the cylindrical central-latitude slider as a central parallel, not a standard parallel', () => {
+    // For cylindrical projections φ₀ does NOT set any standard parallel — it
+    // rolls the Earth inside the static drum. The label must say so.
+    useAppStore.setState({ family: 'cylindrical', distortion: 'conformal' });
+    const { unmount } = render(<ControlPanel />);
+    expect(screen.getByRole('slider', { name: 'Центральная параллель (φ₀)' })).toBeTruthy();
+    expect(screen.queryByRole('slider', { name: 'Параллель 1 (φ₁)' })).toBeNull();
+    // …while the conic family keeps its standard-parallel wording.
+    unmount();
+    useAppStore.getState().setFamily('conic');
+    render(<ControlPanel />);
+    expect(screen.getByRole('slider', { name: 'Параллель 1 (φ₁)' })).toBeTruthy();
+  });
+
   it('does NOT expose a central-latitude slider for the cylindrical family', () => {
     useAppStore.setState({ family: 'cylindrical', distortion: 'conformal' });
     render(<ControlPanel />);
@@ -77,13 +91,13 @@ describe('ControlPanel', () => {
     useAppStore.setState({ family: 'azimuthalPerspective', distortion: 'conformal', azLight: 'antipode' });
     render(<ControlPanel />);
     expect(screen.getByText('🔒 Источник света')).toBeTruthy();
-    expect(screen.getByText(/Противоположный полюс/)).toBeTruthy();
+    expect(screen.getByText(/Антипод точки касания/)).toBeTruthy();
   });
 
   it('azimuthal stereographic shows light locked to antipode', () => {
     useAppStore.setState({ family: 'azimuthalPerspective', distortion: 'conformal', azLight: 'antipode' });
     render(<ControlPanel />);
-    expect(screen.getByText(/Противоположный полюс/)).toBeTruthy();
+    expect(screen.getByText(/Антипод точки касания/)).toBeTruthy();
   });
 
   it('non-conformal azimuthal shows locked light label', () => {
@@ -103,6 +117,22 @@ describe('ControlPanel', () => {
     expect(useAppStore.getState().stdParallel2).toBe(55);
     fireEvent.click(screen.getByRole('button', { name: 'Секущий конус' }));
     expect(useAppStore.getState().stdParallel2).toBeNull();
+  });
+
+  it('stores a SIGNED second parallel for a SOUTHERN secant cone', () => {
+    // Regression: enabling «Секущий» on a southern cone used to store a POSITIVE
+    // φ₂ (= |φ₁| + 20). D3 then drew parallels([-40, +60]) — an impossible cone
+    // spanning both hemispheres — and the map degenerated while the 3D cone
+    // (which uses |φ₂| in φ₀'s hemisphere) stayed correct. The stored φ₂ must
+    // carry the cone's hemisphere sign.
+    useAppStore.getState().setVariant('lambertConformal');
+    useAppStore.getState().setParam('phiOrigin', -40);
+    render(<ControlPanel />);
+    fireEvent.click(screen.getByRole('button', { name: 'Секущий конус' }));
+    const sp2 = useAppStore.getState().stdParallel2;
+    expect(typeof sp2).toBe('number');
+    expect(sp2!).toBeLessThan(0);
+    expect(Math.abs(sp2!)).toBeGreaterThanOrEqual(Math.abs(-40));
   });
 
   it('shows context-driven controls per variant (3 representative cases)', () => {
@@ -136,12 +166,13 @@ describe('ControlPanel', () => {
     expect(s.lambda0).toBeCloseTo(37.62);
   });
 
-  it('north/south radio changes coneHemisphere', () => {
+  it('exposes no hemisphere switch (the cone hemisphere follows φ₀ automatically)', () => {
+    // Regression guard for the removed «Полушарие» control: it stored a value
+    // nothing read — the cone's hemisphere is always derived from φ₀'s sign.
     useAppStore.getState().setFamily('conic');
     render(<ControlPanel />);
-    expect(useAppStore.getState().coneHemisphere).toBe('north');
-    fireEvent.click(screen.getByText('Юг'));
-    expect(useAppStore.getState().coneHemisphere).toBe('south');
+    expect(screen.queryByText('Полушарие')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Юг' })).toBeNull();
   });
 
   it('does not expose any visualization toggles (Тиссо, Сетка, лучи, линейка переехали/убраны)', () => {

@@ -3,8 +3,9 @@ import { lonLatToVec3, vec3ToLonLat } from '../utils/auxSurfaceGeometry';
 import { RADIUS } from '../constants/geometry';
 import type { ThreeEvent } from '@react-three/fiber';
 
-// Draggable pin marking the azimuthal touch point. Dragging it recomputes the
-// (lon, lat) under the cursor on the globe sphere and reports it via onChange.
+// Pin marking the azimuthal touch point. Clicking (or dragging over) it moves
+// the touch point to the (lon, lat) under the cursor on the globe sphere and
+// reports it via onChange.
 export default function TouchPointPin({
   lambda0,
   phiOrigin,

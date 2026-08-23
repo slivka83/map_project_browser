@@ -23,7 +23,6 @@ import {
   computeAzimuthalLightLamp,
   coneApexWorld,
   computeCutLine,
-  vec3Distance,
   vec3Normalize,
 } from './auxSurfaceGeometry';
 
@@ -79,6 +78,9 @@ const base = {
   gamma: 0,
   stdParallel2: null,
   azLight: 'center' as const,
+  // projectToAuxWorld takes a full ProjectionParams (the variant selects the
+  // light mode); family-specific tests override both fields together.
+  variant: 'mercator' as const,
 };
 
 describe('lonLatToVec3', () => {
@@ -399,7 +401,7 @@ describe('computeCentralMeridianRays', () => {
       if (surface.kind !== 'cone') throw new Error('expected cone');
       for (let i = 0; i < segs.length; i++) {
         const lat = -90 + (i * 180) / (segs.length - 1);
-        const localEnd = computeConicRayEnd(0, lat, phiOrigin, sf, RADIUS, null, g, true);
+        const localEnd = computeConicRayEnd(lat, phiOrigin, sf, RADIUS, null, true);
         const { radius, rho } = coneCheck(localEnd, cone, sf);
         closeTo(radius, rho, 1e-6);
       }
@@ -473,7 +475,7 @@ describe('secant cone (stdParallel2)', () => {
     if (surface.kind !== 'cone') throw new Error('expected cone');
     for (let i = 0; i < segs.length; i++) {
       const lat = -90 + (i * 180) / (segs.length - 1);
-      const localEnd = computeConicRayEnd(0, lat, phiOrigin, sf, RADIUS, stdParallel2, 0, true);
+      const localEnd = computeConicRayEnd(lat, phiOrigin, sf, RADIUS, stdParallel2, true);
       const { radius, rho } = coneCheck(localEnd, cone, sf);
       closeTo(radius, rho, 1e-6);
     }
@@ -549,7 +551,7 @@ describe('projectToAuxWorld (hover demo ray)', () => {
     const surface = computeAuxSurfaceParams('conic', 10, phiOrigin, sf, RADIUS)!;
     if (surface.kind !== 'cone') throw new Error('expected cone');
     const cone = computeCone(phiOrigin, phiOrigin, RADIUS, sf);
-    const localEnd = computeConicRayEnd(10, 50, phiOrigin, sf, RADIUS, null, 0, true);
+    const localEnd = computeConicRayEnd(50, phiOrigin, sf, RADIUS, null, true);
     const { radius, rho } = coneCheck(localEnd, cone, sf);
     closeTo(radius, rho, 1e-6);
   });
@@ -642,7 +644,7 @@ describe('light-source geometry (new_spec §3)', () => {
       expect(start).toEqual(apex);
       // every beam endpoint lies on the (southern) cone lateral surface
       const lat = -90 + (i * 180) / (segs.length - 1);
-      const localEnd = computeConicRayEnd(0, lat, phiOrigin, sf, RADIUS, null, 0, true);
+      const localEnd = computeConicRayEnd(lat, phiOrigin, sf, RADIUS, null, true);
       const { radius, rho } = coneCheck(localEnd, cone, sf);
       closeTo(radius, rho, 1e-6);
     }
@@ -1012,7 +1014,7 @@ describe('rays always land on the rendered aux surface (no empty space)', () => 
         const cone = computeCone(c.phiOrigin ?? 0, c.stdParallel2 ?? (c.phiOrigin ?? 0), RADIUS, 1);
         for (let i = 0; i < segs.length; i++) {
           const lat = -90 + (i * 180) / (segs.length - 1);
-          const localEnd = computeConicRayEnd(0, lat, c.phiOrigin ?? 0, 1, RADIUS, c.stdParallel2 ?? null, 0, true);
+          const localEnd = computeConicRayEnd(lat, c.phiOrigin ?? 0, 1, RADIUS, c.stdParallel2 ?? null, true);
           const { radius, rho } = coneCheck(localEnd, cone, 1);
           closeTo(radius, rho, 1e-6);
         }
@@ -1055,16 +1057,10 @@ describe('computeCutLine', () => {
   });
 });
 
-describe('vec3Distance', () => {
-  it('расстояние от (0,0,0) до (3,4,0) = 5', () => {
-    expect(vec3Distance([0, 0, 0], [3, 4, 0])).toBe(5);
-  });
-});
-
 describe('vec3Normalize', () => {
   it('нормализованный вектор имеет длину 1', () => {
     const n = vec3Normalize([3, 4, 0]);
-    expect(vec3Distance(n, [0, 0, 0])).toBeCloseTo(1, 6);
+    expect(Math.hypot(n[0], n[1], n[2])).toBeCloseTo(1, 6);
   });
 });
 

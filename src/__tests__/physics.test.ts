@@ -38,7 +38,6 @@ const base = (over: Partial<ProjectionParams> = {}): ProjectionParams => ({
   gamma: 0,
   stdParallel2: null,
   azLight: 'center',
-  coneHemisphere: 'north',
   variant: 'mercator',
   ...over,
 });
@@ -553,7 +552,7 @@ describe('rays link globe point to map point', () => {
         const cone = computeCone(p.phiOrigin, p.stdParallel2 ?? p.phiOrigin, RADIUS, p.scaleFactor);
         for (let i = 0; i < RAY_COUNT; i++) {
           const lat = -90 + (i * 180) / (RAY_COUNT - 1);
-          const local = computeConicRayEnd(p.lambda0, lat, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, p.gamma, false);
+          const local = computeConicRayEnd(lat, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2);
           const { radius, rho } = coneCheck(local, cone, p.scaleFactor);
           closeTo(radius, rho, 1e-6);
         }
@@ -996,16 +995,16 @@ describe('aux-surface ↔ globe intersection physics', () => {
   // §7 — southern-hemisphere conic variants: the D3 2D projection and the 3D
   // aux cone must agree on the SIGN of the standard parallel. A double sign-flip
   // previously built a northern cone for a southern phiOrigin.
-  const conics: { phiOrigin: number; stdParallel2: number | null; hemisphere: 'north' | 'south' }[] = [
-    { phiOrigin: 30, stdParallel2: 50, hemisphere: 'north' },
-    { phiOrigin: 5, stdParallel2: null, hemisphere: 'north' }, // equator fallback → ±30
-    { phiOrigin: -30, stdParallel2: -45, hemisphere: 'south' },
-    { phiOrigin: -5, stdParallel2: null, hemisphere: 'south' }, // equator fallback → -30
+  const conics: { phiOrigin: number; stdParallel2: number | null }[] = [
+    { phiOrigin: 30, stdParallel2: 50 },
+    { phiOrigin: 5, stdParallel2: null }, // equator fallback → ±30
+    { phiOrigin: -30, stdParallel2: -45 },
+    { phiOrigin: -5, stdParallel2: null }, // equator fallback → -30
   ];
   for (const c of conics) {
     for (const distortion of DISTORTIONS) {
       it(`conic ${distortion} (φ₀=${c.phiOrigin}, φ₂=${c.stdParallel2}) southern sign matches 3D cone`, () => {
-        const p = base({ family: 'conic', distortion, phiOrigin: c.phiOrigin, stdParallel2: c.stdParallel2, coneHemisphere: c.hemisphere });
+        const p = base({ family: 'conic', distortion, phiOrigin: c.phiOrigin, stdParallel2: c.stdParallel2 });
         const proj = getD3Projection(p);
         const surface = computeAuxSurfaceParams('conic', p.lambda0, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2, p.gamma, distortion, p.azLight)!;
         const phi1 = c.stdParallel2 != null ? c.stdParallel2 : c.phiOrigin;

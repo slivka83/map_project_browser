@@ -19,7 +19,7 @@ function GlobeSceneFallback() {
         data-testid="globe-fallback"
       >
         <div className="mb-2 text-3xl" aria-hidden>🛰️</div>
-        <h2 className="mb-2 text-sm font-semibold text-[#00e5ff]">3D-глобус недоступен</h2>
+        <h2 className="mb-2 text-sm font-semibold text-neon-blue">3D-глобус недоступен</h2>
         <p className="text-[12px] leading-relaxed text-gray-300">
           Ваше устройство или браузер не поддерживает WebGL, либо он отключён.
           2D-карта справа продолжает работать — на ней видны все проекции,

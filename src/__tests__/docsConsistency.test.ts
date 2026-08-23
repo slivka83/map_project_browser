@@ -10,16 +10,14 @@ import { defaultParamsForFamily } from '../store/useAppStore';
 // so the test never crashes on a missing `?raw` import and never needs manual
 // maintenance when a doc file is added or removed.
 const docModules = import.meta.glob('../../**/*.md', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>;
-const KNOWN_DOCS = ['../../AGENTS.md', '../../docs/BRD.md'];
-const allDocsRaw = KNOWN_DOCS.map((p) => docModules[p]).filter((t): t is string => typeof t === 'string');
-const agentsMd = allDocsRaw[0];
-const brdMd = allDocsRaw[1];
+const agentsMd = docModules['../../AGENTS.md'];
+const brdMd = docModules['../../docs/BRD.md'];
 
 // Guard: if the dynamic glob fails to load a doc (e.g. an environment quirk),
 // every downstream check would silently pass on an empty string. Fail loudly
 // instead so a broken doc-load can never hide real doc↔code drift.
-if (allDocsRaw.length < 1) {
-  throw new Error('docsConsistency: no documentation files were loaded — the doc↔code guard is blind.');
+if (typeof agentsMd !== 'string') {
+  throw new Error('docsConsistency: AGENTS.md was not loaded — the doc↔code guard is blind.');
 }
 
 const projectionParamsShape = defaultParamsForFamily('cylindrical');
@@ -187,7 +185,6 @@ describe('docs ↔ code: key exports are documented', () => {
     'vec3ToLonLat',
     'computeConicRayEnd',
     'computeCutLine',
-    'vec3Distance',
     'vec3Normalize',
     'computeTissotCircles',
   ];

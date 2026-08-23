@@ -2,13 +2,15 @@ import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { ProjectionParams, AzimuthalLight } from '../store/useAppStore';
 import { FAMILY_LABEL, DISTORTION_LABEL } from './ui/labels';
-import { variantDef, defaultVariant } from '../utils/projectionVariants';
+import { variantDef } from '../utils/projectionVariants';
 import { signedStandardParallelDeg } from '../constants/geometry';
 import { modalOverlay, modalShell } from './ui/styles';
 
+const roundLat = (deg: number): number => Math.round(deg * 10) / 10;
+
 const latLabel = (deg: number): string => {
   if (deg === 0) return '0°';
-  return `${Math.abs(deg)}° ${deg > 0 ? 'с.ш.' : 'ю.ш.'}`;
+  return `${Math.abs(roundLat(deg))}° ${deg > 0 ? 'с.ш.' : 'ю.ш.'}`;
 };
 
 // Human-readable projection class (see AGENTS.md): the developable surface
@@ -50,6 +52,11 @@ export default function ProjectionSummary({ params, onClose }: { params: Project
   }, [onClose]);
 
   const isConic = params.family === 'conic';
+  // The standard parallels of the DRAWN projection, per family:
+  // conic → the signed parallel derived from φ₀; cylindrical → the contact
+  // parallels of the drum ±arccos(scaleFactor) (φ₀ does not move them — it
+  // only rolls the Earth inside the tube); azimuthal → none.
+  const cylContact = (Math.acos(Math.max(0, Math.min(1, params.scaleFactor))) * 180) / Math.PI;
 
   return createPortal(
     <div
@@ -74,21 +81,32 @@ export default function ProjectionSummary({ params, onClose }: { params: Project
         </div>
         <div className="flex flex-col gap-2 text-[13px]">
           <Row k="Центральный меридиан (λ₀)" v={`${params.lambda0}°`} />
-          <Row k="Широта начала отсчёта (φ₀)" v={latLabel(params.phiOrigin)} />
-          <Row k="Стандартная параллель 1 (φ₁)" v={latLabel(signedStandardParallelDeg(params.phiOrigin))} />
+          {params.family !== 'azimuthalPerspective' ? (
+            <Row k="Центральная широта (φ₀)" v={latLabel(params.phiOrigin)} />
+          ) : (
+            <Row k="Точка касания (φ₀)" v={latLabel(params.phiOrigin)} />
+          )}
+          {isConic && (
+            <Row k="Стандартная параллель 1 (φ₁)" v={latLabel(signedStandardParallelDeg(params.phiOrigin))} />
+          )}
           {isConic && (
             <Row
               k="Стандартная параллель 2 (φ₂)"
               v={params.stdParallel2 != null ? latLabel(params.stdParallel2) : '—'}
             />
           )}
+          {params.family === 'cylindrical' && (
+            <Row
+              k="Параллели касания цилиндра (±φ_s)"
+              v={cylContact === 0 ? '0° (касательный)' : `±${roundLat(cylContact)}°`}
+            />
+          )}
           <Row k="Масштабный коэффициент" v={params.scaleFactor.toFixed(2)} />
           {params.family === 'azimuthalPerspective' && <Row k="Наклон (γ)" v={`${params.gamma}°`} />}
-          {isConic && <Row k="Полушарие конуса" v={params.coneHemisphere === 'south' ? 'Юг' : 'Север'} />}
           <Row k="Смещение восток (falseEasting)" v={`${params.falseEasting}`} />
           <Row k="Смещение север (falseNorthing)" v={`${params.falseNorthing}`} />
           <Row k="Класс проекции" v={describeProjection(params)} />
-          <Row k="Вариант" v={variantDef(params.variant ?? defaultVariant(params.family)).label} />
+          <Row k="Вариант" v={variantDef(params.variant).label} />
         </div>
       </div>
     </div>,

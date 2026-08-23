@@ -147,6 +147,29 @@ describe('useAppStore', () => {
     expect(s.scaleFactor).toBe(1);
   });
 
+  it('normalizes the secant parallel sign when Параллель 1 crosses the equator', () => {
+    // A secant cone active in the north (φ₂ = 60) dragged to a southern φ₀ must
+    // re-sign φ₂ — otherwise d3 receives parallels([−40, +60]), an impossible
+    // cone spanning both hemispheres, and the 2D map degenerates.
+    useAppStore.getState().setVariant('lambertConformal');
+    useAppStore.getState().setParam('phiOrigin', 40);
+    useAppStore.getState().setParam('stdParallel2', 60);
+    expect(useAppStore.getState().stdParallel2).toBe(60);
+    useAppStore.getState().setParam('phiOrigin', -40);
+    const s = useAppStore.getState();
+    expect(s.stdParallel2).toBe(-60);
+    // …and back north.
+    useAppStore.getState().setParam('phiOrigin', 25);
+    expect(useAppStore.getState().stdParallel2).toBe(60);
+  });
+
+  it('setParam keeps stdParallel2 in phiOrigin hemisphere when set directly', () => {
+    useAppStore.getState().setVariant('lambertConformal');
+    useAppStore.getState().setParam('phiOrigin', -30);
+    useAppStore.getState().setParam('stdParallel2', 55);
+    expect(useAppStore.getState().stdParallel2).toBe(-55);
+  });
+
   it('loadGeoData fetches the topojson and stores a FeatureCollection', async () => {
     const topology = {
       type: 'Topology',
@@ -319,19 +342,23 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().showHoverRay).toBe(true);
   });
 
-  it('exercises the new parameter actions', () => {
+  it('exposes graticule step controls', () => {
     const store = useAppStore.getState();
-    store.setConeHemisphere('south');
-    expect(useAppStore.getState().coneHemisphere).toBe('south');
+    store.setGraticuleStep(5);
+    expect(useAppStore.getState().graticuleStep).toBe(5);
   });
 
-  it('setVariant resets the new fields to the variant defaults', () => {
-    useAppStore.setState({ coneHemisphere: 'south' });
+  it('setVariant resets the params to the variant defaults', () => {
+    useAppStore.setState({ lambda0: 90, phiOrigin: 45, scaleFactor: 1.1, gamma: 30, stdParallel2: 50 });
     useAppStore.getState().setVariant('stereographic');
     const s = useAppStore.getState();
     expect(s.variant).toBe('stereographic');
     expect(s.family).toBe('azimuthalPerspective');
     expect(s.azLight).toBe('antipode');
-    expect(s.coneHemisphere).toBe('north');
+    expect(s.lambda0).toBe(0);
+    expect(s.phiOrigin).toBe(0);
+    expect(s.scaleFactor).toBe(1);
+    expect(s.gamma).toBe(0);
+    expect(s.stdParallel2).toBeNull();
   });
 });

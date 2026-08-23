@@ -13,9 +13,6 @@ export type DistortionModel = 'conformal' | 'equalArea' | 'equidistant';
 // stereographic, `infinity` → orthographic (parallel beams).
 export type AzimuthalLight = 'center' | 'antipode' | 'infinity';
 
-// Cone hemisphere selector (north / south).
-export type ConeHemisphere = 'north' | 'south';
-
 // Graticule step in degrees.
 export type GraticuleStep = 1 | 5 | 10 | 15 | 30;
 
@@ -29,11 +26,8 @@ export interface ProjectionParams {
   falseEasting: number; // -1000...1000
   falseNorthing: number; // -1000...1000
   gamma: number; // -180...180  (tilt / third rotation → oblique & transverse aspects)
-  stdParallel2: number | null; // φ2; null = tangent surface (single standard parallel)
+  stdParallel2: number | null; // φ2; null = tangent surface (single standard parallel). Always carries the cone hemisphere's sign (φ₀ < 0 → φ₂ < 0)
   azLight: AzimuthalLight; // light-source mode for the azimuthal family
-
-  // Cone hemisphere (north / south).
-  coneHemisphere: ConeHemisphere;
 }
 
 export function defaultParamsForFamily(family: ProjectionFamily): ProjectionParams {
@@ -51,7 +45,6 @@ export function defaultParamsForFamily(family: ProjectionFamily): ProjectionPara
     gamma: def.lockedGamma ?? 0,
     stdParallel2: def.lockedStdParallel2 ?? null,
     azLight: def.azLight,
-    coneHemisphere: 'north',
   };
 }
 
@@ -110,14 +103,15 @@ interface AppState extends ProjectionParams {
 
   setGraticuleStep: (value: GraticuleStep) => void;
   setShowGraticule: (value: boolean) => void;
-  setConeHemisphere: (value: ConeHemisphere) => void;
 }
 
-// The full set of new (variant-defaultable) fields reset by setVariant /
-// resetParams. Keeping them in one record guarantees the variant switch never
-// leaves stale state behind.
-const NEW_DEFAULTS = {
-  coneHemisphere: 'north' as ConeHemisphere,
+// The cone hemisphere is DERIVED from φ₀'s sign (a southern φ₀ yields a
+// southern cone) — there is no separate hemisphere switch. A secant φ₂ must
+// always live in the same hemisphere as φ₀: parallels([−40°, +60°]) would be an
+// impossible cone spanning both hemispheres and degenerate the 2D map.
+const signedSecantParallel = (phiOrigin: number, magnitude: number): number => {
+  const mag = Math.min(89, Math.abs(magnitude));
+  return (phiOrigin < 0 ? -1 : 1) * mag;
 };
 
 export const useAppStore = create<AppState>((set) => ({
@@ -142,12 +136,23 @@ export const useAppStore = create<AppState>((set) => ({
   setShowHoverRay: (value) => set({ showHoverRay: value }),
 
   setParam: (key, value) => {
+    const s = useAppStore.getState();
     // Guard: the azimuthal-perspective family has no equal-area projection
     // (area is routed by azLight, not by distortion). Reject an equalArea
     // distortion there so the store can never hold a broken combination.
-    if (key === 'distortion' && value === 'equalArea') {
-      const family = useAppStore.getState().family;
-      if (family === 'azimuthalPerspective') return;
+    if (key === 'distortion' && value === 'equalArea' && s.family === 'azimuthalPerspective') return;
+    // A secant φ₂ must share the hemisphere of φ₀ (see signedSecantParallel):
+    // normalize whatever sign arrives from a control or preset.
+    if (key === 'stdParallel2') {
+      set({ stdParallel2: value == null ? null : signedSecantParallel(s.phiOrigin, value as number) });
+      return;
+    }
+    // Dragging Параллель 1 across the equator flips the cone hemisphere — an
+    // active secant φ₂ must flip with it.
+    if (key === 'phiOrigin' && s.stdParallel2 != null) {
+      const phi = value as number;
+      set({ phiOrigin: phi, stdParallel2: signedSecantParallel(phi, Math.abs(s.stdParallel2)) });
+      return;
     }
     set({ [key]: value } as Pick<AppState, typeof key>);
   },
@@ -163,7 +168,6 @@ export const useAppStore = create<AppState>((set) => ({
       phiOrigin: 0,
       lambda0: 0,
       stdParallel2: def.lockedStdParallel2 ?? null,
-      ...NEW_DEFAULTS,
     });
   },
   setShowTissot: (value) => set({ showTissot: value }),
@@ -186,10 +190,9 @@ export const useAppStore = create<AppState>((set) => ({
   resetParams: () => set((s) => {
     // Reset the params of the CURRENTLY selected projection: keep the variant
     // (the projection itself) and only restore its default parameter values.
-    const v = s.variant ?? defaultVariant(s.family);
-    const def = variantDef(v);
+    const def = variantDef(s.variant);
     return {
-      variant: v,
+      variant: s.variant,
       family: def.family,
       distortion: def.distortion,
       azLight: def.azLight,
@@ -200,7 +203,6 @@ export const useAppStore = create<AppState>((set) => ({
       falseNorthing: 0,
       gamma: def.lockedGamma ?? 0,
       stdParallel2: def.lockedStdParallel2 ?? null,
-      ...NEW_DEFAULTS,
     };
   }),
   loadGeoData: async () => {
@@ -250,5 +252,4 @@ export const useAppStore = create<AppState>((set) => ({
 
   setGraticuleStep: (value) => set({ graticuleStep: value }),
   setShowGraticule: (value) => set({ showGraticule: value }),
-  setConeHemisphere: (value) => set({ coneHemisphere: value }),
 }));
