@@ -1,9 +1,9 @@
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
-  // Source files are symlinked into the native-FS workspace from /mnt/d,
-  // so keep symlink paths (and let Vite resolve node_modules from /tmp)
-  // rather than resolving to /mnt/d, which has no local node_modules.
+  // Source files live on the Windows-mounted drive (/mnt/d, DrvFS); the real
+  // node_modules is symlinked from the native-FS workspace (~/mbp-deps), so
+  // keep symlink paths rather than resolving into /mnt/d.
   resolve: { preserveSymlinks: true },
   server: {
     fs: {

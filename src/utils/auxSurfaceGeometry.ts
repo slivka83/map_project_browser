@@ -3,7 +3,7 @@ import { normalizeLon } from './geoBandClip';
 import { geoRotation } from 'd3-geo';
 import type { GeoProjection } from 'd3-geo';
 import type { ProjectionParams } from '../store/useAppStore';
-import { variantDef, defaultVariant } from './projectionVariants';
+import { defaultVariant } from './projectionVariants';
 import {
   RADIUS,
   RAY_COUNT,
@@ -147,8 +147,8 @@ function basisFromNormal(normal: Vec3): { east: Vec3; north: Vec3 } {
 // rendered wireframe can never drift apart). Single source of truth for both.
 export function auxPointToWorld(surface: AuxSurfaceParams, p: Vec3): Vec3 {
   if (surface.kind === 'cylinder') {
-    const [x, y, z] = matVec(surface.orient, p);
-    return [x, surface.positionY + y, z];
+    // Static drum: local frame = world frame (identity transform).
+    return p;
   }
   if (surface.kind === 'cone') {
     const tilt = (surface.tilt * Math.PI) / 180;
@@ -242,7 +242,7 @@ export function cylinderLocalEnd(
   // d3's x (not atan2 of the rotated pole vector) is exact everywhere.
   const scale = proj.scale() || 1;
   const [cx] = proj.translate();
-  const th = p && isFinite(p[0]) ? (p[0] - (cx ?? 0)) / scale : 0;
+  const th = p && isFinite(p[0]) ? (p[0] - cx) / scale : 0;
   // The pole projects to y = ±∞ (out of the finite map). The d3 projection's y
   // axis points DOWN (north = smaller y), and we convert to the 3D local frame
   // (north = +y) via `-dy`, so the finite pole at lat≈89 has dy < 0 (north) and
@@ -337,8 +337,11 @@ export function circlePoints(radius: number, y: number, segments = RING_SEGMENTS
 }
 
 // ---- Auxiliary (developable) surface parameters (pure; no Three.js) ----
+// The cylindrical drum is STATIC by design (upright, centred at the origin, its
+// axis along Earth's polar axis) — it carries no orientation or offset, so a
+// local point IS a world point for it. Only cone/plane need real transforms.
 export type AuxSurfaceParams =
-  | { kind: 'cylinder'; radius: number; height: number; orient: Mat3; orientInv: Mat3; positionY: number }
+  | { kind: 'cylinder'; radius: number; height: number }
   | { kind: 'plane'; center: Vec3; normal: Vec3; size: number; tilt: number }
   | { kind: 'cone'; radius: number; height: number; positionY: number; flip: 1 | -1; tilt: number };
 
@@ -416,14 +419,12 @@ export function computeAuxSurfaceParams(
     // as a true spherical rotation; the graduation grid and the tube stay
     // put. The height is sized from the standard (un-rotated) projection
     // band; γ does not apply to the cylindrical family at all.
-    const proj = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin: 0, scaleFactor, gamma: 0, stdParallel2, azLight, variant: v }));
+    const proj = getD3Projection(projParams(family, distortion, { scaleFactor }));
     const yTop = proj([lambda0, CLIP_LAT])?.[1] ?? 0;
     const yBot = proj([lambda0, -CLIP_LAT])?.[1] ?? 0;
     const band = Math.abs(yTop - yBot) * worldPerPixel(radius);
     const height = Math.min(AUX_LENGTH * radius * AUX_SIZE_CAP, Math.max(AUX_LENGTH * radius * 0.5, band));
-    // Identity orientation: the upright tube never rotates.
-    const orient: Mat3 = [1, 0, 0, 0, 1, 0, 0, 0, 1];
-    return { kind: 'cylinder', radius: radius * scaleFactor, height, orient, orientInv: matTranspose(orient), positionY: 0 };
+    return { kind: 'cylinder', radius: radius * scaleFactor, height };
   }
 
   if (family === 'azimuthalPerspective') {
@@ -687,9 +688,11 @@ export function computeCentralMeridianRays(options: RayFanOptions): RaySegment[]
   // the grid and the light): the fan does not depend on Долгота/Параллель at
   // all. Only the geography layer slides beneath these stationary beams.
   // Conic / azimuthal keep their own projection for the fan as before.
+  // The cylindrical drum projection depends only on (distortion, scaleFactor)
+  // — it carries no rotation whatever the sliders do.
   const projFlat =
     family === 'cylindrical'
-      ? getD3Projection(projParams(family, distortion, { lambda0: 0, phiOrigin: 0, scaleFactor, gamma: 0, stdParallel2, azLight, variant: params.variant }))
+      ? getD3Projection(projParams(family, distortion, { scaleFactor }))
       : null;
   const proj =
     family !== 'cylindrical'
@@ -700,7 +703,6 @@ export function computeCentralMeridianRays(options: RayFanOptions): RaySegment[]
   // southern phiOrigin yields a southern cone matching the rendered mesh.
   const phi2c = stdParallel2 != null ? stdParallel2 : phiOrigin;
   const cone = family === 'conic' ? computeCone(phiOrigin, phi2c, radius, scaleFactor) : null;
-  const lightIsParallel = variantDef(params.variant).lightIsParallel;
 
   const result: RaySegment[] = [];
 
@@ -717,14 +719,11 @@ export function computeCentralMeridianRays(options: RayFanOptions): RaySegment[]
       const r = radius * scaleFactor;
       // The fan belongs to the STATIC graduated cylinder: sample its own
       // central meridian (grid longitude 0), never the slid geography.
+      // The drum's light is the globe centre (no cylindrical variant uses a
+      // parallel beam).
       localEnd = cylinderLocalEnd(projFlat!, 0, lat, r, cy, wpp);
-      const globeLocal: Vec3 = [radius * Math.cos((lat * Math.PI) / 180), radius * Math.sin((lat * Math.PI) / 180), 0];
-      globe = auxPointToWorld(surface, globeLocal);
-      if (lightIsParallel) {
-        start = auxPointToWorld(surface, [-PARALLEL_LEN, globeLocal[1], 0]);
-      } else {
-        start = [0, 0, 0];
-      }
+      globe = [radius * Math.cos((lat * Math.PI) / 180), radius * Math.sin((lat * Math.PI) / 180), 0];
+      start = [0, 0, 0];
     } else if (family === 'azimuthalPerspective') {
       const { center } = computeTangentBasis(lambda0, phiOrigin, radius);
       const c = proj!([lambda0, phiOrigin]);
@@ -815,7 +814,7 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
   // them. γ stays out of the cylindrical family. Other families use the fully
   // rotated projection; built lazily per family.
   const projFlat = family === 'cylindrical'
-    ? getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, gamma: 0, stdParallel2, azLight, variant: params.variant }))
+    ? getD3Projection(projParams(family, distortion, { scaleFactor }))
     : null;
   let proj: GeoProjection | null = null;
   const cy = VIEW_CENTER_Y;
@@ -840,15 +839,11 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
     localEnd = cylinderLocalEnd(projFlat!, rlon, rlat, r, cy, wpp);
     // The globe point is drawn at its ROLLED position (the geography layer
     // carries the Долгота/Параллель rotation), while the ray itself belongs to
-    // the static apparatus: the light stays fixed and the landing follows the
+    // the static apparatus: the light stays fixed (the globe centre — no
+    // cylindrical variant uses a parallel beam) and the landing follows the
     // slid map position of the hovered continent.
     globe = matVec(projectionRotationMatrix(-lambda0, -phiOrigin, 0), globe);
-    if (variantDef(params.variant).lightIsParallel) {
-      // Parallel beam along +X through the rolled point.
-      start = [-PARALLEL_LEN, globe[1], globe[2]];
-    } else {
-      start = [0, 0, 0];
-    }
+    start = [0, 0, 0];
   } else if (family === 'azimuthalPerspective') {
     proj = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, gamma, stdParallel2, azLight, variant: params.variant }));
     const { center } = computeTangentBasis(lambda0, phiOrigin, radius);

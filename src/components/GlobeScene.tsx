@@ -36,10 +36,12 @@ export default function GlobeScene() {
   const surface = useMemo(() => computeAuxSurfaceParams(params), [params]);
 
   // The rigid roll of the geography layer (Долгота/Параллель): computed ONCE
-  // here and shared by the coastlines, the hover reading and the hover marker,
-  // so all three always agree.
-  const roll = useMemo(() => projectionRotationMatrix(-params.lambda0, -params.phiOrigin, 0), [params.lambda0, params.phiOrigin]);
-  const rollInv = useMemo(() => matTranspose(roll), [roll]);
+  // here (with its inverse for the hover reading) and shared by the
+  // coastlines, the hover handling and the hover marker.
+  const { roll, rollInv } = useMemo(() => {
+    const r = projectionRotationMatrix(-params.lambda0, -params.phiOrigin, 0);
+    return { roll: r, rollInv: matTranspose(r) };
+  }, [params.lambda0, params.phiOrigin]);
 
   // Shared hover linkage: hovering the globe reads the (lon, lat) under the
   // cursor and mirrors it into the 2D map (and vice-versa). The geography
@@ -55,7 +57,7 @@ export default function GlobeScene() {
   return (
     <Canvas camera={{ position: [0, 5, 42], fov: 50 }} className="rounded-lg">
       <OrbitControls makeDefault enablePan={false} enableDamping dampingFactor={0.08} minDistance={18} maxDistance={90} />
-      <Globe geoJson={geoJson} roll={roll} />
+      <Globe geoJson={geoJson} roll={roll} onPointerMove={handleGlobeMove} onPointerOut={() => setHoverLonLat(null)} />
       <AuxSurface surface={surface} />
       <LightSource surface={surface} params={params} />
       {showIntersection && (
@@ -65,10 +67,6 @@ export default function GlobeScene() {
         </>
       )}
       <Rays params={params} />
-      <mesh onPointerMove={handleGlobeMove} onPointerOut={() => setHoverLonLat(null)}>
-        <sphereGeometry args={[RADIUS, 48, 48]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-      </mesh>
       {def.showTouchPointPresets && (
         <TouchPointPin
           lambda0={params.lambda0}

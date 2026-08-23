@@ -1,13 +1,22 @@
 import { useMemo } from 'react';
 import * as THREE from 'three';
+import type { ThreeEvent } from '@react-three/fiber';
 import { NEON_BLUE, BG } from '../constants/designTokens';
 import { RADIUS, GLOBE_INFLATE } from '../constants/geometry';
 import { lonLatToVec3, matVec, type Mat3 } from '../utils/auxSurfaceGeometry';
 import type { FeatureCollection, Geometry } from 'geojson';
 
-function GlobeShell() {
+function GlobeShell({
+  onPointerMove,
+  onPointerOut,
+}: {
+  onPointerMove?: (e: ThreeEvent<PointerEvent>) => void;
+  onPointerOut?: (e: ThreeEvent<PointerEvent>) => void;
+}) {
+  // The shell doubles as the hover hit-surface: the handlers ride the SAME
+  // mesh that is drawn, so no second invisible sphere geometry is needed.
   return (
-    <mesh>
+    <mesh onPointerMove={onPointerMove} onPointerOut={onPointerOut}>
       <sphereGeometry args={[RADIUS, 64, 64]} />
       <meshBasicMaterial
         color={BG}
@@ -60,13 +69,23 @@ function Coastlines({ geoJson, roll }: { geoJson: FeatureCollection; roll: Mat3 
   );
 }
 
-export default function Globe({ geoJson, roll }: { geoJson: FeatureCollection | null; roll: Mat3 }) {
+export default function Globe({
+  geoJson,
+  roll,
+  onPointerMove,
+  onPointerOut,
+}: {
+  geoJson: FeatureCollection | null;
+  roll: Mat3;
+  onPointerMove?: (e: ThreeEvent<PointerEvent>) => void;
+  onPointerOut?: (e: ThreeEvent<PointerEvent>) => void;
+}) {
   // `roll` is the rigid Долгота/Параллель rotation of the geography layer,
   // computed once in GlobeScene and shared with the hover marker so every
   // consumer rides the same rolled Earth.
   return (
     <group>
-      <GlobeShell />
+      <GlobeShell onPointerMove={onPointerMove} onPointerOut={onPointerOut} />
       {geoJson && <Coastlines geoJson={geoJson} roll={roll} />}
     </group>
   );

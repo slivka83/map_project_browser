@@ -54,15 +54,20 @@ describe('Map2D', () => {
     expect(container.querySelectorAll('path').length).toBeGreaterThan(0);
   });
 
-  it('renders many Tissot indicatrix paths when enabled but none when disabled', async () => {
+  it('adds ONE merged Tissot indicatrix layer path when enabled and removes it when disabled', async () => {
+    // The whole indicatrix grid renders as a single merged <path> (one `d`
+    // string for every circle), so enabling it adds exactly one path element.
     useAppStore.setState({ showTissot: false });
     const { container } = render(<Map2D />);
     const base = container.querySelectorAll('path').length;
-    useAppStore.setState({ showTissot: true });
-    await waitFor(() => {
-      // a 30° grid of 5°-radius circles adds far more than a handful of paths
-      expect(container.querySelectorAll('path').length).toBeGreaterThan(base + 5);
+    await act(async () => {
+      useAppStore.setState({ showTissot: true });
     });
+    expect(container.querySelectorAll('path').length).toBe(base + 1);
+    await act(async () => {
+      useAppStore.setState({ showTissot: false });
+    });
+    expect(container.querySelectorAll('path').length).toBe(base);
   });
 
   it('draws and hides the white intersection + cut-line layers with the toggle', async () => {
@@ -259,6 +264,37 @@ describe('Map2D', () => {
     fireEvent.pointerMove(svg, { clientX: 3, clientY: 3 });
     expect(useAppStore.getState().hoverLonLat).toBeNull();
     expect(useAppStore.getState().hoverSource).toBeNull();
+  });
+
+  it('clears a map-sourced shared hover when the cursor leaves the map', async () => {
+    useAppStore.setState({ family: 'cylindrical', variant: 'mercator', distortion: 'conformal', scaleFactor: 1 });
+    act(() => {
+      useAppStore.getState().setHoverLonLat([10, 20], 'map');
+    });
+    const { container } = render(<Map2D />);
+    await waitFor(() => {
+      expect(container.querySelector('svg[data-map="true"]')).not.toBeNull();
+    });
+    fireEvent.pointerLeave(container.querySelector('svg[data-map="true"]') as SVGSVGElement);
+    expect(useAppStore.getState().hoverLonLat).toBeNull();
+    expect(useAppStore.getState().hoverSource).toBeNull();
+  });
+
+  it('keeps a globe-sourced shared hover when the cursor merely leaves the map', async () => {
+    // The 2D map may only clear a hover IT set. A hover that came from the 3D
+    // globe must survive leaving the map — otherwise brushing the cursor
+    // across the map edge would wipe the mirrored globe highlight.
+    useAppStore.setState({ family: 'cylindrical', variant: 'mercator', distortion: 'conformal', scaleFactor: 1 });
+    act(() => {
+      useAppStore.getState().setHoverLonLat([10, 20], 'globe');
+    });
+    const { container } = render(<Map2D />);
+    await waitFor(() => {
+      expect(container.querySelector('svg[data-map="true"]')).not.toBeNull();
+    });
+    fireEvent.pointerLeave(container.querySelector('svg[data-map="true"]') as SVGSVGElement);
+    expect(useAppStore.getState().hoverLonLat).toEqual([10, 20]);
+    expect(useAppStore.getState().hoverSource).toBe('globe');
   });
 
   it('draws the graticule when graticuleStep is set', async () => {

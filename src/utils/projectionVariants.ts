@@ -1,15 +1,17 @@
 import type { ProjectionFamily, DistortionModel, AzimuthalLight } from '../store/useAppStore';
 
-export type CylindricalVariant = 'equirectangular' | 'mercator';
-export type ConicVariant = 'lambertConformal' | 'albers';
-export type AzimuthalPerspectiveVariant = 'gnomonic' | 'stereographic' | 'orthographic';
+// Family-level variant unions exist only to key the records below; the public
+// surface is the merged `ProjectionVariant`.
+type CylindricalVariant = 'equirectangular' | 'mercator';
+type ConicVariant = 'lambertConformal' | 'albers';
+type AzimuthalPerspectiveVariant = 'gnomonic' | 'stereographic' | 'orthographic';
 
 export type ProjectionVariant =
   | CylindricalVariant
   | ConicVariant
   | AzimuthalPerspectiveVariant;
 
-export interface TouchPointPreset {
+interface TouchPointPreset {
   label: string;
   phi: number;
   lambda: number;
@@ -95,17 +97,20 @@ function azDef(
   };
 }
 
-export const CYLINDRICAL_VARIANTS: Record<CylindricalVariant, VariantDef> = {
+// Per-family variant records are an implementation detail of ALL_VARIANTS /
+// toOptions below — the public surface is `variantDef`, `defaultVariant` and
+// the flat *_VARIANT_OPTIONS lists used by the projection dropdown.
+const CYLINDRICAL_VARIANTS: Record<CylindricalVariant, VariantDef> = {
   equirectangular: cylDef('Равнопромежуточная', 'equidistant'),
   mercator: cylDef('Меркатор', 'conformal'),
 };
 
-export const CONIC_VARIANTS: Record<ConicVariant, VariantDef> = {
+const CONIC_VARIANTS: Record<ConicVariant, VariantDef> = {
   lambertConformal: conicDef('Ламберта конформная', 'conformal'),
   albers: conicDef('Альберса равновеликая', 'equalArea'),
 };
 
-export const AZIMUTHAL_PERSPECTIVE_VARIANTS: Record<AzimuthalPerspectiveVariant, VariantDef> = {
+const AZIMUTHAL_PERSPECTIVE_VARIANTS: Record<AzimuthalPerspectiveVariant, VariantDef> = {
   gnomonic: azDef('Гномоническая', 'center', true, false),
   stereographic: azDef('Стереографическая', 'antipode', true, false),
   orthographic: azDef('Ортографическая', 'infinity', false, true),

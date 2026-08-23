@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import * as d3Geo from 'd3-geo';
-import type { Geometry } from 'geojson';
+import type { FeatureCollection, Geometry } from 'geojson';
 import { useAppStore } from '../store/useAppStore';
 import { useProjectionParams, useVisualizationParams } from '../store/selectors';
 import { getD3Projection, fitProjectionToView, computeAreaDistortion, isPointerOverGlobe, makeFrameRotation } from '../utils/projectionMapper';
@@ -15,6 +15,15 @@ import { iconBtnPlain, iconGlow, glassPanel } from './ui/styles';
 import { TissotIcon, BorderIcon, DetailIcon, IntersectionIcon, HoverRayIcon, InfoIcon, GraticuleIcon } from './ui/icons';
 import ProjectionSummary from './ProjectionSummary';
 import useElementSize from '../hooks/useElementSize';
+
+// Static container style (the component never changes it) — hoisted so the
+// object identity is stable across renders.
+const CONTAINER_STYLE: CSSProperties = {
+  position: 'relative',
+  width: '100%',
+  height: '100%',
+  background: BG,
+};
 
 export default function Map2D() {
   const params = useProjectionParams();
@@ -106,21 +115,23 @@ export default function Map2D() {
   // the rolled geography layer: rotated into the drum frame they show exactly
   // how the projection distorts each region — nearly circular at the chosen
   // centre (least distortion), stretched toward the window edges. Circles are
-  // also band-cut so none straddles the wrap seam.
-  const frameTissot = useMemo(
-    () =>
-      tissotCircles
-        .map((c) => {
-          if (!frameRotation) return c;
-          const cut = cutFeatureCollectionToBand({
-            type: 'FeatureCollection',
-            features: [{ type: 'Feature', properties: {}, geometry: rotatePolygon(c, frameRotation) }],
-          });
-          return cut.features[0]?.geometry ?? null;
-        })
-        .filter((c): c is Geometry => c != null),
-    [tissotCircles, frameRotation],
-  );
+  // also band-cut so none straddles the wrap seam. The whole layer is merged
+  // into ONE FeatureCollection so the DOM carries a single <path> for it.
+  const tissotLayer = useMemo<FeatureCollection | null>(() => {
+    if (!showTissot) return null;
+    const features = tissotCircles
+      .map((c) => {
+        if (!frameRotation) return c;
+        const cut = cutFeatureCollectionToBand({
+          type: 'FeatureCollection',
+          features: [{ type: 'Feature', properties: {}, geometry: rotatePolygon(c, frameRotation) }],
+        });
+        return cut.features[0]?.geometry ?? null;
+      })
+      .filter((g): g is Geometry => g != null)
+      .map((geometry) => ({ type: 'Feature' as const, properties: {}, geometry }));
+    return features.length > 0 ? { type: 'FeatureCollection', features } : null;
+  }, [showTissot, tissotCircles, frameRotation]);
 
   const intersectionRings = useMemo(
     () => (showIntersection ? computeAuxSphereIntersectionsLonLat(params) : []),
@@ -134,13 +145,6 @@ export default function Map2D() {
     () => (showIntersection ? computeCutLineLonLat(params) : []),
     [showIntersection, params],
   );
-
-  const containerStyle: CSSProperties = {
-    position: 'relative',
-    width: '100%',
-    height: '100%',
-    background: BG,
-  };
 
   // Convert a pointer event on the responsive <svg> (preserveAspectRatio
   // letter-boxes it) into the internal map pixel space the projection uses.
@@ -194,7 +198,7 @@ export default function Map2D() {
   })();
 
   return (
-    <div ref={ref} style={containerStyle}>
+    <div ref={ref} style={CONTAINER_STYLE}>
       {!baseLand && (
         <div
           className={`${glassPanel} absolute left-1/2 top-1/2 z-10 max-w-md -translate-x-1/2 -translate-y-1/2 px-4 py-2 text-center text-[12px] text-neon-blue`}
@@ -214,27 +218,28 @@ export default function Map2D() {
           data-map="true"
           style={{ display: 'block' }}
           onPointerMove={handlePointerMove}
-          onPointerLeave={() => setHoverLonLat(null)}
+          // Leaving the map clears only a hover THIS view set; a hover that
+          // came from the 3D globe must survive (the map never owned it).
+          onPointerLeave={() => {
+            if (hoverSource === 'map') setHoverLonLat(null);
+          }}
           onClick={handleMapClick}
         >
+          {/* Each layer is ONE merged <path>: d3 renders the whole collection
+              into a single `d` string, so the DOM stays tiny even for the 50m
+              datasets and slider moves reconcile one node per layer. */}
           {graticuleObj && (
             <path d={pathGen(graticuleObj) ?? ''} fill="none" stroke={GRATICULE_STROKE} strokeWidth={0.5} />
           )}
           {bandLand && (
-            <g>
-              {bandLand.features.map((feature, i) => (
-                <path key={i} d={pathGen(feature) ?? ''} fill={BG} stroke={NEON_BLUE} strokeWidth={1} />
-              ))}
-              {showBorders &&
-                bandBorders &&
-                bandBorders.features.map((feature, i) => (
-                  <path key={`border-${i}`} d={pathGen(feature) ?? ''} fill="none" stroke={NEON_BLUE_LINE} strokeWidth={0.6} />
-                ))}
-            </g>
+            <path d={pathGen(bandLand) ?? ''} fill={BG} stroke={NEON_BLUE} strokeWidth={1} />
           )}
-          {frameTissot.map((circle, i) => (
-            <path key={`tissot-${i}`} d={pathGen(circle) ?? ''} fill={NEON_ORANGE_SOFT} stroke={NEON_ORANGE} />
-          ))}
+          {showBorders && bandBorders && (
+            <path d={pathGen(bandBorders) ?? ''} fill="none" stroke={NEON_BLUE_LINE} strokeWidth={0.6} />
+          )}
+          {tissotLayer && (
+            <path d={pathGen(tissotLayer) ?? ''} fill={NEON_ORANGE_SOFT} stroke={NEON_ORANGE} />
+          )}
           {showIntersection && (
             <g data-testid="intersection-lines">
               {intersectionRings.map((ring, i) => (

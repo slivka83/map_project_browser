@@ -386,7 +386,8 @@ describe('rays link globe point to map point', () => {
             closeTo(Math.hypot(...segs[i].globe), RADIUS, 1e-6);
         const surface = computeAuxSurfaceParams(p)!;
             if (surface.kind !== 'cylinder') throw new Error('expected cylinder');
-            const local = matVec(surface.orientInv, [segs[i].globe[0], segs[i].globe[1] - surface.positionY, segs[i].globe[2]]);
+            // Static drum: the world point IS the local point (identity transform).
+            const local = segs[i].globe;
             closeTo(local[2], 0, 1e-6); // on the front generator (no sideways offset)
             expect(local[0]).toBeGreaterThanOrEqual(0); // front (poles give x = 0)
           } else {
@@ -519,7 +520,7 @@ describe('rays link globe point to map point', () => {
         for (let i = 0; i < segs.length; i++) {
           const lat = -CLIP_LAT + (i * 2 * CLIP_LAT) / (segs.length - 1);
           const mapFlat = projFlat([0, lat]) as [number, number];
-          const local = matVec(surface.orientInv, segs[i].end);
+          const local = segs[i].end; // static drum: world = local
           const projX = (cx ?? 0) + scale * Math.atan2(local[2], local[0]);
           const projY = (cy ?? 0) - local[1] / wpp;
           closeTo(projX, mapFlat[0], 1e-4);
@@ -669,8 +670,8 @@ function rayEndToLonLat(
   const scale = proj.scale() || 1;
   const wpp = RADIUS / MAP_SCALE;
   if (surface.kind === 'cylinder') {
-    // inverse of auxPointToWorld: local = orientInv · world (positionY = 0)
-    const local = matVec(surface.orientInv, world);
+    // static drum: world = local (no inverse transform needed)
+    const local = world;
     const th = Math.atan2(local[2], local[0]); // around the axis
     const projX = (cx ?? 0) + scale * th;
     const projY = cy - local[1] / wpp;

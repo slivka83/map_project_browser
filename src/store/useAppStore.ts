@@ -201,6 +201,11 @@ export const useAppStore = create<AppState>((set) => ({
     };
   }),
   loadGeoData: async () => {
+    // Skip while a fetch is already running (React StrictMode mounts effects
+    // twice in dev; a second concurrent pass would only duplicate the network
+    // work — the first call owns the commit). A finished load always clears
+    // `geoLoading`, so a later retry (e.g. after a total failure) still works.
+    if (useAppStore.getState().geoLoading) return;
     // A monotonically increasing token lets a later call supersede an earlier one
     // (e.g. on a fast remount): only the most recent fetch may commit its result.
     const next = useAppStore.getState()._geoToken + 1;

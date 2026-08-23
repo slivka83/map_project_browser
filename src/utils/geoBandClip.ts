@@ -38,18 +38,30 @@ function cutRing(ring: Position[]): Position[] {
   return [];
 }
 
+// Cut one polygon (outer ring + holes). The outer ring must survive the cut;
+// each hole is cut independently and kept only when it still has an area, so
+// interior lakes (e.g. the Caspian) never silently turn into solid land.
+function cutPolygonRings(rings: Position[][]): Position[][] | null {
+  const [outer, ...holes] = rings;
+  const cutOuter = cutRing(outer);
+  if (cutOuter.length < 3) return null;
+  const kept: Position[][] = [cutOuter];
+  for (const hole of holes) {
+    const cutHole = cutRing(hole);
+    if (cutHole.length >= 3) kept.push(cutHole);
+  }
+  return kept;
+}
+
 function cutGeometry(geom: Geometry): Geometry | null {
   if (geom.type === 'Polygon') {
-    const outer = cutRing(geom.coordinates[0] as Position[]);
-    if (outer.length < 3) return null;
-    return { type: 'Polygon', coordinates: [outer] };
+    const rings = cutPolygonRings(geom.coordinates);
+    return rings ? { type: 'Polygon', coordinates: rings } : null;
   }
   if (geom.type === 'MultiPolygon') {
-    const polys: Position[][][] = [];
-    for (const poly of geom.coordinates) {
-      const outer = cutRing(poly[0] as Position[]);
-      if (outer.length >= 3) polys.push([outer]);
-    }
+    const polys = geom.coordinates
+      .map((poly) => cutPolygonRings(poly))
+      .filter((p): p is Position[][] => p != null);
     if (polys.length === 0) return null;
     return polys.length === 1 ? { type: 'Polygon', coordinates: polys[0] } : { type: 'MultiPolygon', coordinates: polys };
   }
@@ -79,7 +91,7 @@ export function normalizeLon(lon: number): number {
   return ((lon % 360) + 540) % 360 - 180;
 }
 
-export function rotatePosition(p: Position, rotate: (p: [number, number]) => [number, number]): Position {
+function rotatePosition(p: Position, rotate: (p: [number, number]) => [number, number]): Position {
   const r = rotate([p[0], p[1]]);
   // Poles can yield NaN longitudes — pin them to 0 so downstream math stays finite.
   const lon = Number.isFinite(r[0]) ? normalizeLon(r[0]) : 0;

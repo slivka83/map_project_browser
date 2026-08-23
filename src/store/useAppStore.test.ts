@@ -205,6 +205,38 @@ describe('useAppStore', () => {
     vi.unstubAllGlobals();
   });
 
+  it('loadGeoData skips a redundant concurrent call while one is in flight', async () => {
+    const topology = {
+      type: 'Topology',
+      transform: { scale: [1, 1], translate: [0, 0] },
+      objects: {
+        land: { type: 'GeometryCollection', geometries: [{ type: 'Polygon', arcs: [[0]] }] },
+        countries: { type: 'GeometryCollection', geometries: [{ type: 'Polygon', arcs: [[0]] }] },
+      },
+      arcs: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+    } as unknown as Topology;
+
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(topology) });
+    vi.stubGlobal('fetch', fetchMock);
+
+    // Two overlapping calls (StrictMode double-mount): the second must be a
+    // no-op instead of re-fetching all four files.
+    await Promise.all([
+      useAppStore.getState().loadGeoData(),
+      useAppStore.getState().loadGeoData(),
+    ]);
+    // Exactly one pass over the four bundled files.
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(useAppStore.getState().geoJsonData).not.toBeNull();
+    expect(useAppStore.getState().geoLoading).toBe(false);
+
+    // A call AFTER completion is not skipped (a genuine reload works).
+    await useAppStore.getState().loadGeoData();
+    expect(fetchMock).toHaveBeenCalledTimes(8);
+
+    vi.unstubAllGlobals();
+  });
+
   it('setFamily resets projection params but preserves UI flags', () => {
     useAppStore.setState({ showTissot: true, showBorders: true, detailedMap: true });
     useAppStore.getState().setFamily('conic');

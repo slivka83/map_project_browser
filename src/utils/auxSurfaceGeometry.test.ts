@@ -186,11 +186,15 @@ describe('computeAuxSurfaceParams', () => {
     expect(p.kind).toBe('cylinder');
     if (p.kind === 'cylinder') closeTo(p.radius, RADIUS * 1.05, 1e-9);
   });
-  it('cylinder does NOT translate in 3D (always equatorial, touches globe)', () => {
+  it('cylinder does NOT translate in 3D (static drum centred at the origin)', () => {
+    // The static drum carries no offset at all — a local point IS a world
+    // point (the type has no position field to even express one).
     for (const phi of [0, 30, -45, 60]) {
       const p = sp('cylindrical', 0, phi, 1)!;
       expect(p.kind).toBe('cylinder');
-      if (p.kind === 'cylinder') closeTo(p.positionY, 0, 1e-9);
+      if (p.kind === 'cylinder') {
+        expect(Object.keys(p).sort()).toEqual(['height', 'kind', 'radius']);
+      }
     }
   });
   it('cylinder height depends on the distortion (Тип искажения)', () => {
@@ -357,8 +361,8 @@ describe('computeCentralMeridianRays', () => {
     const ref = computeCentralMeridianRays({ ...base, family: 'cylindrical', phiOrigin: 0 });
     const surface = sp('cylindrical', 0, 0, 1, RADIUS, null, 0, 'equalArea', 'center')!;
     if (surface.kind !== 'cylinder') throw new Error('expected cylinder');
-    // The tube stays upright for every slider state.
-    expect([surface.orient[1], surface.orient[4], surface.orient[7]]).toEqual([0, 1, 0]);
+    // The tube is the static drum: upright by construction (no orientation).
+    expect(surface.radius).toBeGreaterThan(0);
     for (const phi of [30, -45]) {
       for (const lam of [0, 70]) {
         const segs = computeCentralMeridianRays({ ...base, family: 'cylindrical', phiOrigin: phi, lambda0: lam });
@@ -398,8 +402,8 @@ describe('computeCentralMeridianRays', () => {
         const segs = computeCentralMeridianRays({ ...base, family: 'cylindrical', distortion, gamma });
         const surface = sp('cylindrical', 0, 0, 1, RADIUS, null, gamma, distortion, 'center')!;
         if (surface.kind !== 'cylinder') throw new Error('expected cylinder');
-        // Axis of the rendered cylinder in world space = orient · Y.
-        const axis: [number, number, number] = [surface.orient[1], surface.orient[4], surface.orient[7]];
+        // Axis of the static drum = the world Y axis (the tube is upright).
+        const axis: [number, number, number] = [0, 1, 0];
         for (const { end } of segs) {
           // Distance from `end` to the cylinder axis must equal the radius. The
           // pole rays land on the top/bottom rim (also at radius).
@@ -537,12 +541,11 @@ describe('gamma tilt (oblique / transverse)', () => {
     const sf = 1.02;
     const g = 45;
     const segs = computeCentralMeridianRays({ ...base, family: 'cylindrical', scaleFactor: sf, gamma: g, lambda0: 0 });
-    // Axis of the rendered (tilted) cylinder in world space = orient · Y. Tilting
-    // the cylinder is a shift of its central latitude, so orient = geoRotation of
-    // (lambda0, gamma, 0); the axis is read from that same matrix.
+    // The static drum is upright for EVERY slider state — γ belongs to other
+    // families and never moves the tube, so the axis is the world Y axis.
     const surface = sp('cylindrical', 0, 0, sf, RADIUS, null, g, 'conformal', 'center')!;
     if (surface.kind !== 'cylinder') throw new Error('expected cylinder');
-    const axisDir: [number, number, number] = [surface.orient[1], surface.orient[4], surface.orient[7]];
+    const axisDir: [number, number, number] = [0, 1, 0];
     for (const { end } of segs) {
       const cross = [
         end[1] * axisDir[2] - end[2] * axisDir[1],
@@ -902,24 +905,24 @@ describe('computeTangentBasis orthonormality', () => {
 });
 
 describe('computeAuxSurfaceParams surface-kind invariants', () => {
-  it('cylindrical: radius is R·scaleFactor and the tube stays upright and static', () => {
+  it('cylindrical: radius is R·scaleFactor and the tube is the static upright drum', () => {
     const p = sp('cylindrical', 30, 0, 1.05)!;
     if (p.kind !== 'cylinder') throw new Error('expected cylinder');
     expect(p.radius).toBeCloseTo(RADIUS * 1.05, 9);
-    // The TWO-LAYER model: the tube is STATIC — upright for every slider state
-    // (Долгота/Параллель slide only the geography layer inside it).
-    expect(p.orient).toEqual([1, 0, 0, 0, 1, 0, 0, 0, 1]);
+    // The static drum carries no orientation/offset fields at all — a local
+    // point IS a world point (Долгота/Параллель slide only the geography).
+    expect(Object.keys(p).sort()).toEqual(['height', 'kind', 'radius']);
     // The seam keeps pointing at lambda0 (the graduation is fixed to the tube).
-    const seamX = p.orient[0];
-    const seamZ = p.orient[2];
-    expect(Math.atan2(-seamZ, seamX)).toBeCloseTo(0, 9);
+    const seam = auxPointToWorld(p, [p.radius, 0, 0]);
+    expect(Math.atan2(-seam[2], seam[0])).toBeCloseTo(0, 9);
   });
 
   it('cylindrical: gamma does not move the static tube at all', () => {
-    const p = sp('cylindrical', 0, 0, 1, undefined, null, 30)!;
-    if (p.kind !== 'cylinder') throw new Error('expected cylinder');
+    const a = sp('cylindrical', 0, 0, 1, undefined, null, 0)!;
+    const b = sp('cylindrical', 0, 0, 1, undefined, null, 30)!;
+    if (a.kind !== 'cylinder' || b.kind !== 'cylinder') throw new Error('expected cylinder');
     // γ belongs to other families; the upright cylinder ignores it entirely.
-    expect(p.orient).toEqual([1, 0, 0, 0, 1, 0, 0, 0, 1]);
+    expect(b).toEqual(a);
   });
 
   it('conic northern: positive positionY, flip +1', () => {
