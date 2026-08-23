@@ -28,7 +28,7 @@ const CONTAINER_STYLE: CSSProperties = {
 export default function Map2D() {
   const params = useProjectionParams();
   const viz = useVisualizationParams();
-  const { lambda0, phiOrigin, family } = params;
+  const { lambda0, phiOrigin } = params;
   const { graticuleStep, showGraticule } = viz;
   const showTissot = useAppStore((s) => s.showTissot);
   const setShowTissot = useAppStore((s) => s.setShowTissot);
@@ -158,8 +158,7 @@ export default function Map2D() {
 
   // Click on an azimuthal map moves the tangent point (touch-point presets).
   const handleMapClick = (e: React.MouseEvent<SVGSVGElement>) => {
-    const def = variantDef(params.variant);
-    if (!def.showTouchPointPresets || family !== 'azimuthalPerspective') return;
+    if (!variantDef(params.variant).showTouchPointPresets) return;
     const [x, y] = toMapPoint(e);
     if (!isPointerOverGlobe(pathGen, x, y)) return;
     const inv = projRef?.invert?.([x, y]);
@@ -187,7 +186,11 @@ export default function Map2D() {
     setHoverLonLat([geo[0], geo[1]], 'map');
   };
 
-  const showHoverMarker = showHoverRay && hoverSource === 'map';
+  // The shared hover marker is drawn for ANY active hover — map-sourced or
+  // mirrored from the 3D globe (the yellow dot marks the same Earth point in
+  // both views). The construction RAY, by contrast, is drawn only while the
+  // 2D map itself is hovered.
+  const showHoverMarker = showHoverRay && hoverLonLat != null;
   const hoverPoint = (() => {
     if (!showHoverMarker || !hoverLonLat || !projRef) return null;
     // Roll the geographic hover point into the drum frame before projecting.

@@ -42,10 +42,10 @@ function projParams(
     stdParallel2: null,
     azLight: 'center',
   };
-  for (const [key, value] of Object.entries(over)) {
-    if (value !== undefined) (base as unknown as Record<string, unknown>)[key] = value;
-  }
-  return base;
+  const applied = Object.fromEntries(
+    Object.entries(over).filter(([, value]) => value !== undefined),
+  ) as Partial<ProjectionParams>;
+  return { ...base, ...applied };
 }
 
 export function lonLatToVec3(lon: number, lat: number, radius = RADIUS): Vec3 {
@@ -833,10 +833,11 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
     const rp = fr([lon, lat]);
     const rlon = rp && isFinite(rp[0]) ? normalizeLon(rp[0]) : lon;
     const rlat = rp && isFinite(rp[1]) ? rp[1] : lat;
-    const p = projFlat!([rlon, rlat]);
-    if (!p || !isFinite(p[0]) || !isFinite(p[1])) return null;
-    const r = radius * scaleFactor;
-    localEnd = cylinderLocalEnd(projFlat!, rlon, rlat, r, cy, wpp);
+    // The static drum projection is total (the height law is clamped), so a
+    // single cylinderLocalEnd call both projects and lands the ray; a
+    // non-finite result still means "no shadow" and returns null.
+    localEnd = cylinderLocalEnd(projFlat!, rlon, rlat, radius * scaleFactor, cy, wpp);
+    if (!localEnd.every(Number.isFinite)) return null;
     // The globe point is drawn at its ROLLED position (the geography layer
     // carries the Долгота/Параллель rotation), while the ray itself belongs to
     // the static apparatus: the light stays fixed (the globe centre — no

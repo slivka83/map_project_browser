@@ -211,28 +211,33 @@ describe('Map2D', () => {
     expect(useAppStore.getState().showGraticule).toBe(false);
   });
 
-  it('shows the hover marker only for a 2D-map hover with the feature enabled', async () => {
+  it('mirrors the shared hover as a yellow marker from EITHER view while the feature is on', async () => {
+    // Regression: a hover that came FROM THE 3D GLOBE used to be stored but
+    // rendered NOWHERE (the 2D marker was gated to source === 'map'), so
+    // hovering the globe gave no feedback in either view. The marker must
+    // mirror any active shared hover; only the construction RAY stays
+    // map-sourced.
     const { queryByTestId } = render(<Map2D />);
 
-    // Reset any leaked hover state from earlier tests, then enable the feature.
     act(() => {
       useAppStore.getState().setShowHoverRay(true);
       useAppStore.getState().setHoverLonLat(null);
     });
+    expect(queryByTestId('hover-marker')).toBeNull();
 
-    // Hovering the 2D map → marker visible.
+    // Hovering the 3D globe → the map mirrors it with the yellow marker.
+    act(() => {
+      useAppStore.getState().setHoverLonLat([10, 20], 'globe');
+    });
+    expect(queryByTestId('hover-marker')).not.toBeNull();
+
+    // Hovering the 2D map itself → marker visible too.
     act(() => {
       useAppStore.getState().setHoverLonLat([10, 20], 'map');
     });
     expect(queryByTestId('hover-marker')).not.toBeNull();
 
-    // Hovering the 3D globe (source 'globe') → no marker.
-    act(() => {
-      useAppStore.getState().setHoverLonLat([10, 20], 'globe');
-    });
-    expect(queryByTestId('hover-marker')).toBeNull();
-
-    // Feature disabled → no marker even when the map is hovered.
+    // Feature disabled → no marker even when a hover is active.
     act(() => {
       useAppStore.getState().setShowHoverRay(false);
       useAppStore.getState().setHoverLonLat([10, 20], 'map');
@@ -304,7 +309,8 @@ describe('Map2D', () => {
     });
     const { container } = render(<Map2D />);
     await waitFor(() => {
-      const grat = container.querySelector('path[stroke="#1f3a4d"]') ?? container.querySelector('path');
+      // GRATICULE_STROKE (#334155) identifies the graticule path.
+      const grat = container.querySelector('path[stroke="#334155"]');
       expect(grat).not.toBeNull();
       expect((grat as SVGPathElement).getAttribute('d')?.length ?? 0).toBeGreaterThan(10);
     });

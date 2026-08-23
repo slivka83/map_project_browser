@@ -19,13 +19,11 @@ export default function GlobeScene() {
   const params = useProjectionParams();
   const geoJson = useAppStore((s) => s.geoJsonData);
   const hoverLonLat = useAppStore((s) => s.hoverLonLat);
-  const hoverSource = useAppStore((s) => s.hoverSource);
   const showHoverRay = useAppStore((s) => s.showHoverRay);
   // The «Линии пересечения» toggle drives the white apparatus lines (intersection
   // rings + seam/cut line) in BOTH views — the 3D scene and the 2D map.
   const showIntersection = useAppStore((s) => s.showIntersection);
   const setHoverLonLat = useAppStore((s) => s.setHoverLonLat);
-  const setParam = useAppStore((s) => s.setParam);
 
   const def = variantDef(params.variant);
 
@@ -54,10 +52,17 @@ export default function GlobeScene() {
     setHoverLonLat([lon, lat], 'globe');
   };
 
+  // Leaving the globe clears only a hover THIS view set — a hover that came
+  // from the 2D map must survive (mirroring the map's own source-checked
+  // clearing on pointer-leave).
+  const handleGlobeOut = () => {
+    if (useAppStore.getState().hoverSource === 'globe') setHoverLonLat(null);
+  };
+
   return (
     <Canvas camera={{ position: [0, 5, 42], fov: 50 }} className="rounded-lg">
       <OrbitControls makeDefault enablePan={false} enableDamping dampingFactor={0.08} minDistance={18} maxDistance={90} />
-      <Globe geoJson={geoJson} roll={roll} onPointerMove={handleGlobeMove} onPointerOut={() => setHoverLonLat(null)} />
+      <Globe geoJson={geoJson} roll={roll} onPointerMove={handleGlobeMove} onPointerOut={handleGlobeOut} />
       <AuxSurface surface={surface} />
       <LightSource surface={surface} params={params} />
       {showIntersection && (
@@ -67,21 +72,13 @@ export default function GlobeScene() {
         </>
       )}
       <Rays params={params} />
-      {def.showTouchPointPresets && (
-        <TouchPointPin
-          lambda0={params.lambda0}
-          phiOrigin={params.phiOrigin}
-          onChange={(lon, lat) => {
-            setParam('lambda0', lon);
-            setParam('phiOrigin', lat);
-          }}
-        />
-      )}
-      {showHoverRay && hoverSource === 'map' && hoverLonLat && (
-        // The marker mirrors the 2D map's hover highlight: it marks a point ON
-        // THE EARTH, so it must ride the rolled geography layer exactly like
-        // the coastlines do (the raw lon/lat sits at the un-rolled position,
-        // which drifts away from the visibly rotated continents).
+      {def.showTouchPointPresets && <TouchPointPin lambda0={params.lambda0} phiOrigin={params.phiOrigin} />}
+      {showHoverRay && hoverLonLat && (
+        // The yellow dot mirrors the shared hover in BOTH directions: it marks
+        // the hovered point whether it was picked on the map or on this globe.
+        // It rides the rolled geography layer exactly like the coastlines (the
+        // raw lon/lat sits at the un-rolled position, which drifts away from
+        // the visibly rotated continents).
         <mesh position={matVec(roll, lonLatToVec3(hoverLonLat[0], hoverLonLat[1], RADIUS))} renderOrder={12}>
           <sphereGeometry args={[0.35, 16, 16]} />
           <meshBasicMaterial color={NEON_YELLOW} toneMapped={false} depthTest={false} />

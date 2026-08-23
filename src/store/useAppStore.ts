@@ -28,11 +28,13 @@ export interface ProjectionParams {
   azLight: AzimuthalLight; // light-source mode for the azimuthal family
 }
 
-export function defaultParamsForFamily(family: ProjectionFamily): ProjectionParams {
-  const v = defaultVariant(family);
-  const def = variantDef(v);
+// The canonical parameter set of a variant: its own defaults, sliders zeroed.
+// Single source for setVariant / setFamily / resetParams — the three actions
+// differ only in WHICH variant they target and whether λ₀ survives.
+function paramsForVariant(variant: ProjectionVariant): ProjectionParams {
+  const def = variantDef(variant);
   return {
-    variant: v,
+    variant,
     family: def.family,
     distortion: def.distortion,
     lambda0: 0,
@@ -42,6 +44,10 @@ export function defaultParamsForFamily(family: ProjectionFamily): ProjectionPara
     stdParallel2: null,
     azLight: def.azLight,
   };
+}
+
+export function defaultParamsForFamily(family: ProjectionFamily): ProjectionParams {
+  return paramsForVariant(defaultVariant(family));
 }
 
 interface AppState extends ProjectionParams {
@@ -155,51 +161,27 @@ export const useAppStore = create<AppState>((set) => ({
     }
     set({ [key]: value } as Pick<AppState, typeof key>);
   },
-  setVariant: (v) => {
-    const def = variantDef(v);
-    set({
-      variant: v,
-      family: def.family,
-      distortion: def.distortion,
-      azLight: def.azLight,
-      gamma: 0,
-      scaleFactor: def.lockedScaleFactor ?? 1,
-      phiOrigin: 0,
-      lambda0: 0,
-      stdParallel2: null,
-    });
-  },
+  setVariant: (v) => set(paramsForVariant(v)),
   setShowTissot: (value) => set({ showTissot: value }),
   setShowBorders: (value) => set({ showBorders: value }),
   setShowIntersection: (value) => set({ showIntersection: value }),
   setDetailedMap: (value) => set({ detailedMap: value }),
   setFamily: (family) =>
     set((s) => ({
-      // Switch to the family-default variant with its default params, but keep
-      // the user's central meridian. The family-specific placement (central
-      // latitude, tilt, scale) resets so a family switch always starts from a
-      // sane, upright configuration.
-      ...defaultParamsForFamily(family),
-      // The central meridian survives a family switch; everything else takes
-      // the new family's defaults.
+      // The family-default variant with its default params; the central
+      // meridian survives a family switch, everything else takes the new
+      // family's defaults so a switch always starts from a sane, upright
+      // configuration.
+      ...paramsForVariant(defaultVariant(family)),
       lambda0: s.lambda0,
     })),
-  resetParams: () => set((s) => {
-    // Reset the params of the CURRENTLY selected projection: keep the variant
-    // (the projection itself) and only restore its default parameter values.
-    const def = variantDef(s.variant);
-    return {
-      variant: s.variant,
-      family: def.family,
-      distortion: def.distortion,
-      azLight: def.azLight,
-      lambda0: 0,
-      phiOrigin: 0,
-      scaleFactor: def.lockedScaleFactor ?? 1,
-      gamma: 0,
-      stdParallel2: null,
-    };
-  }),
+  resetParams: () =>
+    set((s) =>
+      // Reset the params of the CURRENTLY selected projection: keep the
+      // variant (the projection itself) and restore its default parameter
+      // values — which is exactly the variant's canonical param set.
+      paramsForVariant(s.variant),
+    ),
   loadGeoData: async () => {
     // Skip while a fetch is already running (React StrictMode mounts effects
     // twice in dev; a second concurrent pass would only duplicate the network

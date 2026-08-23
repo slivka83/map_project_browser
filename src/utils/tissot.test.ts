@@ -25,4 +25,15 @@ describe('computeTissotCircles', () => {
       }
     }
   });
+
+  it('clamps the grid step to a safe floor (no browser freeze at graticule step 1)', () => {
+    // Regression: density followed the graticule step verbatim, so step 1
+    // produced ~43k circles (×61 vertices each) and froze the tab on every
+    // slider tick. Steps below the floor must collapse to the same cheap grid.
+    expect(computeTissotCircles(1).length).toBe(computeTissotCircles(10).length);
+    expect(computeTissotCircles(5).length).toBe(computeTissotCircles(10).length);
+    // The floor never affects the coarser, legitimate steps.
+    expect(computeTissotCircles(15).length).toBeLessThan(computeTissotCircles(10).length);
+    expect(computeTissotCircles(30).length).toBeLessThan(computeTissotCircles(15).length);
+  });
 });

@@ -141,14 +141,19 @@ object-fit: contain), поэтому глобус всегда заполняе�
 
 ### Геоданные
 
-Берега материков грузятся из `public/world-110m.topojson` (land, `objects.land`) и
-преобразуются из TopoJSON в GeoJSON на лету через `topojson-client`.
+Геоданные лежат в `public/` и грузятся четырьмя параллельными запросами (TopoJSON,
+преобразуется в GeoJSON на лету через `topojson-client`):
+
+- `world-110m.topojson` (land 1:110m) — берега для 3D-глобуса;
+- `land-50m.json` (land 1:50m) — берега детальной 2D-карты;
+- `countries-50m.json` / `countries-110m.json` (Admin 0) — слой границ стран
+  в детальном / облегчённом режиме.
 
 ### Дизайн-токены
 
 Экспортируются из `src/constants/designTokens.ts` — не хардкодьте hex в компонентах.
-Цвета продублированы как CSS-переменные в `src/index.css` (`@theme`), чтобы Tailwind
-генерировал утилиты вроде `bg-panel-bg` / `drop-shadow-[…var(--color-neon-blue-soft)]`.
+В `src/index.css` (`@theme`) дублируется только тот минимум, который нужен утилитам
+Tailwind и `var()`-ссылкам: фон, панель, неоново-синий и его мягкий вариант.
 
 - `BG` — фон приложения: `#05050A`
 - `NEON_BLUE` `#00e5ff` — глобус, берега, текст

@@ -69,71 +69,64 @@ const PHI_LABEL: Record<VariantDef['family'], string> = {
   cylindrical: 'Центральная параллель (φ₀)',
 };
 
-// Top-level projection parameter controls (context-driven by VariantDef).
-function ProjectionParamsSection({ def }: { def: VariantDef }) {
+// The projection parameter controls. Context-driven by VariantDef: controls
+// locked by the selected variant render disabled (never hidden).
+export default function ControlPanel() {
   const params = useProjectionParams();
   const setParam = useAppStore((s) => s.setParam);
+  const def = variantDef(params.variant);
   const { family, lambda0, phiOrigin, scaleFactor, gamma, stdParallel2 } = params;
 
   return (
-    <div className="flex flex-col gap-2.5">
-      <ParamSlider label="Долгота (λ₀)" value={lambda0} min={-180} max={180} step={1} onChange={(v) => setParam('lambda0', v)} />
-
-      <ParamSlider label={PHI_LABEL[family]} value={phiOrigin} min={-90} max={90} step={1} onChange={(v) => setParam('phiOrigin', v)} />
-
-      {def.showParallel2 && (
-        <StdParallel2Control value={stdParallel2} phiOrigin={phiOrigin} onChange={(v) => setParam('stdParallel2', v)} />
-      )}
-
-      {def.showTouchPointPresets && def.touchPointPresets && (
-        <div className="flex flex-col gap-1">
-          <span className={labelClass}>Пресеты точки касания</span>
-          <PresetChips presets={def.touchPointPresets} active={{ phi: phiOrigin, lambda: lambda0 }} onSelect={(phi, lambda) => { setParam('phiOrigin', phi); setParam('lambda0', lambda); }} />
-        </div>
-      )}
-
-      {family === 'azimuthalPerspective' && (
-        <ParamSlider
-          label="Наклон (γ)"
-          value={gamma}
-          min={-180}
-          max={180}
-          step={1}
-          onChange={(v) => setParam('gamma', v)}
-        />
-      )}
-
-      <ParamSlider
-        label="Масштаб"
-        value={scaleFactor}
-        min={family === 'cylindrical' ? 0.5 : 0.9}
-        max={family === 'cylindrical' ? 1.0 : 1.1}
-        step={0.01}
-        suffix=""
-        disabled={def.lockedScaleFactor !== null}
-        onChange={(v) => setParam('scaleFactor', v)}
-      />
-
-      {family === 'azimuthalPerspective' && (
-        <div className={fieldRow}>
-          {/* The light source is owned by the variant (never user-editable). */}
-          <span className={`${labelClass} w-36 shrink-0 opacity-40`}>🔒 Источник света</span>
-          <span className="text-[12px] text-gray-400">
-            {AZ_LIGHT_ICON_MAP[params.azLight]} {AZ_LIGHT_LABEL_MAP[params.azLight]}
-          </span>
-        </div>
-      )}
-    </div>
-  );
-}
-
-export default function ControlPanel() {
-  const params = useProjectionParams();
-  const def = variantDef(params.variant);
-
-  return (
     <div className="flex flex-col gap-3.5 px-3 py-3">
-      <ProjectionParamsSection def={def} />
+      <div className="flex flex-col gap-2.5">
+        <ParamSlider label="Долгота (λ₀)" value={lambda0} min={-180} max={180} step={1} onChange={(v) => setParam('lambda0', v)} />
+
+        <ParamSlider label={PHI_LABEL[family]} value={phiOrigin} min={-90} max={90} step={1} onChange={(v) => setParam('phiOrigin', v)} />
+
+        {def.showParallel2 && (
+          <StdParallel2Control value={stdParallel2} phiOrigin={phiOrigin} onChange={(v) => setParam('stdParallel2', v)} />
+        )}
+
+        {def.showTouchPointPresets && def.touchPointPresets && (
+          <div className="flex flex-col gap-1">
+            <span className={labelClass}>Пресеты точки касания</span>
+            <PresetChips presets={def.touchPointPresets} active={{ phi: phiOrigin, lambda: lambda0 }} onSelect={(phi, lambda) => { setParam('phiOrigin', phi); setParam('lambda0', lambda); }} />
+          </div>
+        )}
+
+        {family === 'azimuthalPerspective' && (
+          <ParamSlider
+            label="Наклон (γ)"
+            value={gamma}
+            min={-180}
+            max={180}
+            step={1}
+            onChange={(v) => setParam('gamma', v)}
+          />
+        )}
+
+        <ParamSlider
+          label="Масштаб"
+          value={scaleFactor}
+          min={family === 'cylindrical' ? 0.5 : 0.9}
+          max={family === 'cylindrical' ? 1.0 : 1.1}
+          step={0.01}
+          suffix=""
+          disabled={def.lockedScaleFactor !== null}
+          onChange={(v) => setParam('scaleFactor', v)}
+        />
+
+        {family === 'azimuthalPerspective' && (
+          <div className={fieldRow}>
+            {/* The light source is owned by the variant (never user-editable). */}
+            <span className={`${labelClass} w-36 shrink-0 opacity-40`}>🔒 Источник света</span>
+            <span className="text-[12px] text-gray-400">
+              {AZ_LIGHT_ICON_MAP[params.azLight]} {AZ_LIGHT_LABEL_MAP[params.azLight]}
+            </span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

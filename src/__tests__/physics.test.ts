@@ -384,7 +384,7 @@ describe('rays link globe point to map point', () => {
             // the whole ray rotates rigidly with the cylinder.
             // Verify: globe on the sphere, and on the tube's front generator.
             closeTo(Math.hypot(...segs[i].globe), RADIUS, 1e-6);
-        const surface = computeAuxSurfaceParams(p)!;
+            const surface = computeAuxSurfaceParams(p)!;
             if (surface.kind !== 'cylinder') throw new Error('expected cylinder');
             // Static drum: the world point IS the local point (identity transform).
             const local = segs[i].globe;
