@@ -23,13 +23,15 @@ export type Vec3 = [number, number, number];
 // Build a complete ProjectionParams object from the family + distortion plus a
 // few overrides, filling the rest with the canonical defaults. Used by the
 // internal getD3Projection calls (which only need a handful of fields) so the
-// projection math always receives a fully-populated params object.
+// projection math always receives a fully-populated params object. An
+// explicitly-`undefined` override never shadows a canonical default (only real
+// values are applied), so optional inputs (e.g. RayFanOptions.variant) are safe.
 function projParams(
   family: ProjectionParams['family'],
   distortion: ProjectionParams['distortion'],
   over: Partial<ProjectionParams> = {},
 ): ProjectionParams {
-  return {
+  const base: ProjectionParams = {
     variant: defaultVariant(family),
     family,
     distortion,
@@ -41,8 +43,11 @@ function projParams(
     gamma: 0,
     stdParallel2: null,
     azLight: 'center',
-    ...over,
   };
+  for (const [key, value] of Object.entries(over)) {
+    if (value !== undefined) (base as unknown as Record<string, unknown>)[key] = value;
+  }
+  return base;
 }
 
 export function lonLatToVec3(lon: number, lat: number, radius = RADIUS): Vec3 {
@@ -397,19 +402,16 @@ export function coneAxialHeight(latRad: number, cone: ConeParams, radius: number
   return cone.sign * (cone.apex - (radius * Math.cos(latRad)) / cone.tanA);
 }
 
+// Everything the aux-surface math needs is carried by the shared
+// ProjectionParams object; only the 3D sphere radius is a true option. The
+// single object parameter replaces the former ten-argument positional list
+// (where `radius` sat before `stdParallel2` — an easy trap to fall into).
 export function computeAuxSurfaceParams(
-  family: ProjectionParams['family'],
-  lambda0: number,
-  phiOrigin: number,
-  scaleFactor: number,
+  params: ProjectionParams,
   radius = RADIUS,
-  stdParallel2: number | null = null,
-  gamma = 0,
-  distortion: ProjectionParams['distortion'] = 'equalArea',
-  azLight: ProjectionParams['azLight'] = 'center',
-  variant?: ProjectionParams['variant'],
 ): AuxSurfaceParams {
-  const v = variant ?? defaultVariant(family);
+  const { family, lambda0, phiOrigin, scaleFactor, gamma, distortion, azLight, stdParallel2 } = params;
+  const v = params.variant ?? defaultVariant(family);
   if (family === 'cylindrical') {
     // The static drum: upright cylinder, axis along Earth's polar axis, never
     // tilted. Долгота/Параллель ROLL the geography (the continents) inside it
@@ -463,8 +465,8 @@ export function computeAuxSurfaceParams(
 // Mirrors the physical model described in AGENTS.md.
 
 // Azimuthal point-light position (world space). `center` → globe centre,
-// `antipode` → the point opposite the tangent point. `infinity` and `math`
-// have no single light point (parallel beams / no light) → null.
+// `antipode` → the point opposite the tangent point. `infinity` has no single
+// light point (parallel beams) → null.
 export function computeAzimuthalLightLamp(
   azLight: ProjectionParams['azLight'],
   lambda0: number,
@@ -482,13 +484,12 @@ export function computeAzimuthalLightLamp(
 // World-space position of the conic developable-cone apex (the gnomonic light
 // source), matching the transform AuxSurface applies to the cone group so the
 // rays visually emanate from the tip. The cone group applies scale [1, flip, 1]
-// then a rotation about X by `gamma` then translates to `positionY`; the apex
-// local point is [0, height/2, 0].
-export function coneApexWorld(
-  surface: Extract<AuxSurfaceParams, { kind: 'cone' }>,
-  gamma: number,
-): Vec3 {
-  const gammaRad = (gamma * Math.PI) / 180;
+// then a rotation about X by the surface's own `tilt` (= γ) then translates to
+// `positionY`; the apex local point is [0, height/2, 0]. The tilt is read from
+// the surface itself — the single source of truth — so the apex can never drift
+// out of the rendered cone.
+export function coneApexWorld(surface: Extract<AuxSurfaceParams, { kind: 'cone' }>): Vec3 {
+  const gammaRad = (surface.tilt * Math.PI) / 180;
   const yLocal = surface.flip * (surface.height / 2);
   const y = yLocal * Math.cos(gammaRad);
   const z = yLocal * Math.sin(gammaRad);
@@ -503,13 +504,11 @@ export function coneApexWorld(
 // tangent plane touches the sphere at exactly one point, marked by a small ring.
 // Empty result ⇒ the surface does not touch the globe ⇒ no highlight.
 export function computeAuxSphereIntersections(
-  family: ProjectionParams['family'],
-  lambda0: number,
-  phiOrigin: number,
-  scaleFactor: number,
+  params: ProjectionParams,
   radius = RADIUS,
-  stdParallel2: number | null = null,
 ): Vec3[][] {
+  const { family, lambda0, phiOrigin, scaleFactor, stdParallel2 } = params;
+
   if (family === 'azimuthalPerspective') {
     // The tangent plane touches the sphere at a single point. Mark it with a
     // small circle drawn ON the sphere surface (a spherical cap ring) around
@@ -564,7 +563,8 @@ export function computeAuxSphereIntersections(
     return circles;
   }
 
-  // Pseudocylindrical and mathematical families have no developable surface.
+  // Unreachable for the three supported families (each returns above); kept
+  // so the function stays total for any future family value.
   return [];
 }
 
@@ -574,23 +574,15 @@ export function computeAuxSphereIntersections(
 // with the SAME projection used by Map2D reproduces EXACTLY the white rings drawn
 // in 3D. Every ring point is pushed through `auxPointToWorld` — the exact
 // transform the 3D aux-surface wireframe uses — so the 2D intersection lines
-// follow the real (possibly tilted) surface: a tilted cylinder's ring MOVES with
+// follow the real (possibly tilted) surface: a tilted cone's ring MOVES with
 // the tilt, exactly like the 3D ring, while the 2D canvas itself stays a plain
 // rectangle (the projection does not bake gamma for the cylindrical family).
 export function computeAuxSphereIntersectionsLonLat(
-  family: ProjectionParams['family'],
-  lambda0: number,
-  phiOrigin: number,
-  scaleFactor: number,
+  params: ProjectionParams,
   radius = RADIUS,
-  stdParallel2: number | null = null,
-  gamma = 0,
-  distortion: ProjectionParams['distortion'] = 'equidistant',
-  azLight: ProjectionParams['azLight'] = 'center',
-  variant?: ProjectionParams['variant'],
 ): [number, number][][] {
-  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, variant);
-  const rings = computeAuxSphereIntersections(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2);
+  const surface = computeAuxSurfaceParams(params, radius);
+  const rings = computeAuxSphereIntersections(params, radius);
   return rings.map((ring) =>
     ring.map((p) => (surface.kind === 'plane' ? vec3ToLonLat(p) : vec3ToLonLat(auxPointToWorld(surface, p)))),
   );
@@ -602,19 +594,11 @@ export function computeAuxSphereIntersectionsLonLat(
 // scene does (`CutLine`). Empty for the azimuthal tangent plane (a plane has
 // no seam) — mirrors the 3D component, which renders nothing there either.
 export function computeCutLineLonLat(
-  family: ProjectionParams['family'],
-  lambda0: number,
-  phiOrigin: number,
-  scaleFactor: number,
+  params: ProjectionParams,
   radius = RADIUS,
-  stdParallel2: number | null = null,
-  gamma = 0,
-  distortion: ProjectionParams['distortion'] = 'equidistant',
-  azLight: ProjectionParams['azLight'] = 'center',
-  variant?: ProjectionParams['variant'],
   numPoints = 64,
 ): [number, number][] {
-  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, variant);
+  const surface = computeAuxSurfaceParams(params, radius);
   if (surface.kind !== 'cylinder' && surface.kind !== 'cone') return [];
   const pts = computeCutLine(surface, numPoints);
   return pts.map((p) => vec3ToLonLat(p));
@@ -655,15 +639,14 @@ export interface RaySegment {
   end: Vec3;
 }
 
-interface RayParamsFull extends Partial<ProjectionParams> {
-  family: ProjectionParams['family'];
-  distortion: ProjectionParams['distortion'];
-  lambda0: number;
-  phiOrigin: number;
-  scaleFactor: number;
-  gamma: number;
-  stdParallel2: number | null;
-  azLight: ProjectionParams['azLight'];
+// Input of `computeCentralMeridianRays`: the projection params (variant and
+// the false offsets are optional — the static fan never depends on them) plus
+// the 3D sphere radius and the ray count.
+export interface RayFanOptions
+  extends Omit<ProjectionParams, 'variant' | 'falseEasting' | 'falseNorthing'> {
+  variant?: ProjectionParams['variant'];
+  falseEasting?: number;
+  falseNorthing?: number;
   radius?: number;
   rayCount?: number;
 }
@@ -673,21 +656,26 @@ interface RayParamsFull extends Partial<ProjectionParams> {
 // the point where that globe point is projected onto the auxiliary surface.
 // Endpoints are placed with `auxPointToWorld` so they lie exactly on the same
 // surface AuxSurface renders. Pure (no Three.js) → unit-testable in jsdom.
-export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] {
-  const {
-    family,
-    distortion,
-    lambda0,
-    phiOrigin,
-    scaleFactor,
-    gamma,
-    stdParallel2,
-    azLight,
-    radius = RADIUS,
-    rayCount = RAY_COUNT,
-  } = params;
+export function computeCentralMeridianRays(options: RayFanOptions): RaySegment[] {
+  const { radius = RADIUS, rayCount = RAY_COUNT } = options;
+  // The fan never depends on Долгота/Параллель (see below), so the surface and
+  // its internal projections are built from a canonical param object.
+  const params: ProjectionParams = projParams(
+    options.family,
+    options.distortion,
+    {
+      lambda0: options.lambda0,
+      phiOrigin: options.phiOrigin,
+      scaleFactor: options.scaleFactor,
+      gamma: options.gamma,
+      stdParallel2: options.stdParallel2,
+      azLight: options.azLight,
+      variant: options.variant,
+    },
+  );
+  const { family, distortion, lambda0, phiOrigin, scaleFactor, gamma, stdParallel2, azLight } = params;
 
-  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, params.variant);
+  const surface = computeAuxSurfaceParams(params, radius);
   const cy = VIEW_CENTER_Y;
   const wpp = worldPerPixel(radius);
   const PARALLEL_LEN = parallelBeamLength(radius);
@@ -698,7 +686,7 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
   // Conic / azimuthal keep their own projection for the fan as before. Built
   // lazily per family: cylindrical needs only the static frame projection.
   const projFlat = family === 'cylindrical'
-    ? getD3Projection(projParams(family, distortion, { lambda0: 0, phiOrigin: 0, scaleFactor, gamma: 0, stdParallel2, azLight, variant: params.variant ?? defaultVariant(family) }))
+    ? getD3Projection(projParams(family, distortion, { lambda0: 0, phiOrigin: 0, scaleFactor, gamma: 0, stdParallel2, azLight, variant: params.variant }))
     : null;
   let proj: GeoProjection | null = null;
 
@@ -706,9 +694,7 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
   // southern phiOrigin yields a southern cone matching the rendered mesh.
   const phi2c = stdParallel2 != null ? stdParallel2 : phiOrigin;
   const cone = family === 'conic' ? computeCone(phiOrigin, phi2c, radius, scaleFactor) : null;
-  // Cylindrical beams are parallel to the tube axis for the "parallel" light mode.
-  // (RayParamsFull extends Partial<ProjectionParams>, so variant may be absent.)
-  const lightIsParallel = variantDef(params.variant ?? defaultVariant(family)).lightIsParallel;
+  const lightIsParallel = variantDef(params.variant).lightIsParallel;
 
   const result: RaySegment[] = [];
 
@@ -734,7 +720,7 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
         start = [0, 0, 0];
       }
     } else if (family === 'azimuthalPerspective') {
-      proj = proj ?? getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, falseEasting: params.falseEasting ?? 0, falseNorthing: params.falseNorthing ?? 0, gamma, stdParallel2, azLight, variant: params.variant }));
+      proj = proj ?? getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, gamma, stdParallel2, azLight, variant: params.variant }));
       const { center } = computeTangentBasis(lambda0, phiOrigin, radius);
       const c = proj([lambda0, phiOrigin]);
       const p = proj([lambda0, lat]);
@@ -753,7 +739,7 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
       const { r, y } = coneLanding(lat, cone!, scaleFactor, radius);
       localEnd = [r, y, 0];
       globe = lonLatToVec3(lambda0, lat, radius);
-      start = coneApexWorld(surface as Extract<AuxSurfaceParams, { kind: 'cone' }>, gamma);
+      start = coneApexWorld(surface as Extract<AuxSurfaceParams, { kind: 'cone' }>);
     } else {
       continue;
     }
@@ -805,7 +791,7 @@ export function computeConicRayEnd(
   const { r, y } = coneLanding(lat, cone, scaleFactor, radius);
   const local: Vec3 = [r, y, 0];
   if (!clamp) return local;
-  const surface = computeAuxSurfaceParams('conic', 0, phiOrigin, scaleFactor, radius, stdParallel2);
+  const surface = computeAuxSurfaceParams(projParams('conic', 'equalArea', { phiOrigin, scaleFactor, stdParallel2 }), radius);
   return clampLocalToSurface(surface, local);
 }
 
@@ -815,9 +801,9 @@ export function computeConicRayEnd(
 // 2D map (the auxiliary surface unrolled). Returns null when the projection
 // clips the point (e.g. the back hemisphere of an orthographic projection).
 export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: number, radius = RADIUS): RaySegment | null {
-  const { family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight } = params;
+  const { family, distortion, lambda0, phiOrigin, scaleFactor, gamma, stdParallel2, azLight } = params;
 
-  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, params.variant);
+  const surface = computeAuxSurfaceParams(params, radius);
   // The static drum-frame projection: for the cylindrical family it carries NO
   // rotation — the hovered point is rolled into the frame explicitly below, so
   // the landing follows the ROLLED continents exactly like the flat map draws
@@ -859,7 +845,9 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
       start = [0, 0, 0];
     }
   } else if (family === 'azimuthalPerspective') {
-    proj = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight, variant: params.variant }));
+    // falseEasting/Northing are omitted: the landing is measured RELATIVE to
+    // the projected touch point below, so any constant translate cancels.
+    proj = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, gamma, stdParallel2, azLight, variant: params.variant }));
     const { center } = computeTangentBasis(lambda0, phiOrigin, radius);
     const c = proj([lambda0, phiOrigin]);
     const p = proj([lon, lat]);
@@ -880,7 +868,7 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
     if (azLight === 'antipode') start = [-center[0], -center[1], -center[2]];
     else start = [0, 0, 0];
   } else if (family === 'conic') {
-    proj = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight, variant: params.variant }));
+    proj = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, gamma, stdParallel2, azLight, variant: params.variant }));
     const p = proj([lon, lat]);
     const c = proj([lambda0, phiOrigin]);
     if (!p || !c || !isFinite(p[0]) || !isFinite(p[1])) return null;
@@ -890,7 +878,7 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
     const { r: radCone, y: localY } = coneLanding(lat, cone, scaleFactor, radius);
     const theta = radCone > 1e-9 ? (dx * wpp) / radCone : 0;
     localEnd = [radCone * Math.cos(theta), localY, radCone * Math.sin(theta)];
-    start = coneApexWorld(surface as Extract<AuxSurfaceParams, { kind: 'cone' }>, gamma);
+    start = coneApexWorld(surface as Extract<AuxSurfaceParams, { kind: 'cone' }>);
   } else {
     return null;
   }

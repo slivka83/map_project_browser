@@ -36,12 +36,6 @@ export const fieldRow = 'flex items-center gap-[12px]';
 export const sliderClass =
   'h-1 min-w-0 flex-1 cursor-pointer rounded-full bg-white/10 accent-neon-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70 disabled:opacity-40';
 
-export const radioGroup = 'flex gap-1';
-export const radioOption =
-  'rounded px-2 py-1 text-[11px] uppercase transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70';
-export const radioOptionActive = 'bg-neon-blue/15 text-neon-blue';
-export const radioOptionInactive = 'text-neon-blue/70 hover:bg-neon-blue/5';
-
 export const presetChip =
   'rounded border border-neon-blue/40 px-2 py-1 text-[11px] text-neon-blue/80 transition hover:bg-neon-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70';
 export const presetChipActive = 'bg-neon-blue/20 text-neon-blue';

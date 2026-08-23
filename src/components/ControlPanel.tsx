@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { useAppStore } from '../store/useAppStore';
 
 import { useProjectionParams } from '../store/selectors';
@@ -154,7 +153,7 @@ function ProjectionParamsSection({ def }: { def: VariantDef }) {
 
 export default function ControlPanel() {
   const params = useProjectionParams();
-  const def = useMemo(() => variantDef(params.variant), [params.variant]);
+  const def = variantDef(params.variant);
 
   return (
     <div className="flex flex-col gap-3.5 px-3 py-3">

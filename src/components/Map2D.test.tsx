@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, waitFor, fireEvent, act } from '@testing-library/react';
 import Map2D from './Map2D';
 import { useAppStore } from '../store/useAppStore';
@@ -233,6 +233,32 @@ describe('Map2D', () => {
       useAppStore.getState().setHoverLonLat([10, 20], 'map');
     });
     expect(queryByTestId('hover-marker')).toBeNull();
+  });
+
+  it('clears a stale shared hover when the cursor slides off the globe into the letterbox', async () => {
+    // Regression: moving the cursor from the globe into the letter-boxed margin
+    // used to keep the LAST on-globe hover in the shared store, so the yellow
+    // marker (2D) and the mirrored 3D dot floated at an unrelated position.
+    useAppStore.setState({ family: 'cylindrical', variant: 'mercator', distortion: 'conformal', scaleFactor: 1 });
+    act(() => {
+      useAppStore.getState().setShowHoverRay(true);
+      useAppStore.getState().setHoverLonLat([10, 20], 'map');
+    });
+    const { container } = render(<Map2D />);
+    await waitFor(() => {
+      expect(container.querySelector('svg[data-map="true"]')).not.toBeNull();
+    });
+    const svg = container.querySelector('svg[data-map="true"]') as SVGSVGElement;
+    // jsdom has no layout: pin the svg's bounding box to the internal
+    // 800×600 map pixel space so toMapPoint maps client coords 1:1.
+    vi.spyOn(svg, 'getBoundingClientRect').mockReturnValue({
+      x: 0, y: 0, left: 0, top: 0, width: 800, height: 600, right: 800, bottom: 600,
+      toJSON: () => ({}),
+    } as DOMRect);
+    // The fitted Mercator band is centred; (3,3) sits deep in the letterbox.
+    fireEvent.pointerMove(svg, { clientX: 3, clientY: 3 });
+    expect(useAppStore.getState().hoverLonLat).toBeNull();
+    expect(useAppStore.getState().hoverSource).toBeNull();
   });
 
   it('draws the graticule when graticuleStep is set', async () => {

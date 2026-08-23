@@ -32,8 +32,9 @@ export default function LightSource({
 
   const apex = useMemo(() => {
     if (family !== 'conic') return null;
-    return surface.kind === 'cone' ? coneApexWorld(surface, params.gamma) : null;
-  }, [family, surface, params.gamma]);
+    // The tilt (γ) is read from the surface itself — the single source of truth.
+    return surface.kind === 'cone' ? coneApexWorld(surface) : null;
+  }, [family, surface]);
 
   if (!def.hasLamp && family !== 'conic') return null;
 

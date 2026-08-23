@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAppStore, type ProjectionFamily } from '../store/useAppStore';
 import { useProjectionParams } from '../store/selectors';
 import {
@@ -53,7 +53,7 @@ export default function ProjectionHeader() {
   const setVariant = useAppStore((s) => s.setVariant);
 
   const current = variant;
-  const def = useMemo(() => variantDef(current), [current]);
+  const def = variantDef(current);
   const highlightedValue = ALL_OPTIONS[highlight]?.value;
 
   useEffect(() => {

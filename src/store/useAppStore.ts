@@ -144,7 +144,10 @@ export const useAppStore = create<AppState>((set) => ({
     // A secant φ₂ must share the hemisphere of φ₀ (see signedSecantParallel):
     // normalize whatever sign arrives from a control or preset.
     if (key === 'stdParallel2') {
-      set({ stdParallel2: value == null ? null : signedSecantParallel(s.phiOrigin, value as number) });
+      // The key/value pair is checked above; the cast only correlates them for
+      // the compiler (TS cannot narrow a generic indexed access).
+      const v = value as number | null;
+      set({ stdParallel2: v == null ? null : signedSecantParallel(s.phiOrigin, v) });
       return;
     }
     // Dragging Параллель 1 across the equator flips the cone hemisphere — an

@@ -21,16 +21,15 @@ export default function IntersectionDisks({
   surface: AuxSurfaceParams;
   params: ProjectionParams;
 }) {
-  const { family, lambda0, phiOrigin, scaleFactor, stdParallel2 } = params;
   const circles = useMemo(() => {
-    const raw = computeAuxSphereIntersections(family, lambda0, phiOrigin, scaleFactor, RADIUS, stdParallel2);
+    const raw = computeAuxSphereIntersections(params, RADIUS);
     // Кольцо azimuthal уже построено в мировых координатах (на сфере, в точке
     // касания), поэтому повторно через auxPointToWorld его прогонять нельзя —
     // иначе оно съезжает. У cylinder/cone точки локальные, их переводим.
     return raw.map((ring) =>
       ring.map((p) => (surface.kind === 'plane' ? p : auxPointToWorld(surface, p))),
     );
-  }, [family, lambda0, phiOrigin, scaleFactor, stdParallel2, surface]);
+  }, [params, surface]);
 
   if (circles.length === 0) return null;
 

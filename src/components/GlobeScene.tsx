@@ -27,28 +27,13 @@ export default function GlobeScene() {
   const setHoverLonLat = useAppStore((s) => s.setHoverLonLat);
   const setParam = useAppStore((s) => s.setParam);
 
-  const def = useMemo(() => variantDef(params.variant), [params.variant]);
+  const def = variantDef(params.variant);
 
   // Single source of truth: compute the developable-surface geometry ONCE per
   // frame-input change and hand it to every 3D sub-component, instead of each
   // recomputing it independently. Keeps the wireframe, rays, rings and light
   // marker in perfect alignment and avoids triple work.
-  const surface = useMemo(
-    () =>
-      computeAuxSurfaceParams(
-        params.family,
-        params.lambda0,
-        params.phiOrigin,
-        params.scaleFactor,
-        RADIUS,
-        params.stdParallel2,
-        params.gamma,
-        params.distortion,
-        params.azLight,
-        params.variant,
-      ),
-    [params.family, params.lambda0, params.phiOrigin, params.scaleFactor, params.distortion, params.azLight, params.stdParallel2, params.gamma, params.variant],
-  );
+  const surface = useMemo(() => computeAuxSurfaceParams(params), [params]);
 
   // The rigid roll of the geography layer on the globe (same matrix Globe uses).
   const roll = useMemo(() => projectionRotationMatrix(-params.lambda0, -params.phiOrigin, 0), [params.lambda0, params.phiOrigin]);

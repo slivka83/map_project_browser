@@ -2,6 +2,7 @@ import * as d3Geo from 'd3-geo';
 import type { GeoProjection, GeoConicProjection } from 'd3-geo';
 import type { Polygon } from 'geojson';
 import type { ProjectionParams } from '../store/useAppStore';
+import { normalizeLon } from './geoBandClip';
 import {
   MAP_SCALE,
   VIEW_CENTER_X,
@@ -259,7 +260,7 @@ export function computeAreaDistortion(params: ProjectionParams): number {
       if (roll) {
         const r = roll([lon, lat]);
         if (!r || !isFinite(r[0]) || !isFinite(r[1])) continue;
-        fx = ((r[0] % 360) + 540) % 360 - 180;
+        fx = normalizeLon(r[0]);
         fy = r[1];
         // Skip cells straddling the fold seam at the drum rim (±CLIP_LAT):
         // their projected quad folds onto itself and measures nothing real.

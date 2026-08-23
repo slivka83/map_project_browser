@@ -9,7 +9,7 @@ import { cutFeatureCollectionToBand, normalizeLon, rotateFeatureCollection, rota
 import { computeTissotCircles } from '../utils/tissot';
 import { computeAuxSphereIntersectionsLonLat, computeCutLineLonLat } from '../utils/auxSurfaceGeometry';
 import { variantDef } from '../utils/projectionVariants';
-import { RADIUS, FIT_MARGIN } from '../constants/geometry';
+import { FIT_MARGIN } from '../constants/geometry';
 import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT, NEON_YELLOW, NEON_WHITE, GRATICULE_STROKE } from '../constants/designTokens';
 import { iconBtnPlain, iconGlow, glassPanel } from './ui/styles';
 import { TissotIcon, BorderIcon, DetailIcon, IntersectionIcon, HoverRayIcon, InfoIcon, GraticuleIcon } from './ui/icons';
@@ -19,7 +19,7 @@ import useElementSize from '../hooks/useElementSize';
 export default function Map2D() {
   const params = useProjectionParams();
   const viz = useVisualizationParams();
-  const { scaleFactor, family, lambda0, phiOrigin, stdParallel2 } = params;
+  const { lambda0, phiOrigin, family } = params;
   const { graticuleStep, showGraticule } = viz;
   const showTissot = useAppStore((s) => s.showTissot);
   const setShowTissot = useAppStore((s) => s.setShowTissot);
@@ -121,22 +121,16 @@ export default function Map2D() {
   );
 
   const intersectionRings = useMemo(
-    () =>
-      showIntersection
-        ? computeAuxSphereIntersectionsLonLat(family, lambda0, phiOrigin, scaleFactor, RADIUS, stdParallel2, isCylindrical ? 0 : params.gamma, params.distortion, params.azLight)
-        : [],
-    [showIntersection, params, family, lambda0, phiOrigin, scaleFactor, stdParallel2, isCylindrical],
+    () => (showIntersection ? computeAuxSphereIntersectionsLonLat(params) : []),
+    [showIntersection, params],
   );
 
   // The seam/cut line of the developable surface — the same white line the 3D
   // scene draws (`CutLine`), here as a lon/lat ring. Empty for the azimuthal
   // tangent plane (no seam), mirroring the 3D component.
   const cutLine = useMemo(
-    () =>
-      showIntersection
-        ? computeCutLineLonLat(family, lambda0, phiOrigin, scaleFactor, RADIUS, stdParallel2, isCylindrical ? 0 : params.gamma, params.distortion, params.azLight)
-        : [],
-    [showIntersection, params, family, lambda0, phiOrigin, scaleFactor, stdParallel2, isCylindrical],
+    () => (showIntersection ? computeCutLineLonLat(params) : []),
+    [showIntersection, params],
   );
 
   const containerStyle: CSSProperties = {
@@ -172,8 +166,13 @@ export default function Map2D() {
     const [x, y] = toMapPoint(e);
     // Reject cursor positions off the map first (letter-boxed margins, the
     // hidden hemisphere of an azimuthal view, discontinuities) so a stale or
-    // meaningless invert can never leak into the shared hover state.
-    if (!isPointerOverGlobe(pathGen, x, y)) return;
+    // meaningless invert can never leak into the shared hover state. A cursor
+    // that slides OFF the globe clears this view's hover instead of leaving a
+    // stale marker floating at the last on-globe position.
+    if (!isPointerOverGlobe(pathGen, x, y)) {
+      if (hoverSource === 'map' && hoverLonLat) setHoverLonLat(null);
+      return;
+    }
     const inv = projRef?.invert?.([x, y]);
     if (!inv || !isFinite(inv[0]) || !isFinite(inv[1])) return;
     // The cylindrical projection lives in the drum frame: un-roll the frame
