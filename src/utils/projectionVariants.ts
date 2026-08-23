@@ -22,15 +22,14 @@ interface TouchPointPreset {
 // - showParallel2 → the secant-cone control (conic only, always editable there);
 // - showTouchPointPresets / touchPointPresets → the azimuthal touch-point picker;
 // - hasLamp → whether a point-light marker is drawn (off for orthographic, whose
-//   light is at infinity);
-// - lightIsParallel → orthographic beams arrive parallel along the surface normal;
+//   light is at infinity — its parallel-beam geometry lives in azLight itself,
+//   consumed directly by the ray builders, so no extra flag is needed);
 // - lockedScaleFactor → non-null when «Масштаб» is fixed by the variant.
 export interface VariantDef {
   family: ProjectionFamily;
   distortion: DistortionModel;
   azLight: AzimuthalLight;
   hasLamp: boolean;
-  lightIsParallel: boolean;
   lockedScaleFactor: number | null;
   label: string;
   showParallel2: boolean;
@@ -53,7 +52,6 @@ function cylDef(label: string, distortion: DistortionModel): VariantDef {
     distortion,
     azLight: 'center',
     hasLamp: false,
-    lightIsParallel: false,
     lockedScaleFactor: null,
     label,
     showParallel2: false,
@@ -68,7 +66,6 @@ function conicDef(label: string, distortion: DistortionModel): VariantDef {
     distortion,
     azLight: 'center',
     hasLamp: true,
-    lightIsParallel: false,
     lockedScaleFactor: null,
     label,
     showParallel2: true,
@@ -81,14 +78,12 @@ function azDef(
   label: string,
   azLight: AzimuthalLight,
   hasLamp: boolean,
-  lightIsParallel: boolean,
 ): VariantDef {
   return {
     family: 'azimuthalPerspective',
     distortion: 'conformal',
     azLight,
     hasLamp,
-    lightIsParallel,
     lockedScaleFactor: 1,
     label,
     showParallel2: false,
@@ -111,9 +106,9 @@ const CONIC_VARIANTS: Record<ConicVariant, VariantDef> = {
 };
 
 const AZIMUTHAL_PERSPECTIVE_VARIANTS: Record<AzimuthalPerspectiveVariant, VariantDef> = {
-  gnomonic: azDef('Гномоническая', 'center', true, false),
-  stereographic: azDef('Стереографическая', 'antipode', true, false),
-  orthographic: azDef('Ортографическая', 'infinity', false, true),
+  gnomonic: azDef('Гномоническая', 'center', true),
+  stereographic: azDef('Стереографическая', 'antipode', true),
+  orthographic: azDef('Ортографическая', 'infinity', false),
 };
 
 const ALL_VARIANTS: Record<ProjectionVariant, VariantDef> = {

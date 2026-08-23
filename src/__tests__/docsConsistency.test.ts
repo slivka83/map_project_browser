@@ -5,6 +5,7 @@ import * as tissot from '../utils/tissot';
 import * as designTokens from '../constants/designTokens';
 import { MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y, CLIP_LAT } from '../constants/geometry';
 import { defaultParamsForFamily } from '../store/useAppStore';
+import { variantDef } from '../utils/projectionVariants';
 
 // Discover the documentation files dynamically (only those that exist on disk),
 // so the test never crashes on a missing `?raw` import and never needs manual
@@ -122,6 +123,18 @@ describe('docs ↔ code: removed features are documented as removed (not as curr
     expect(docsText).not.toMatch(/phiOrigin\s*\+\s*gamma/i);
     // And the correct statement must be present.
     expect(docsText).toMatch(/cylindrical[^.]*gamma[^.]*ignored/i);
+  });
+  it('the dead VariantDef.lightIsParallel flag stays removed from the code', () => {
+    // No code ever read it (orthographic's parallel-beam geometry is encoded in
+    // azLight === 'infinity' and consumed by the ray builders directly). The
+    // docs mention it only as a historical removal note.
+    for (const v of ['equirectangular', 'mercator', 'lambertConformal', 'albers', 'gnomonic', 'stereographic', 'orthographic'] as const) {
+      const def = variantDef(v) as unknown as Record<string, unknown>;
+      expect(Object.prototype.hasOwnProperty.call(def, 'lightIsParallel')).toBe(false);
+    }
+    if (docsText.includes('lightIsParallel')) {
+      expect(docsText).toMatch(/lightIsParallel[^\n]*(удал|removed)|((удал|removed)[^\n]*lightIsParallel)/i);
+    }
   });
 });
 

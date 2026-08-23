@@ -327,7 +327,7 @@ export function computeAuxGraticule(
   return { meridians: mers, parallels };
 }
 
-export function circlePoints(radius: number, y: number, segments = RING_SEGMENTS): Vec3[] {
+function circlePoints(radius: number, y: number, segments = RING_SEGMENTS): Vec3[] {
   const pts: Vec3[] = [];
   for (let i = 0; i <= segments; i++) {
     const t = (i / segments) * Math.PI * 2;
@@ -704,6 +704,13 @@ export function computeCentralMeridianRays(options: RayFanOptions): RaySegment[]
   const phi2c = stdParallel2 != null ? stdParallel2 : phiOrigin;
   const cone = family === 'conic' ? computeCone(phiOrigin, phi2c, radius, scaleFactor) : null;
 
+  // Loop invariants of the azimuthal fan: the tangent basis (its centre drives
+  // the antipode light and its normal the parallel beams) and the projected
+  // touch point never change across the fan — hoist them out of the loop.
+  const tangent =
+    family === 'azimuthalPerspective' ? computeTangentBasis(lambda0, phiOrigin, radius) : null;
+  const centrePx = proj ? proj([lambda0, phiOrigin]) : null;
+
   const result: RaySegment[] = [];
 
   for (let i = 0; i < rayCount; i++) {
@@ -725,8 +732,7 @@ export function computeCentralMeridianRays(options: RayFanOptions): RaySegment[]
       globe = [radius * Math.cos((lat * Math.PI) / 180), radius * Math.sin((lat * Math.PI) / 180), 0];
       start = [0, 0, 0];
     } else if (family === 'azimuthalPerspective') {
-      const { center } = computeTangentBasis(lambda0, phiOrigin, radius);
-      const c = proj!([lambda0, phiOrigin]);
+      const c = centrePx;
       const p = proj!([lambda0, lat]);
       const dx = (p ? p[0] : 0) - (c ? c[0] : 0);
       const dy = (p ? p[1] : 0) - (c ? c[1] : 0);
@@ -735,7 +741,7 @@ export function computeCentralMeridianRays(options: RayFanOptions): RaySegment[]
       localEnd = [dx * wpp, -dy * wpp, 0];
       globe = lonLatToVec3(lambda0, lat, radius);
       if (azLight === 'antipode') {
-        start = [-center[0], -center[1], -center[2]];
+        start = [-tangent!.center[0], -tangent!.center[1], -tangent!.center[2]];
       } else {
         start = [0, 0, 0];
       }
@@ -755,7 +761,7 @@ export function computeCentralMeridianRays(options: RayFanOptions): RaySegment[]
     // globe) THROUGH the globe point to the tangent plane (behind the globe, +normal). So
     // `start` must sit at globe - normal·LEN (in front), not beyond the plane.
     if (family === 'azimuthalPerspective' && azLight === 'infinity') {
-      const { normal } = computeTangentBasis(lambda0, phiOrigin, radius);
+      const { normal } = tangent!;
       start = [globe[0] - normal[0] * PARALLEL_LEN, globe[1] - normal[1] * PARALLEL_LEN, globe[2] - normal[2] * PARALLEL_LEN];
     }
 
