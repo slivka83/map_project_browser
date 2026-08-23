@@ -39,24 +39,44 @@ export function makeFrameRotation(lambda0: number, phiOrigin: number): d3Geo.Geo
   return d3Geo.geoRotation([-lambda0, -phiOrigin]);
 }
 
-// The 2D map's graticule. For the cylindrical family the extent is pinned to
-// the drum band ±CLIP_LAT so the grid's outline rectangle coincides exactly
-// with the map window — where the geography layers are band-cut. d3's default
-// outline follows the poles (±90°), which under the periodic fold law wraps to
-// frame latitude ∓80°: a phantom rectangle floating INSIDE the window, whose
-// bottom side Antarctica (drawn after the grid) paints over and whose top side
-// the +85° land pokes past. Other families keep the d3 defaults — there the
-// outline traces the natural sphere / fan boundary.
+// The 2D map's graticule. For the cylindrical family the grid is built
+// EXPLICITLY with its extent pinned to the drum band ±CLIP_LAT: the border
+// rectangle coincides exactly with the map window — where the geography layers
+// are band-cut. d3's own graticule is unusable here for two reasons: its
+// default outline follows the poles (±90°), which under the periodic fold law
+// wraps to frame latitude ∓80° — a phantom rectangle floating INSIDE the
+// window, whose bottom side Antarctica paints over and whose top side the
+// +85° land pokes past; and even with a pinned extent d3 emits the outline as
+// four degenerate great-circle corners that the projection stream drops
+// entirely (no visible frame at all). Sampling every line every 2° keeps all
+// rows ruler-straight horizontal under precision(0). Other families keep the
+// d3 defaults — there the outline traces the natural sphere / fan boundary.
 export function makeGraticule(step: number, family: ProjectionParams['family']): MultiLineString {
-  const g = d3Geo.geoGraticule().step([step, step]);
   if (family === 'cylindrical') {
-    // Sets BOTH extentMajor (the outline) and extentMinor (line span).
-    g.extent([
-      [-180, -CLIP_LAT],
-      [180, CLIP_LAT],
-    ]);
+    const lines: [number, number][][] = [];
+    // Parallels: multiples of `step` inside the band + the rim rows themselves.
+    const lats = new Set<number>([-CLIP_LAT, CLIP_LAT]);
+    for (let lat = -180; lat <= 180; lat += step) {
+      if (lat >= -CLIP_LAT && lat <= CLIP_LAT) lats.add(lat);
+    }
+    for (const lat of [...lats].sort((a, b) => a - b)) {
+      const line: [number, number][] = [];
+      for (let lon = -180; lon <= 180; lon += 5) line.push([lon, lat]);
+      line.push([180, lat]);
+      lines.push(line);
+    }
+    // Meridians: multiples of `step` including both seam edges ±180.
+    const lons = new Set<number>([-180, 180]);
+    for (let lon = -180; lon <= 180; lon += step) lons.add(lon);
+    for (const lon of [...lons].sort((a, b) => a - b)) {
+      const line: [number, number][] = [];
+      for (let lat = -CLIP_LAT; lat <= CLIP_LAT; lat += 5) line.push([lon, lat]);
+      line.push([lon, CLIP_LAT]);
+      lines.push(line);
+    }
+    return { type: 'MultiLineString', coordinates: lines };
   }
-  return g();
+  return d3Geo.geoGraticule().step([step, step])();
 }
 
 function makeCylindricalProjection(

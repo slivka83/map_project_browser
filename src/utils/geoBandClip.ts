@@ -15,53 +15,176 @@ const crossingPoint = (a: Position, b: Position): Position => {
   return [a[0] + (b[0] - a[0]) * t, CLIP_LAT * Math.sign(b[1] || a[1] || 1)];
 };
 
-function cutRing(ring: Position[]): Position[] {
-  const out: Position[] = [];
-  const push = (p: Position): void => {
-    if (out.length === 0 || out[out.length - 1][0] !== p[0] || out[out.length - 1][1] !== p[1]) out.push(p);
+// Cut one ring at the band edge AND split it at the antimeridian. Returns the
+// surviving parts (possibly several — a ring crossing the ±180° seam yields
+// one part per hemisphere). d3's own antimeridian clipper mishandles rings
+// that touch the seam near the poles (band-cut Antarctica touches it at
+// [±180, ~-84.7°]): it inserts phantom full-width chords that wrap the
+// southern cap onto the NORTHERN map rows. Splitting the ring ourselves means
+// d3 never has to cut anything.
+// Longitudes exactly ON the antimeridian are nudged strictly inside: vertices
+// at ±180° make d3's spherical antimeridian clipper degenerate — it can
+// interpolate a point at the POLE, whose fold lands at frame latitude ∓80° as
+// a phantom full-width line across the map. The nudge is ~0.00002 px on
+// screen — invisible.
+const LON_EDGE = 179.99999;
+const nudgeLon = (lon: number): number => (Math.abs(lon) > LON_EDGE ? Math.sign(lon) * LON_EDGE : lon);
+
+function cutRing(ring: Position[]): Position[][] {
+  // Nudge exact-±180° vertices FIRST, so no downstream branch ever sees a
+  // longitude on the seam itself.
+  const src: Position[] = ring.map(([lon, lat]) => [nudgeLon(lon), lat]);
+
+  // Band cut next: drop off-band vertices, splice cut-latitude points into
+  // every crossing edge — INCLUDING the implicit closing segment (the ring is
+  // walked in its closed form here).
+  const cutPts: Position[] = [];
+  const pushCut = (p: Position): void => {
+    if (cutPts.length === 0 || cutPts[cutPts.length - 1][0] !== p[0] || cutPts[cutPts.length - 1][1] !== p[1]) cutPts.push(p);
   };
-  for (let i = 0; i < ring.length; i++) {
-    const cur = ring[i];
-    const prev = i > 0 ? ring[i - 1] : null;
+  for (let i = 0; i < src.length; i++) {
+    const cur = src[i];
+    const prev = i > 0 ? src[i - 1] : null;
     if (inside(cur)) {
-      if (prev && !inside(prev)) push(crossingPoint(cur, prev));
-      push(cur);
+      if (prev && !inside(prev)) pushCut(crossingPoint(cur, prev));
+      pushCut(cur);
     } else if (prev && inside(prev)) {
-      push(crossingPoint(prev, cur));
+      pushCut(crossingPoint(prev, cur));
     }
   }
-  // Close the ring if it was trimmed (explicit first==last).
-  if (out.length >= 3) {
-    if (out[0][0] !== out[out.length - 1][0] || out[0][1] !== out[out.length - 1][1]) out.push([out[0][0], out[0][1]]);
-    return out;
+  if (cutPts.length < 3) return [];
+
+  // Dateline split. The sequence is rotated to start at a vertex strictly
+  // away from the seam, so the implicit closing segment can never cross it
+  // and a plain forward scan catches every crossing exactly once.
+  const open = cutPts[0][0] === cutPts[cutPts.length - 1][0] && cutPts[0][1] === cutPts[cutPts.length - 1][1]
+    ? cutPts.slice(0, -1)
+    : cutPts.slice();
+  const m = open.length;
+  if (m < 3) return [];
+  let startIdx = 0;
+  for (let i = 0; i < m; i++) {
+    if (Math.abs(open[i][0]) < 179) {
+      startIdx = i;
+      break;
+    }
   }
-  return [];
+  const u: number[] = [];
+  for (let k = 0; k < m; k++) {
+    const lon = open[(startIdx + k) % m][0];
+    if (k === 0) {
+      u.push(lon);
+      continue;
+    }
+    const prevU = u[k - 1];
+    let w = lon;
+    while (w - prevU > 180) w -= 360;
+    while (w - prevU < -180) w += 360;
+    u.push(w);
+  }
+
+  const parts: Position[][] = [];
+  let cur: Position[] = [[open[startIdx][0], open[startIdx][1]]];
+  for (let k = 1; k < m; k++) {
+    const idx = (startIdx + k) % m;
+    const aU = u[k - 1];
+    const bU = u[k];
+    const aLat = open[(startIdx + k - 1) % m][1];
+    const bLat = open[idx][1];
+    const bRaw = open[idx][0];
+    // Does the unwrapped segment leave the frame through a seam meridian?
+    // A segment wholly BEYOND a rim (e.g. unwrapped 185..190, both really on
+    // the western side) does NOT cross anything and must not splice.
+    const lo = Math.min(aU, bU);
+    const hi = Math.max(aU, bU);
+    const leaves180 = lo <= 180 && hi > 180;
+    const leavesM180 = lo < -180 && hi >= -180;
+    if (leaves180 || leavesM180) {
+      const S = leaves180 ? 180 : -180;
+      // Splice: exit the frame on the side of the FIRST endpoint's true
+      // longitude (unwrapped values beyond ±180 encode the OPPOSITE rim),
+      // and continue the new part on the opposite rim.
+      const t = (S - aU) / (bU - aU);
+      const lat = Math.max(-90, Math.min(90, aLat + (bLat - aLat) * t));
+      const exit = aU > 180 ? -180 : aU < -180 ? 180 : aU >= 0 ? 180 : -180;
+      cur.push([exit, lat]);
+      parts.push(cur);
+      cur = [[-exit, lat], [bRaw, bLat]];
+    } else {
+      cur.push([bRaw, bLat]);
+    }
+  }
+  parts.push(cur);
+
+  // The ring is closed, so its TAIL part continues through the (seam-free)
+  // closing segment into the HEAD part: merge them into one same-side piece.
+  if (parts.length > 1) {
+    const head = parts.shift()!;
+    parts[parts.length - 1].push(...head);
+  }
+
+  // Close every part explicitly (first == last), dropping degenerate ones.
+  // Splice points generated above sit exactly ON the rim, so the whole output
+  // is passed through the antimeridian nudge once more (see LON_EDGE above).
+  return parts
+    .filter((p) => p.length >= 3)
+    .map((p) => p.map(([lon, lat]) => [nudgeLon(lon), lat] as Position))
+    .map((p) => [...p, [p[0][0], p[0][1]] as Position]);
 }
 
-// Cut one polygon (outer ring + holes). The outer ring must survive the cut;
-// each hole is cut independently and kept only when it still has an area, so
-// interior lakes (e.g. the Caspian) never silently turn into solid land.
-function cutPolygonRings(rings: Position[][]): Position[][] | null {
-  const [outer, ...holes] = rings;
-  const cutOuter = cutRing(outer);
-  if (cutOuter.length < 3) return null;
-  const kept: Position[][] = [cutOuter];
-  for (const hole of holes) {
-    const cutHole = cutRing(hole);
-    if (cutHole.length >= 3) kept.push(cutHole);
+// Bounding box [minX, minY]..[maxX, maxY] of one ring.
+function ringBBox(ring: Position[]): { minX: number; minY: number; maxX: number; maxY: number } {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const [x, y] of ring) {
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
   }
-  return kept;
+  return { minX, minY, maxX, maxY };
+}
+
+// Cut one polygon (outer ring + holes). The outer ring may split into several
+// parts at the antimeridian seam; each hole is cut independently and attached
+// to the part containing it (bbox containment of the hole's first vertex,
+// falling back to the largest outer part), so interior lakes (e.g. the
+// Caspian) never silently turn into solid land. Returns a LIST of polygons.
+function cutPolygonRings(rings: Position[][]): Position[][][] | null {
+  const [outer, ...holes] = rings;
+  const outerParts = cutRing(outer);
+  if (outerParts.length === 0) return null;
+  const polys: Position[][][] = outerParts.map((part) => [part]);
+  for (const hole of holes) {
+    for (const holePart of cutRing(hole)) {
+      const [hx, hy] = holePart[0];
+      let target = polys.find((poly) => {
+        const b = ringBBox(poly[0]);
+        return hx >= b.minX && hx <= b.maxX && hy >= b.minY && hy <= b.maxY;
+      });
+      if (!target) {
+        // Fallback: the largest outer part by bbox area.
+        const bboxArea = (p: Position[][]) => {
+          const b = ringBBox(p[0]);
+          return (b.maxX - b.minX) * (b.maxY - b.minY);
+        };
+        target = polys.reduce((best, poly) => (bboxArea(poly) > bboxArea(best) ? poly : best), polys[0]);
+      }
+      target.push(holePart);
+    }
+  }
+  return polys;
 }
 
 function cutGeometry(geom: Geometry): Geometry | null {
   if (geom.type === 'Polygon') {
-    const rings = cutPolygonRings(geom.coordinates);
-    return rings ? { type: 'Polygon', coordinates: rings } : null;
+    const polys = cutPolygonRings(geom.coordinates);
+    if (!polys) return null;
+    return polys.length === 1
+      ? { type: 'Polygon', coordinates: polys[0] }
+      : { type: 'MultiPolygon', coordinates: polys };
   }
   if (geom.type === 'MultiPolygon') {
-    const polys = geom.coordinates
-      .map((poly) => cutPolygonRings(poly))
-      .filter((p): p is Position[][] => p != null);
+    const polys = geom.coordinates.flatMap((poly) => cutPolygonRings(poly) ?? []);
     if (polys.length === 0) return null;
     return polys.length === 1 ? { type: 'Polygon', coordinates: polys[0] } : { type: 'MultiPolygon', coordinates: polys };
   }

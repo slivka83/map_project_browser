@@ -6,6 +6,7 @@ import { useAppStore } from '../store/useAppStore';
 import { useProjectionParams, useVisualizationParams } from '../store/selectors';
 import { getD3Projection, fitProjectionToView, computeAreaDistortion, isPointerOverGlobe, makeFrameRotation, makeGraticule } from '../utils/projectionMapper';
 import { cutFeatureCollectionToBand, normalizeLon, rotateFeatureCollection, rotatePolygon } from '../utils/geoBandClip';
+import { framePath } from '../utils/framePath';
 import { computeTissotCircles } from '../utils/tissot';
 import { computeAuxSphereIntersectionsLonLat, computeCutLineLonLat } from '../utils/auxSurfaceGeometry';
 import { variantDef } from '../utils/projectionVariants';
@@ -74,11 +75,24 @@ export default function Map2D() {
   // everything through the same rotated projection, so the grid follows
   // Долгота/Параллель exactly like the coastlines. Only ONE copy of the map is
   // drawn; space above/below the finite band stays empty background.
-  const pathGen = useMemo(
-    () => d3Geo.geoPath().projection(fitProjectionToView(getD3Projection(params), width, height, FIT_MARGIN)),
+  const fittedProj = useMemo(
+    () => fitProjectionToView(getD3Projection(params), width, height, FIT_MARGIN),
     [params, width, height],
   );
+  const pathGen = useMemo(() => d3Geo.geoPath().projection(fittedProj), [fittedProj]);
   const projRef = pathGen.projection() as d3Geo.GeoProjection | null;
+
+  // Point projector for the pre-cut drum layers: a clip-free clone of the
+  // fitted projection, so rim vertices (exactly ON the clipExtent bounds)
+  // still project instead of being dropped as null by the clip rectangle.
+  const pointProjector = useMemo<(p: [number, number]) => [number, number] | null>(() => {
+    // A second identical fitting WITHOUT the clip rectangle: rim vertices sit
+    // exactly ON the clip bounds and must still project instead of being
+    // dropped as null by the rectangle clip.
+    const unclipped = fitProjectionToView(getD3Projection(params), width, height, FIT_MARGIN);
+    unclipped.clipExtent(null);
+    return (p) => unclipped(p) as [number, number] | null;
+  }, [params, width, height]);
 
   const isCylindrical = params.family === 'cylindrical';
 
@@ -235,13 +249,27 @@ export default function Map2D() {
             <path d={pathGen(graticuleObj) ?? ''} fill="none" stroke={GRATICULE_STROKE} strokeWidth={0.5} />
           )}
           {bandLand && (
-            <path d={pathGen(bandLand) ?? ''} fill={BG} stroke={NEON_BLUE} strokeWidth={1} />
+            <path
+              d={isCylindrical ? framePath(bandLand, pointProjector) : pathGen(bandLand) ?? ''}
+              fill={BG}
+              stroke={NEON_BLUE}
+              strokeWidth={1}
+            />
           )}
           {showBorders && bandBorders && (
-            <path d={pathGen(bandBorders) ?? ''} fill="none" stroke={NEON_BLUE_LINE} strokeWidth={0.6} />
+            <path
+              d={isCylindrical ? framePath(bandBorders, pointProjector) : pathGen(bandBorders) ?? ''}
+              fill="none"
+              stroke={NEON_BLUE_LINE}
+              strokeWidth={0.6}
+            />
           )}
           {tissotLayer && (
-            <path d={pathGen(tissotLayer) ?? ''} fill={NEON_ORANGE_SOFT} stroke={NEON_ORANGE} />
+            <path
+              d={isCylindrical ? framePath(tissotLayer, pointProjector) : pathGen(tissotLayer) ?? ''}
+              fill={NEON_ORANGE_SOFT}
+              stroke={NEON_ORANGE}
+            />
           )}
           {showIntersection && (
             <g data-testid="intersection-lines">

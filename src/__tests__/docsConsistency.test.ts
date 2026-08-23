@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as projectionMapper from '../utils/projectionMapper';
 import * as auxSurfaceGeometry from '../utils/auxSurfaceGeometry';
 import * as tissot from '../utils/tissot';
+import * as framePathModule from '../utils/framePath';
 import * as designTokens from '../constants/designTokens';
 import { MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y, CLIP_LAT } from '../constants/geometry';
 import { defaultParamsForFamily } from '../store/useAppStore';
@@ -187,6 +188,7 @@ describe('docs ↔ code: key exports are documented', () => {
     'computeAreaDistortion',
     'fitProjectionToView',
     'makeGraticule',
+    'framePath',
     'FIT_SPHERE',
     'localAreaScale',
     'computeAuxSurfaceParams',
@@ -210,7 +212,8 @@ describe('docs ↔ code: key exports are documented', () => {
       expect(
         Object.prototype.hasOwnProperty.call(projectionMapper, name) ||
           Object.prototype.hasOwnProperty.call(auxSurfaceGeometry, name) ||
-          Object.prototype.hasOwnProperty.call(tissot, name),
+          Object.prototype.hasOwnProperty.call(tissot, name) ||
+          Object.prototype.hasOwnProperty.call(framePathModule, name),
       ).toBe(true);
       expectInDocs(name, `export ${name}`);
     });

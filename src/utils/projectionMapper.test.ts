@@ -692,6 +692,30 @@ describe('makeGraticule', () => {
     expect(Math.abs(botY! - (600 - FIT_MARGIN))).toBeLessThan(1e-6);
   });
 
+  // Regression: with a pinned-extent d3 graticule the outline was emitted as
+  // four degenerate great-circle corners that the projection stream dropped —
+  // the frame existed in coordinates but NEVER reached the rendered path.
+  it('cylindrical: the rendered path contains full-width horizontal rim lines', () => {
+    const proj = fitProjectionToView(getD3Projection(makeState()), 800, 600);
+    const gp = d3Geo.geoPath(proj);
+    const d = gp(makeGraticule(30, 'cylindrical')) ?? '';
+    const tokens = d.match(/[MLZ]|-?\d+(?:\.\d+)?(?:e-?\d+)?/g) ?? [];
+    let topLen = 0;
+    let botLen = 0;
+    for (let i = 0; i < tokens.length; i++) {
+      if (tokens[i] !== 'L') continue;
+      const y0 = Number(tokens[i - 1]);
+      const x0 = Number(tokens[i - 2]);
+      const y1 = Number(tokens[i + 2]);
+      const x1 = Number(tokens[i + 1]);
+      if (Math.abs(y0 - y1) < 0.01 && Math.abs(y0 - FIT_MARGIN) < 2) topLen += Math.abs(x1 - x0);
+      if (Math.abs(y0 - y1) < 0.01 && Math.abs(y0 - (600 - FIT_MARGIN)) < 2) botLen += Math.abs(x1 - x0);
+    }
+    // The rim lines must span essentially the whole band width (~570px).
+    expect(topLen).toBeGreaterThan(500);
+    expect(botLen).toBeGreaterThan(500);
+  });
+
   it('non-cylindrical families keep the default pole-to-pole outline', () => {
     for (const family of ['conic', 'azimuthalPerspective'] as ProjectionFamily[]) {
       const b = bounds(makeGraticule(30, family));
