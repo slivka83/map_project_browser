@@ -20,7 +20,7 @@ export default function LightSource({
 }) {
   const { family, lambda0, phiOrigin, azLight } = params;
 
-  const def = useMemo(() => variantDef(params.variant), [params.variant]);
+  const def = variantDef(params.variant);
 
   const lamp = useMemo(
     () =>
@@ -36,7 +36,10 @@ export default function LightSource({
     return surface.kind === 'cone' ? coneApexWorld(surface) : null;
   }, [family, surface]);
 
-  if (!def.hasLamp && family !== 'conic') return null;
+  // The lamp marker exists only where a POINT light is defined (the conic apex
+  // or an azimuthal center/antipode light); orthographic's light sits at
+  // infinity and draws nothing.
+  if (!def.hasLamp) return null;
 
   return (
     <group renderOrder={11}>

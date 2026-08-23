@@ -101,7 +101,7 @@ function makeCylindricalProjection(
 }
 
 export const getD3Projection = (state: ProjectionParams): GeoProjection => {
-  const { family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, azLight } = state;
+  const { family, distortion, lambda0, phiOrigin, scaleFactor, gamma, azLight } = state;
 
   let proj: GeoProjection;
 
@@ -111,7 +111,7 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
     // Параллель roll the geography via makeFrameRotation BEFORE coordinates
     // reach this projection (see Map2D / projectToAuxWorld), so the chosen
     // central point always lands on the middle row with least distortion.
-    proj.scale(MAP_SCALE * scaleFactor).translate([VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing]);
+    proj.scale(MAP_SCALE * scaleFactor).translate([VIEW_CENTER_X, VIEW_CENTER_Y]);
     // Mark cylindrical projections so fitProjectionToView sizes them to the
     // finite tube band.
     cylTag.add(proj);
@@ -132,10 +132,7 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
     const phi2 = state.stdParallel2 != null ? Math.sign(phi1) * Math.abs(state.stdParallel2) : phi1;
     proj = (proj as GeoConicProjection).parallels([phi1, phi2]);
     const rotZ = -gamma;
-    proj
-      .rotate([-lambda0, -phiOrigin, rotZ])
-      .scale(MAP_SCALE * scaleFactor)
-      .translate([VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing]);
+    proj.rotate([-lambda0, -phiOrigin, rotZ]).scale(MAP_SCALE * scaleFactor).translate([VIEW_CENTER_X, VIEW_CENTER_Y]);
     return proj;
   }
 
@@ -145,10 +142,7 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
   else if (azLight === 'antipode') proj = d3Geo.geoStereographic();
   else proj = d3Geo.geoOrthographic();
   const rotZ = -gamma;
-  proj
-    .rotate([-lambda0, -phiOrigin, rotZ])
-    .scale(MAP_SCALE * scaleFactor)
-    .translate([VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing]);
+  proj.rotate([-lambda0, -phiOrigin, rotZ]).scale(MAP_SCALE * scaleFactor).translate([VIEW_CENTER_X, VIEW_CENTER_Y]);
   return proj;
 };
 

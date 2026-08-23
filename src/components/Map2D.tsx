@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import * as d3Geo from 'd3-geo';
-import type { FeatureCollection, Polygon } from 'geojson';
+import type { Geometry } from 'geojson';
 import { useAppStore } from '../store/useAppStore';
 import { useProjectionParams, useVisualizationParams } from '../store/selectors';
 import { getD3Projection, fitProjectionToView, computeAreaDistortion, isPointerOverGlobe, makeFrameRotation } from '../utils/projectionMapper';
@@ -41,14 +41,16 @@ export default function Map2D() {
   const hoverLonLat = useAppStore((s) => s.hoverLonLat);
   const hoverSource = useAppStore((s) => s.hoverSource);
   const setHoverLonLat = useAppStore((s) => s.setHoverLonLat);
+  const setParam = useAppStore((s) => s.setParam);
   const [showSummary, setShowSummary] = useState(false);
 
   // Detailed 2D map (50m land + 50m country borders) when enabled; otherwise the
   // lightweight 110m land shared with the 3D globe, drawn with 110m borders.
   const { baseLand, borders } = useMemo(() => {
-    const land = detailedMap ? land50GeoJson ?? geoJsonData : geoJsonData;
-    const border = detailedMap ? countriesGeoJson ?? countries110GeoJson : countries110GeoJson;
-    return { baseLand: land, borders: border };
+    return {
+      baseLand: detailedMap ? land50GeoJson ?? geoJsonData : geoJsonData,
+      borders: detailedMap ? countriesGeoJson ?? countries110GeoJson : countries110GeoJson,
+    };
   }, [detailedMap, land50GeoJson, geoJsonData, countriesGeoJson, countries110GeoJson]);
 
   const { ref, size } = useElementSize();
@@ -81,12 +83,12 @@ export default function Map2D() {
   const bandLand = useMemo(() => {
     if (!baseLand) return null;
     if (!isCylindrical || !frameRotation) return baseLand;
-    return cutFeatureCollectionToBand(rotateFeatureCollection(baseLand as FeatureCollection, frameRotation));
+    return cutFeatureCollectionToBand(rotateFeatureCollection(baseLand, frameRotation));
   }, [isCylindrical, frameRotation, baseLand]);
   const bandBorders = useMemo(() => {
     if (!borders) return null;
     if (!isCylindrical || !frameRotation) return borders;
-    return cutFeatureCollectionToBand(rotateFeatureCollection(borders as FeatureCollection, frameRotation));
+    return cutFeatureCollectionToBand(rotateFeatureCollection(borders, frameRotation));
   }, [isCylindrical, frameRotation, borders]);
 
   const graticuleObj = useMemo(
@@ -114,9 +116,9 @@ export default function Map2D() {
             type: 'FeatureCollection',
             features: [{ type: 'Feature', properties: {}, geometry: rotatePolygon(c, frameRotation) }],
           });
-          return (cut.features[0]?.geometry as Polygon | undefined) ?? null;
+          return cut.features[0]?.geometry ?? null;
         })
-        .filter((c): c is Polygon => c != null),
+        .filter((c): c is Geometry => c != null),
     [tissotCircles, frameRotation],
   );
 
@@ -158,8 +160,8 @@ export default function Map2D() {
     if (!isPointerOverGlobe(pathGen, x, y)) return;
     const inv = projRef?.invert?.([x, y]);
     if (!inv || !isFinite(inv[0]) || !isFinite(inv[1])) return;
-    useAppStore.getState().setParam('phiOrigin', Math.max(-90, Math.min(90, inv[1])));
-    useAppStore.getState().setParam('lambda0', normalizeLon(inv[0]));
+    setParam('phiOrigin', Math.max(-90, Math.min(90, inv[1])));
+    setParam('lambda0', normalizeLon(inv[0]));
   };
 
   const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {

@@ -11,8 +11,6 @@ export const useProjectionParams = (): ProjectionParams =>
       lambda0: s.lambda0,
       phiOrigin: s.phiOrigin,
       scaleFactor: s.scaleFactor,
-      falseEasting: s.falseEasting,
-      falseNorthing: s.falseNorthing,
       gamma: s.gamma,
       stdParallel2: s.stdParallel2,
       azLight: s.azLight,

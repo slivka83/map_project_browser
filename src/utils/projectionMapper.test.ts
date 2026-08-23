@@ -11,8 +11,6 @@ const makeState = (over: Partial<ProjectionParams> = {}): ProjectionParams => ({
   lambda0: 0,
   phiOrigin: 0,
   scaleFactor: 1,
-  falseEasting: 0,
-  falseNorthing: 0,
   gamma: 0,
   stdParallel2: null,
   azLight: 'center',
@@ -26,14 +24,10 @@ describe('getD3Projection (spec §9.2)', () => {
     // rotation at all. Долгота/Параллель roll the DATA before it reaches the
     // projection (makeFrameRotation), so the chosen central point arrives at
     // the map centre by construction and the drum itself never moves.
-    const p = getD3Projection(
-      makeState({ lambda0: 30, phiOrigin: 15, scaleFactor: 1.05, falseEasting: 50, falseNorthing: -25 }),
-    );
+    const p = getD3Projection(makeState({ lambda0: 30, phiOrigin: 15, scaleFactor: 1.05 }));
     expect(p.rotate()).toEqual([0, 0, 0]);
     expect(p.scale()).toBe(105);
-    const t = p.translate();
-    expect(t[0]).toBeCloseTo(450);
-    expect(t[1]).toBeCloseTo(275);
+    expect(p.translate()).toEqual([400, 300]);
   });
 
   it('cylindrical conformal matches d3 geoMercator at the origin', () => {
@@ -455,13 +449,6 @@ describe('getD3Projection parameter boundaries', () => {
   it('honours scaleFactor at its allowed extremes 0.9 and 1.1', () => {
     expect(getD3Projection(makeState({ scaleFactor: 0.9 })).scale()).toBeCloseTo(90, 5);
     expect(getD3Projection(makeState({ scaleFactor: 1.1 })).scale()).toBeCloseTo(110, 5);
-  });
-
-  it('applies falseEasting/falseNorthing extremes to the translate', () => {
-    const p = getD3Projection(makeState({ falseEasting: 1000, falseNorthing: -1000 }));
-    const t = p.translate();
-    expect(t[0]).toBeCloseTo(400 + 1000, 5);
-    expect(t[1]).toBeCloseTo(300 - 1000, 5);
   });
 
   it('keeps the cylindrical drum unrotated for λ₀=180 and rolls the data instead', () => {

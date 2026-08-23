@@ -132,8 +132,6 @@ describe('docs ↔ code: store shape matches ProjectionParams', () => {
     'lambda0',
     'phiOrigin',
     'scaleFactor',
-    'falseEasting',
-    'falseNorthing',
     'gamma',
     'stdParallel2',
     'azLight',
@@ -161,8 +159,12 @@ describe('docs ↔ code: store shape matches ProjectionParams', () => {
     for (const k of ['variant', 'family', 'distortion', 'lambda0', 'phiOrigin', 'scaleFactor', 'gamma', 'stdParallel2', 'azLight']) {
       expect(keys).toContain(k);
     }
+    // Removed dead params must never come back (they had no UI and no visible
+    // effect — the fitted 2D map always overrode the translate).
     expect(keys).not.toContain('isEllipsoid');
     expect(keys).not.toContain('cylLight');
+    expect(keys).not.toContain('falseEasting');
+    expect(keys).not.toContain('falseNorthing');
   });
 });
 
@@ -177,6 +179,7 @@ describe('docs ↔ code: key exports are documented', () => {
     'computeAuxGraticule',
     'computeAuxSphereIntersections',
     'computeAuxSphereIntersectionsLonLat',
+    'intersectionRingToWorld',
     'auxPointToWorld',
     'computeCentralMeridianRays',
     'projectToAuxWorld',

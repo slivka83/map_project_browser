@@ -2,9 +2,8 @@ import { fieldRow, labelClass, sliderClass } from './styles';
 
 // Generic labelled range slider with a value readout, used by ControlPanel for
 // every projection parameter (lambda0, phiOrigin, scaleFactor, gamma, …).
-// Shows a 🔒 prefix and a dimmed label when `disabled` (a locked param), or a
-// 🔗 + tooltip when `disabled` AND `tooltip` is provided (a param linked to the
-// selected variant). The value readout on the right carries the `suffix`
+// Shows a 🔒 prefix and a dimmed label/readout when `disabled` (a param locked
+// by the selected variant). The value readout on the right carries the `suffix`
 // (default '°'). Extracted from ControlPanel so any other panel can reuse the
 // same control without duplicating the a11y / disabled-state wiring.
 export default function ParamSlider({
@@ -16,7 +15,6 @@ export default function ParamSlider({
   onChange,
   suffix = '°',
   disabled = false,
-  tooltip,
 }: {
   label: string;
   value: number;
@@ -26,19 +24,12 @@ export default function ParamSlider({
   onChange: (v: number) => void;
   suffix?: string;
   disabled?: boolean;
-  tooltip?: string | null;
 }) {
   return (
-    <div className={fieldRow} title={disabled && tooltip ? tooltip : undefined}>
-      {tooltip && disabled ? (
-        <span className={`${labelClass} w-36 shrink-0 cursor-help opacity-40`} title={tooltip}>
-          {label} 🔗
-        </span>
-      ) : (
-        <span className={`${labelClass} w-36 shrink-0 ${disabled ? 'opacity-40' : ''}`}>
-          {disabled ? `🔒 ${label}` : label}
-        </span>
-      )}
+    <div className={fieldRow}>
+      <span className={`${labelClass} w-36 shrink-0 ${disabled ? 'opacity-40' : ''}`}>
+        {disabled ? `🔒 ${label}` : label}
+      </span>
       <div className="flex min-w-0 flex-1 items-center gap-[4px]">
         <input
           type="range"

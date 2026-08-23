@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import * as THREE from 'three';
 import { NEON_BLUE, BG } from '../constants/designTokens';
 import { RADIUS, GLOBE_INFLATE } from '../constants/geometry';
-import { lonLatToVec3, projectionRotationMatrix, matVec, type Mat3 } from '../utils/auxSurfaceGeometry';
+import { lonLatToVec3, matVec, type Mat3 } from '../utils/auxSurfaceGeometry';
 import type { FeatureCollection, Geometry } from 'geojson';
 
 function GlobeShell() {
@@ -60,10 +60,10 @@ function Coastlines({ geoJson, roll }: { geoJson: FeatureCollection; roll: Mat3 
   );
 }
 
-export default function Globe({ geoJson, lambda0 = 0, phiOrigin = 0 }: { geoJson: FeatureCollection | null; lambda0?: number; phiOrigin?: number }) {
-  // The rigid roll of the geography layer: the same rotation the flat map
-  // applies via .rotate([-lambda0, -phiOrigin, 0]).
-  const roll = useMemo(() => projectionRotationMatrix(-lambda0, -phiOrigin, 0), [lambda0, phiOrigin]);
+export default function Globe({ geoJson, roll }: { geoJson: FeatureCollection | null; roll: Mat3 }) {
+  // `roll` is the rigid Долгота/Параллель rotation of the geography layer,
+  // computed once in GlobeScene and shared with the hover marker so every
+  // consumer rides the same rolled Earth.
   return (
     <group>
       <GlobeShell />

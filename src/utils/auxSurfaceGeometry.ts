@@ -38,8 +38,6 @@ function projParams(
     lambda0: 0,
     phiOrigin: 0,
     scaleFactor: 1,
-    falseEasting: 0,
-    falseNorthing: 0,
     gamma: 0,
     stdParallel2: null,
     azLight: 'center',
@@ -568,6 +566,16 @@ export function computeAuxSphereIntersections(
   return [];
 }
 
+// Transform one raw intersection ring into WORLD space. The azimuthal ring is
+// built directly ON the sphere at the tangent point (already world coords), so
+// it must NOT be pushed through `auxPointToWorld` again — that would shift it
+// away from the contact point. Cylinder/cone rings are local and are mapped
+// through the exact aux-surface transform. Single source shared by the 3D
+// IntersectionDisks and the 2D lon/lat wrapper so the two views cannot drift.
+export function intersectionRingToWorld(surface: AuxSurfaceParams, ring: Vec3[]): Vec3[] {
+  return surface.kind === 'plane' ? ring : ring.map((p) => auxPointToWorld(surface, p));
+}
+
 // Convenience wrapper for the 2D map: returns the aux-surface↔globe intersection
 // loops as [lon, lat] (degrees) rings, ready to be fed to the D3 path generator.
 // The returned points lie on the sphere (magnitude = radius), so projecting them
@@ -583,9 +591,7 @@ export function computeAuxSphereIntersectionsLonLat(
 ): [number, number][][] {
   const surface = computeAuxSurfaceParams(params, radius);
   const rings = computeAuxSphereIntersections(params, radius);
-  return rings.map((ring) =>
-    ring.map((p) => (surface.kind === 'plane' ? vec3ToLonLat(p) : vec3ToLonLat(auxPointToWorld(surface, p)))),
-  );
+  return rings.map((ring) => intersectionRingToWorld(surface, ring).map((p) => vec3ToLonLat(p)));
 }
 
 // Convenience wrapper for the 2D map: returns the developable surface's
@@ -639,14 +645,11 @@ export interface RaySegment {
   end: Vec3;
 }
 
-// Input of `computeCentralMeridianRays`: the projection params (variant and
-// the false offsets are optional — the static fan never depends on them) plus
-// the 3D sphere radius and the ray count.
-export interface RayFanOptions
-  extends Omit<ProjectionParams, 'variant' | 'falseEasting' | 'falseNorthing'> {
+// Input of `computeCentralMeridianRays`: the projection params (the variant is
+// optional — the static fan never depends on it) plus the 3D sphere radius and
+// the ray count.
+export interface RayFanOptions extends Omit<ProjectionParams, 'variant'> {
   variant?: ProjectionParams['variant'];
-  falseEasting?: number;
-  falseNorthing?: number;
   radius?: number;
   rayCount?: number;
 }
@@ -683,12 +686,15 @@ export function computeCentralMeridianRays(options: RayFanOptions): RaySegment[]
   // The ray apparatus is STATIC — part of the fixed graduated cylinder (like
   // the grid and the light): the fan does not depend on Долгота/Параллель at
   // all. Only the geography layer slides beneath these stationary beams.
-  // Conic / azimuthal keep their own projection for the fan as before. Built
-  // lazily per family: cylindrical needs only the static frame projection.
-  const projFlat = family === 'cylindrical'
-    ? getD3Projection(projParams(family, distortion, { lambda0: 0, phiOrigin: 0, scaleFactor, gamma: 0, stdParallel2, azLight, variant: params.variant }))
-    : null;
-  let proj: GeoProjection | null = null;
+  // Conic / azimuthal keep their own projection for the fan as before.
+  const projFlat =
+    family === 'cylindrical'
+      ? getD3Projection(projParams(family, distortion, { lambda0: 0, phiOrigin: 0, scaleFactor, gamma: 0, stdParallel2, azLight, variant: params.variant }))
+      : null;
+  const proj =
+    family !== 'cylindrical'
+      ? getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, gamma, stdParallel2, azLight, variant: params.variant }))
+      : null;
 
   // The conic cone keeps phiOrigin's sign (like the 3D aux surface) so a
   // southern phiOrigin yields a southern cone matching the rendered mesh.
@@ -720,10 +726,9 @@ export function computeCentralMeridianRays(options: RayFanOptions): RaySegment[]
         start = [0, 0, 0];
       }
     } else if (family === 'azimuthalPerspective') {
-      proj = proj ?? getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, gamma, stdParallel2, azLight, variant: params.variant }));
       const { center } = computeTangentBasis(lambda0, phiOrigin, radius);
-      const c = proj([lambda0, phiOrigin]);
-      const p = proj([lambda0, lat]);
+      const c = proj!([lambda0, phiOrigin]);
+      const p = proj!([lambda0, lat]);
       const dx = (p ? p[0] : 0) - (c ? c[0] : 0);
       const dy = (p ? p[1] : 0) - (c ? c[1] : 0);
       // disc coords (east, north); the in-plane gamma rotation is applied by
@@ -845,8 +850,6 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
       start = [0, 0, 0];
     }
   } else if (family === 'azimuthalPerspective') {
-    // falseEasting/Northing are omitted: the landing is measured RELATIVE to
-    // the projected touch point below, so any constant translate cancels.
     proj = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, gamma, stdParallel2, azLight, variant: params.variant }));
     const { center } = computeTangentBasis(lambda0, phiOrigin, radius);
     const c = proj([lambda0, phiOrigin]);

@@ -1,11 +1,14 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { useAppStore } from './store/useAppStore';
 import ProjectionHeader from './components/ProjectionHeader';
 import ControlPanel from './components/ControlPanel';
 import Map2D from './components/Map2D';
-import GlobeScene from './components/GlobeScene';
 import ErrorBoundary from './components/ErrorBoundary';
 import { NEON_DIVIDER, NEON_DIVIDER_GLOW, NEON_UNDERLAY_BORDER, NEON_UNDERLAY_BG, NEON_UNDERLAY_GLOW } from './constants/designTokens';
+
+// The 3D scene (three.js + fiber + drei ≈ half the bundle) is loaded lazily:
+// the 2D map is fully functional without it and becomes interactive sooner.
+const GlobeScene = lazy(() => import('./components/GlobeScene'));
 
 // Fallback for the 3D scene when WebGL is unavailable (old browser, GPU
 // disabled, no driver, admin policy, …). The 2D map (pure SVG, no WebGL) keeps
@@ -39,7 +42,7 @@ export default function App() {
 
   return (
     <div className="relative flex h-full w-full flex-col p-3 lg:flex-row">
-      <div className="relative flex w-full flex-col pr-3 lg:w-1/3">
+      <div className="relative flex w-full flex-col lg:pr-3 lg:w-1/3">
         <div
           className="relative flex min-h-0 flex-1 flex-col rounded-lg p-3"
           style={{
@@ -66,12 +69,16 @@ export default function App() {
           <div className="-mx-3 h-px shrink-0" style={{ background: NEON_DIVIDER, boxShadow: NEON_DIVIDER_GLOW }} />
           <div className="relative min-h-0 flex-1">
             <ErrorBoundary fallback={<GlobeSceneFallback />}>
-              <GlobeScene />
+              {/* Suspense keeps rendering until the lazy 3D chunk arrives; a
+                  failed chunk load lands in the same WebGL fallback panel. */}
+              <Suspense fallback={null}>
+                <GlobeScene />
+              </Suspense>
             </ErrorBoundary>
           </div>
         </div>
       </div>
-      <div className="w-full pl-3 lg:w-2/3">
+      <div className="w-full lg:pl-3 lg:w-2/3">
         <Map2D />
       </div>
     </div>

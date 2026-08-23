@@ -23,8 +23,6 @@ export interface ProjectionParams {
   lambda0: number; // -180...180  (central meridian)
   phiOrigin: number; // -90...90   (central latitude)
   scaleFactor: number; // aux-figure immersion; slider 0.9...1.1 (conic/azimuthal) or 0.5...1.0 for cylindrical (1.0 = Earth-diameter cylinder, 0.5 = half)
-  falseEasting: number; // -1000...1000
-  falseNorthing: number; // -1000...1000
   gamma: number; // -180...180  (tilt / third rotation → oblique & transverse aspects)
   stdParallel2: number | null; // φ2; null = tangent surface (single standard parallel). Always carries the cone hemisphere's sign (φ₀ < 0 → φ₂ < 0)
   azLight: AzimuthalLight; // light-source mode for the azimuthal family
@@ -40,10 +38,8 @@ export function defaultParamsForFamily(family: ProjectionFamily): ProjectionPara
     lambda0: 0,
     phiOrigin: 0,
     scaleFactor: def.lockedScaleFactor ?? 1,
-    falseEasting: 0,
-    falseNorthing: 0,
-    gamma: def.lockedGamma ?? 0,
-    stdParallel2: def.lockedStdParallel2 ?? null,
+    gamma: 0,
+    stdParallel2: null,
     azLight: def.azLight,
   };
 }
@@ -166,11 +162,11 @@ export const useAppStore = create<AppState>((set) => ({
       family: def.family,
       distortion: def.distortion,
       azLight: def.azLight,
-      gamma: def.lockedGamma ?? 0,
+      gamma: 0,
       scaleFactor: def.lockedScaleFactor ?? 1,
       phiOrigin: 0,
       lambda0: 0,
-      stdParallel2: def.lockedStdParallel2 ?? null,
+      stdParallel2: null,
     });
   },
   setShowTissot: (value) => set({ showTissot: value }),
@@ -180,15 +176,13 @@ export const useAppStore = create<AppState>((set) => ({
   setFamily: (family) =>
     set((s) => ({
       // Switch to the family-default variant with its default params, but keep
-      // the user's central meridian and false offsets. The family-specific
-      // placement (central latitude, tilt) resets so a family switch always
-      // starts from a sane, upright configuration.
+      // the user's central meridian. The family-specific placement (central
+      // latitude, tilt, scale) resets so a family switch always starts from a
+      // sane, upright configuration.
       ...defaultParamsForFamily(family),
+      // The central meridian survives a family switch; everything else takes
+      // the new family's defaults.
       lambda0: s.lambda0,
-      phiOrigin: 0,
-      gamma: 0,
-      falseEasting: s.falseEasting,
-      falseNorthing: s.falseNorthing,
     })),
   resetParams: () => set((s) => {
     // Reset the params of the CURRENTLY selected projection: keep the variant
@@ -202,10 +196,8 @@ export const useAppStore = create<AppState>((set) => ({
       lambda0: 0,
       phiOrigin: 0,
       scaleFactor: def.lockedScaleFactor ?? 1,
-      falseEasting: 0,
-      falseNorthing: 0,
-      gamma: def.lockedGamma ?? 0,
-      stdParallel2: def.lockedStdParallel2 ?? null,
+      gamma: 0,
+      stdParallel2: null,
     };
   }),
   loadGeoData: async () => {

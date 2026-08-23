@@ -15,24 +15,24 @@ export interface TouchPointPreset {
   lambda: number;
 }
 
+// Per-variant metadata driving the context-dependent UI and the 3D scene.
+// Only fields that actually VARY between the seven variants are kept:
+// - showParallel2 → the secant-cone control (conic only, always editable there);
+// - showTouchPointPresets / touchPointPresets → the azimuthal touch-point picker;
+// - hasLamp → whether a point-light marker is drawn (off for orthographic, whose
+//   light is at infinity);
+// - lightIsParallel → orthographic beams arrive parallel along the surface normal;
+// - lockedScaleFactor → non-null when «Масштаб» is fixed by the variant.
 export interface VariantDef {
   family: ProjectionFamily;
   distortion: DistortionModel;
   azLight: AzimuthalLight;
   hasLamp: boolean;
   lightIsParallel: boolean;
-  lockedGamma: number | null;
   lockedScaleFactor: number | null;
-  lockedStdParallel2: number | null;
-  lockedLight: boolean;
   label: string;
-
-  // Context-driven control visibility flags.
-  showParallel1: boolean;
   showParallel2: boolean;
-  parallel2Editable: boolean;
   showTouchPointPresets: boolean;
-
   touchPointPresets: TouchPointPreset[] | null;
 }
 
@@ -52,14 +52,9 @@ function cylDef(label: string, distortion: DistortionModel): VariantDef {
     azLight: 'center',
     hasLamp: false,
     lightIsParallel: false,
-    lockedGamma: 0,
     lockedScaleFactor: null,
-    lockedStdParallel2: null,
-    lockedLight: true,
     label,
-    showParallel1: true,
     showParallel2: false,
-    parallel2Editable: false,
     showTouchPointPresets: false,
     touchPointPresets: null,
   };
@@ -72,14 +67,9 @@ function conicDef(label: string, distortion: DistortionModel): VariantDef {
     azLight: 'center',
     hasLamp: true,
     lightIsParallel: false,
-    lockedGamma: null,
     lockedScaleFactor: null,
-    lockedStdParallel2: null,
-    lockedLight: true,
     label,
-    showParallel1: true,
     showParallel2: true,
-    parallel2Editable: true,
     showTouchPointPresets: false,
     touchPointPresets: null,
   };
@@ -97,14 +87,9 @@ function azDef(
     azLight,
     hasLamp,
     lightIsParallel,
-    lockedGamma: null,
     lockedScaleFactor: 1,
-    lockedStdParallel2: null,
-    lockedLight: true,
     label,
-    showParallel1: false,
     showParallel2: false,
-    parallel2Editable: false,
     showTouchPointPresets: true,
     touchPointPresets: TOUCH_PRESETS,
   };
@@ -126,10 +111,14 @@ export const AZIMUTHAL_PERSPECTIVE_VARIANTS: Record<AzimuthalPerspectiveVariant,
   orthographic: azDef('Ортографическая', 'infinity', false, true),
 };
 
+const ALL_VARIANTS: Record<ProjectionVariant, VariantDef> = {
+  ...CYLINDRICAL_VARIANTS,
+  ...CONIC_VARIANTS,
+  ...AZIMUTHAL_PERSPECTIVE_VARIANTS,
+};
+
 export function variantDef(v: ProjectionVariant): VariantDef {
-  if (v in CYLINDRICAL_VARIANTS) return CYLINDRICAL_VARIANTS[v as CylindricalVariant];
-  if (v in CONIC_VARIANTS) return CONIC_VARIANTS[v as ConicVariant];
-  return AZIMUTHAL_PERSPECTIVE_VARIANTS[v as AzimuthalPerspectiveVariant];
+  return ALL_VARIANTS[v];
 }
 
 export function defaultVariant(family: ProjectionFamily): ProjectionVariant {
@@ -139,7 +128,7 @@ export function defaultVariant(family: ProjectionFamily): ProjectionVariant {
 }
 
 function toOptions<K extends string>(obj: Record<K, VariantDef>): { value: K; label: string }[] {
-  return Object.entries(obj).map(([k, v]) => ({ value: k as K, label: (v as VariantDef).label }));
+  return (Object.entries(obj) as [K, VariantDef][]).map(([value, def]) => ({ value, label: def.label }));
 }
 
 export const CYLINDRICAL_VARIANT_OPTIONS = toOptions(CYLINDRICAL_VARIANTS);

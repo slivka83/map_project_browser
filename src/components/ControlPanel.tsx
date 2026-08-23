@@ -18,14 +18,10 @@ function StdParallel2Control({
   value,
   phiOrigin,
   onChange,
-  disabled = false,
-  tooltip,
 }: {
   value: number | null;
   phiOrigin: number;
   onChange: (v: number | null) => void;
-  disabled?: boolean;
-  tooltip?: string | null;
 }) {
   const secant = value != null;
   // The cone hemisphere follows φ₀'s sign, so φ₂ must carry the same sign:
@@ -33,18 +29,6 @@ function StdParallel2Control({
   // would be an impossible cone spanning both hemispheres).
   const sign = signedStandardParallelDeg(phiOrigin) < 0 ? -1 : 1;
   const defaultMag = sign * Math.min(89, Math.abs(signedStandardParallelDeg(phiOrigin)) + 20);
-
-  if (disabled) {
-    return (
-      <div className={fieldRow} title={tooltip ?? undefined}>
-        <span className={`${labelClass} w-36 shrink-0 cursor-help opacity-40`}>🔗 Параллель 2</span>
-        <div className="flex min-w-0 flex-1 items-center gap-[4px]">
-          <input type="range" min={0} max={90} step={1} value={value ?? defaultMag} disabled className={sliderClass} />
-          <span className="w-9 shrink-0 text-right text-[12px] text-gray-500">—</span>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className={fieldRow}>
@@ -75,37 +59,30 @@ function StdParallel2Control({
   );
 }
 
+// φ₀'s physical meaning differs per family, and so does its label: only the
+// conic family may call it «Параллель 1» (there it genuinely IS the first
+// standard parallel); for azimuthal it names the touch point; for cylindrical
+// it rolls the Earth inside the static drum.
+const PHI_LABEL: Record<VariantDef['family'], string> = {
+  conic: 'Параллель 1 (φ₁)',
+  azimuthalPerspective: 'Широта точки (φ₀)',
+  cylindrical: 'Центральная параллель (φ₀)',
+};
+
 // Top-level projection parameter controls (context-driven by VariantDef).
 function ProjectionParamsSection({ def }: { def: VariantDef }) {
   const params = useProjectionParams();
   const setParam = useAppStore((s) => s.setParam);
   const { family, lambda0, phiOrigin, scaleFactor, gamma, stdParallel2 } = params;
 
-  // For the conic family φ₀ IS the first standard parallel; for cylindrical /
-  // azimuthal it is simply the central latitude (for cylindrical it rolls the
-  // Earth inside the static drum), so the label must not claim a standard
-  // parallel where there is none.
-  const phiLabel = family === 'conic' ? 'Параллель 1 (φ₁)' : 'Центральная параллель (φ₀)';
-
   return (
     <div className="flex flex-col gap-2.5">
       <ParamSlider label="Долгота (λ₀)" value={lambda0} min={-180} max={180} step={1} onChange={(v) => setParam('lambda0', v)} />
 
-      {def.showParallel1 && (
-        <ParamSlider label={phiLabel} value={phiOrigin} min={-90} max={90} step={1} onChange={(v) => setParam('phiOrigin', v)} />
-      )}
+      <ParamSlider label={PHI_LABEL[family]} value={phiOrigin} min={-90} max={90} step={1} onChange={(v) => setParam('phiOrigin', v)} />
 
       {def.showParallel2 && (
-        <StdParallel2Control
-          value={stdParallel2}
-          phiOrigin={phiOrigin}
-          onChange={(v) => setParam('stdParallel2', v)}
-          disabled={!def.parallel2Editable}
-        />
-      )}
-
-      {family === 'azimuthalPerspective' && (
-        <ParamSlider label="Широта точки (φ₀)" value={phiOrigin} min={-90} max={90} step={1} onChange={(v) => setParam('phiOrigin', v)} />
+        <StdParallel2Control value={stdParallel2} phiOrigin={phiOrigin} onChange={(v) => setParam('stdParallel2', v)} />
       )}
 
       {def.showTouchPointPresets && def.touchPointPresets && (
@@ -139,9 +116,8 @@ function ProjectionParamsSection({ def }: { def: VariantDef }) {
 
       {family === 'azimuthalPerspective' && (
         <div className={fieldRow}>
-          <span className={`${labelClass} w-36 shrink-0 ${def.lockedLight ? 'opacity-40' : ''}`}>
-            {def.lockedLight ? '🔒 Источник света' : 'Источник света'}
-          </span>
+          {/* The light source is owned by the variant (never user-editable). */}
+          <span className={`${labelClass} w-36 shrink-0 opacity-40`}>🔒 Источник света</span>
           <span className="text-[12px] text-gray-400">
             {AZ_LIGHT_ICON_MAP[params.azLight]} {AZ_LIGHT_LABEL_MAP[params.azLight]}
           </span>

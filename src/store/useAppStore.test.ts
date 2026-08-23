@@ -10,8 +10,6 @@ describe('useAppStore', () => {
       lambda0: 0,
       phiOrigin: 0,
       scaleFactor: 1,
-      falseEasting: 0,
-      falseNorthing: 0,
       showTissot: false,
       showBorders: false,
       geoJsonData: null,
@@ -29,8 +27,6 @@ describe('useAppStore', () => {
     expect(s.lambda0).toBe(0);
     expect(s.phiOrigin).toBe(0);
     expect(s.scaleFactor).toBe(1);
-    expect(s.falseEasting).toBe(0);
-    expect(s.falseNorthing).toBe(0);
     expect(s.gamma).toBe(0);
     expect(s.stdParallel2).toBeNull();
     expect(s.azLight).toBe('center');
@@ -111,17 +107,15 @@ describe('useAppStore', () => {
       ['azimuthalPerspective', 'conformal', 'center', null],
     ];
     for (const [family, distortion, azLight, sp2] of cases) {
-      useAppStore.setState({ family: 'cylindrical', distortion: 'equalArea', lambda0: 90, phiOrigin: 45, scaleFactor: 1.1, falseEasting: 100, falseNorthing: -50 });
+      useAppStore.setState({ family: 'cylindrical', distortion: 'equalArea', lambda0: 90, phiOrigin: 45, scaleFactor: 1.1 });
       useAppStore.getState().setFamily(family);
       const s = useAppStore.getState();
       expect(s.family).toBe(family);
       expect(s.distortion).toBe(distortion);
       expect(s.azLight).toBe(azLight);
       expect(s.stdParallel2).toBe(sp2);
-      // Generic placement params are preserved across a family switch.
+      // The central meridian survives a family switch.
       expect(s.lambda0).toBe(90);
-      expect(s.falseEasting).toBe(100);
-      expect(s.falseNorthing).toBe(-50);
       // Family-specific params reset to the new family defaults.
       expect(s.phiOrigin).toBe(0);
       expect(s.scaleFactor).toBe(1);
@@ -218,7 +212,6 @@ describe('useAppStore', () => {
     expect(s.family).toBe('conic');
     expect(s.distortion).toBe('conformal');
     expect(s.lambda0).toBe(0);
-    expect(s.falseEasting).toBe(0);
     expect(s.showTissot).toBe(true);
     expect(s.showBorders).toBe(true);
     expect(s.detailedMap).toBe(true);

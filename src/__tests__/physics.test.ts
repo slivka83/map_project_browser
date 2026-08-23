@@ -33,8 +33,6 @@ const base = (over: Partial<ProjectionParams> = {}): ProjectionParams => ({
   lambda0: 0,
   phiOrigin: 0,
   scaleFactor: 1,
-  falseEasting: 0,
-  falseNorthing: 0,
   gamma: 0,
   stdParallel2: null,
   azLight: 'center',
@@ -76,11 +74,11 @@ describe('globe ↔ map projection consistency', () => {
           // drives the 3D coastlines, so both views agree by construction.
           const roll = makeFrameRotation(p.lambda0, p.phiOrigin);
           const c = proj(roll([p.lambda0, p.phiOrigin]) as [number, number])!;
-          closeTo(c[0], VIEW_CENTER_X + p.falseEasting, 1e-6);
-          closeTo(c[1], VIEW_CENTER_Y + p.falseNorthing, 1e-6);
+          closeTo(c[0], VIEW_CENTER_X, 1e-6);
+          closeTo(c[1], VIEW_CENTER_Y, 1e-6);
         } else {
           const c = proj([p.lambda0, p.phiOrigin])!;
-          closeTo(c[0], VIEW_CENTER_X + p.falseEasting, 1e-6);
+          closeTo(c[0], VIEW_CENTER_X, 1e-6);
         }
       });
     }

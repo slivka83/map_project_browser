@@ -56,7 +56,7 @@ npm run dev      # дев-сервер (http://localhost:5173)
 | `src/utils/auxSurfaceGeometry.ts` | Единый источник геометрии 3D: вспомогательная поверхность, кольца касания, лучи |
 | `src/components/Map2D.tsx`   | Адаптивная SVG-карта: проекция подгоняется под контейнер (`fitProjectionToView`), чтобы глобус всегда заполнял доступную площадь с небольшими отступами; гратула, берега, индикатрисы Тиссо, кнопки-тумблеры в углу (Тиссо, Сетка, границы…) |
 | `src/components/ControlPanel.tsx` | Панель управления: параметры проекции, слайдеры, пресеты точки касания |
-| `src/components/GlobeScene.tsx` | 3D-сцена, компонует `Globe` / `AuxSurface` / `IntersectionDisks` / `LightSource` / `Rays`, `CutLine` и `TouchPointPin` |
+| `src/components/GlobeScene.tsx` | 3D-сцена (загружается лениво, отдельным чанком), компонует `Globe` / `AuxSurface` / `IntersectionDisks` / `LightSource` / `Rays`, `CutLine` и `TouchPointPin` |
 | `src/components/Globe.tsx`   | Прозрачный глобус с неоновыми 3D-линиями берегов (без гратулы — сетка только на 2D-карте) |
 | `src/components/AuxSurface.tsx` | Вспомогательная поверхность — прозрачный неоновый каркас (цилиндр / конус / плоскость) |
 | `src/components/IntersectionDisks.tsx` | Полые белые неоновые кольца в местах реального пересечения поверхности с глобусом (0, 1 или 2 окружности) |

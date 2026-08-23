@@ -35,14 +35,16 @@ export default function GlobeScene() {
   // marker in perfect alignment and avoids triple work.
   const surface = useMemo(() => computeAuxSurfaceParams(params), [params]);
 
-  // The rigid roll of the geography layer on the globe (same matrix Globe uses).
+  // The rigid roll of the geography layer (Долгота/Параллель): computed ONCE
+  // here and shared by the coastlines, the hover reading and the hover marker,
+  // so all three always agree.
   const roll = useMemo(() => projectionRotationMatrix(-params.lambda0, -params.phiOrigin, 0), [params.lambda0, params.phiOrigin]);
   const rollInv = useMemo(() => matTranspose(roll), [roll]);
 
-  // Shared hover linkage (AGENTS.md): hovering the globe reads the
-  // (lon, lat) under the cursor and mirrors it into the 2D map (and vice-versa).
-  // The geography layer is ROLLED by Долгота/Параллель, so the cursor point is
-  // first taken back through the roll before reading the geographic coordinates.
+  // Shared hover linkage: hovering the globe reads the (lon, lat) under the
+  // cursor and mirrors it into the 2D map (and vice-versa). The geography
+  // layer is ROLLED by Долгота/Параллель, so the cursor point is first taken
+  // back through the roll before reading the geographic coordinates.
   const handleGlobeMove = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
     const inv = matVec(rollInv, [e.point.x, e.point.y, e.point.z]);
@@ -50,12 +52,10 @@ export default function GlobeScene() {
     setHoverLonLat([lon, lat], 'globe');
   };
 
-  const showTouchPin = def.showTouchPointPresets;
-
   return (
     <Canvas camera={{ position: [0, 5, 42], fov: 50 }} className="rounded-lg">
       <OrbitControls makeDefault enablePan={false} enableDamping dampingFactor={0.08} minDistance={18} maxDistance={90} />
-      <Globe geoJson={geoJson} lambda0={params.lambda0} phiOrigin={params.phiOrigin} />
+      <Globe geoJson={geoJson} roll={roll} />
       <AuxSurface surface={surface} />
       <LightSource surface={surface} params={params} />
       {showIntersection && (
@@ -69,7 +69,7 @@ export default function GlobeScene() {
         <sphereGeometry args={[RADIUS, 48, 48]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
-      {showTouchPin && (
+      {def.showTouchPointPresets && (
         <TouchPointPin
           lambda0={params.lambda0}
           phiOrigin={params.phiOrigin}

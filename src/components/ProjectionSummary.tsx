@@ -103,8 +103,6 @@ export default function ProjectionSummary({ params, onClose }: { params: Project
           )}
           <Row k="Масштабный коэффициент" v={params.scaleFactor.toFixed(2)} />
           {params.family === 'azimuthalPerspective' && <Row k="Наклон (γ)" v={`${params.gamma}°`} />}
-          <Row k="Смещение восток (falseEasting)" v={`${params.falseEasting}`} />
-          <Row k="Смещение север (falseNorthing)" v={`${params.falseNorthing}`} />
           <Row k="Класс проекции" v={describeProjection(params)} />
           <Row k="Вариант" v={variantDef(params.variant).label} />
         </div>

@@ -1,19 +1,18 @@
 import { useMemo } from 'react';
 import { Line } from '@react-three/drei';
 import { NEON_WHITE } from '../constants/designTokens';
-import { computeAuxSphereIntersections, auxPointToWorld, type AuxSurfaceParams } from '../utils/auxSurfaceGeometry';
+import { computeAuxSphereIntersections, intersectionRingToWorld, type AuxSurfaceParams } from '../utils/auxSurfaceGeometry';
 import { RADIUS } from '../constants/geometry';
 import type { ProjectionParams } from '../store/useAppStore';
 
 // Hollow white rings marking where the auxiliary surface meets the globe.
 // The rings are the actual intersection circles (computed analytically), so the
 // surface can touch the globe in one place, two places, or not at all — in the
-// last case nothing is drawn. Every ring is pushed through `auxPointToWorld`,
-// the exact transform the aux-surface wireframe uses, so the ring always sits on
-// the REAL intersection of the (possibly tilted) surface with the globe. A
-// cylinder tilts with its axis, so its intersection circles MOVE when the tilt
-// (gamma) changes — exactly like the 3D tube does. Rendered only while the
-// «Линии пересечения» toggle is on (the same flag drives the 2D lines).
+// last case nothing is drawn. Every ring goes through
+// `intersectionRingToWorld` — the exact transform shared with the 2D lon/lat
+// wrapper — so both views always agree on where the surface meets the globe.
+// Rendered only while the «Линии пересечения» toggle is on (the same flag
+// drives the 2D lines).
 export default function IntersectionDisks({
   surface,
   params,
@@ -21,15 +20,10 @@ export default function IntersectionDisks({
   surface: AuxSurfaceParams;
   params: ProjectionParams;
 }) {
-  const circles = useMemo(() => {
-    const raw = computeAuxSphereIntersections(params, RADIUS);
-    // Кольцо azimuthal уже построено в мировых координатах (на сфере, в точке
-    // касания), поэтому повторно через auxPointToWorld его прогонять нельзя —
-    // иначе оно съезжает. У cylinder/cone точки локальные, их переводим.
-    return raw.map((ring) =>
-      ring.map((p) => (surface.kind === 'plane' ? p : auxPointToWorld(surface, p))),
-    );
-  }, [params, surface]);
+  const circles = useMemo(
+    () => computeAuxSphereIntersections(params, RADIUS).map((ring) => intersectionRingToWorld(surface, ring)),
+    [params, surface],
+  );
 
   if (circles.length === 0) return null;
 

@@ -11,8 +11,6 @@ describe('ProjectionHeader', () => {
       lambda0: 0,
       phiOrigin: 0,
       scaleFactor: 1,
-      falseEasting: 0,
-      falseNorthing: 0,
       gamma: 0,
       stdParallel2: null,
       azLight: 'center',
