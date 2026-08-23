@@ -68,24 +68,18 @@ export default function GlobeScene() {
     setHoverLonLat([lon, lat], 'globe');
   };
 
-  const showTouchPin =
-    def.showTouchPointPresets &&
-    params.family === 'azimuthalPerspective';
+  const showTouchPin = def.showTouchPointPresets;
 
   return (
     <Canvas camera={{ position: [0, 5, 42], fov: 50 }} className="rounded-lg">
       <OrbitControls makeDefault enablePan={false} enableDamping dampingFactor={0.08} minDistance={18} maxDistance={90} />
       <Globe geoJson={geoJson} lambda0={params.lambda0} phiOrigin={params.phiOrigin} />
-      {surface && (
+      <AuxSurface surface={surface} />
+      <LightSource surface={surface} params={params} />
+      {showIntersection && (
         <>
-          <AuxSurface surface={surface} />
-          <LightSource surface={surface} params={params} />
-          {showIntersection && (
-            <>
-              <IntersectionDisks surface={surface} params={params} />
-              <CutLine surface={surface} params={params} />
-            </>
-          )}
+          <IntersectionDisks surface={surface} params={params} />
+          <CutLine surface={surface} />
         </>
       )}
       <Rays params={params} />
@@ -104,7 +98,11 @@ export default function GlobeScene() {
         />
       )}
       {showHoverRay && hoverSource === 'map' && hoverLonLat && (
-        <mesh position={lonLatToVec3(hoverLonLat[0], hoverLonLat[1], RADIUS)} renderOrder={12}>
+        // The marker mirrors the 2D map's hover highlight: it marks a point ON
+        // THE EARTH, so it must ride the rolled geography layer exactly like
+        // the coastlines do (the raw lon/lat sits at the un-rolled position,
+        // which drifts away from the visibly rotated continents).
+        <mesh position={matVec(roll, lonLatToVec3(hoverLonLat[0], hoverLonLat[1], RADIUS))} renderOrder={12}>
           <sphereGeometry args={[0.35, 16, 16]} />
           <meshBasicMaterial color={NEON_YELLOW} toneMapped={false} depthTest={false} />
         </mesh>

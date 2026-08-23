@@ -168,8 +168,7 @@ function ProjectionParamsSection({ def }: { def: ReturnType<typeof variantDef> }
           </span>
         </div>
       )}
-
-      </div>
+    </div>
   );
 }
 

@@ -19,14 +19,6 @@ export type ConeHemisphere = 'north' | 'south';
 // Graticule step in degrees.
 export type GraticuleStep = 1 | 5 | 10 | 15 | 30;
 
-// Default distortion per family: cylindrical → conformal, conic → equidistant,
-// azimuthal perspective → conformal.
-export const DEFAULT_DISTORTION: Record<ProjectionFamily, DistortionModel> = {
-  cylindrical: 'conformal',
-  conic: 'equidistant',
-  azimuthalPerspective: 'conformal',
-};
-
 export interface ProjectionParams {
   variant: ProjectionVariant;
   family: ProjectionFamily;
@@ -115,7 +107,6 @@ interface AppState extends ProjectionParams {
   setFamily: (family: ProjectionFamily) => void;
   resetParams: () => void;
   loadGeoData: () => Promise<void>;
-  applyPreset: (preset: Partial<ProjectionParams>) => void;
 
   setGraticuleStep: (value: GraticuleStep) => void;
   setShowGraticule: (value: boolean) => void;
@@ -123,8 +114,8 @@ interface AppState extends ProjectionParams {
 }
 
 // The full set of new (variant-defaultable) fields reset by setVariant /
-// resetParams / applyPreset. Keeping them in one record guarantees the variant
-// switch never leaves stale state behind.
+// resetParams. Keeping them in one record guarantees the variant switch never
+// leaves stale state behind.
 const NEW_DEFAULTS = {
   coneHemisphere: 'north' as ConeHemisphere,
 };
@@ -181,9 +172,10 @@ export const useAppStore = create<AppState>((set) => ({
   setDetailedMap: (value) => set({ detailedMap: value }),
   setFamily: (family) =>
     set((s) => ({
-      // Keep the user's generic placement params (central meridian, central
-      // latitude, tilt) and only reset the family-specific defaults so a family
-      // switch doesn't wipe the whole configuration.
+      // Switch to the family-default variant with its default params, but keep
+      // the user's central meridian and false offsets. The family-specific
+      // placement (central latitude, tilt) resets so a family switch always
+      // starts from a sane, upright configuration.
       ...defaultParamsForFamily(family),
       lambda0: s.lambda0,
       phiOrigin: 0,
@@ -211,37 +203,10 @@ export const useAppStore = create<AppState>((set) => ({
       ...NEW_DEFAULTS,
     };
   }),
-  applyPreset: (preset) =>
-    set((s) => {
-      const merged = { ...s, ...preset } as Partial<ProjectionParams> & {
-        variant?: ProjectionVariant;
-        family?: ProjectionFamily;
-        distortion?: DistortionModel;
-      };
-      // Guard against an inconsistent variant/family/distortion combination that
-      // would produce a broken projection. If the merged variant belongs to a
-      // different family than the merged family, reset the variant to the
-      // family's default.
-      const def = merged.variant ? variantDef(merged.variant) : null;
-      const nextFamily = merged.family ?? s.family;
-      if (def && def.family !== nextFamily) {
-        const v = defaultVariant(nextFamily);
-        const vDef = variantDef(v);
-        return {
-          ...preset,
-          variant: v,
-          family: vDef.family,
-          distortion: vDef.distortion,
-          azLight: vDef.azLight,
-        };
-      }
-      return { ...preset };
-    }),
   loadGeoData: async () => {
     // A monotonically increasing token lets a later call supersede an earlier one
     // (e.g. on a fast remount): only the most recent fetch may commit its result.
-    const token = useAppStore.getState()._geoToken ?? 0;
-    const next = token + 1;
+    const next = useAppStore.getState()._geoToken + 1;
     useAppStore.setState({ _geoToken: next });
     set({ geoLoading: true, geoDataError: null });
 

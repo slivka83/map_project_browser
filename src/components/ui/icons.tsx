@@ -101,26 +101,11 @@ export function HoverRayIcon() {
   );
 }
 
-// ---- New icons for the visualization panel, catalog and badges ----
-
-
-
-
-
 export function GraticuleIcon() {
   return (
     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
       <circle cx="12" cy="12" r="9" />
       <path d="M3 12h18M12 3v18" />
-    </svg>
-  );
-}
-
-export function UnfoldIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
-      <path d="M12 3v6m0 6v6" />
-      <path d="M8 9h8a4 4 0 0 1 4 4v0M16 9a4 4 0 0 0-4-4M8 9a4 4 0 0 1-4-4" opacity="0.6" />
     </svg>
   );
 }

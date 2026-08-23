@@ -16,7 +16,7 @@ const clampScale = (s: number): number => Math.max(0, Math.min(1, s));
 
 // Tags the cylindrical GeoProjection instances so fitProjectionToView can size
 // them analytically to the finite tube band.
-const cylCenterMap = new WeakMap<GeoProjection, number>();
+const cylTag = new WeakSet<GeoProjection>();
 
 // The flat cylindrical map is drawn in the STATIC drum frame: the graduated
 // cylinder never tilts or spins, and its D3 projection carries NO rotation.
@@ -105,21 +105,15 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
   let proj: GeoProjection;
 
   if (family === 'cylindrical') {
-    if (distortion === 'conformal') {
-      proj = makeCylindricalProjection('conformal', scaleFactor);
-    } else if (distortion === 'equalArea') {
-      proj = makeCylindricalProjection('equalArea', scaleFactor);
-    } else {
-      proj = makeCylindricalProjection('equidistant', scaleFactor);
-    }
+    proj = makeCylindricalProjection(distortion, scaleFactor);
     // The projection is the STATIC drum frame — no rotations at all. Долгота /
     // Параллель roll the geography via makeFrameRotation BEFORE coordinates
     // reach this projection (see Map2D / projectToAuxWorld), so the chosen
     // central point always lands on the middle row with least distortion.
     proj.scale(MAP_SCALE * scaleFactor).translate([VIEW_CENTER_X + falseEasting, VIEW_CENTER_Y + falseNorthing]);
     // Mark cylindrical projections so fitProjectionToView sizes them to the
-    // finite tube band (value unused — there is no vertical slide any more).
-    cylCenterMap.set(proj, 0);
+    // finite tube band.
+    cylTag.add(proj);
     return proj;
   }
 
@@ -310,6 +304,11 @@ export const FIT_SPHERE: Polygon = makeFitSphere();
 // (the hidden hemisphere of an azimuthal projection, or projection
 // discontinuities, round-trip to a different location). Prevents the hover
 // marker / ray from being drawn for cursor positions that are off the map.
+// The sphere bounds are cached per path generator (it is rebuilt only when the
+// projection changes), so pointer-move handling does not re-project the whole
+// sphere on every event.
+const sphereBoundsCache = new WeakMap<object, [[number, number], [number, number]]>();
+
 export function isPointerOverGlobe(path: d3Geo.GeoPath, x: number, y: number): boolean {
   const proj = path.projection() as d3Geo.GeoProjection | null;
   if (!proj) return false;
@@ -317,7 +316,11 @@ export function isPointerOverGlobe(path: d3Geo.GeoPath, x: number, y: number): b
   if (!inv || !isFinite(inv[0]) || !isFinite(inv[1])) return false;
   const fwd = proj([inv[0], inv[1]]);
   if (!fwd || !isFinite(fwd[0]) || !isFinite(fwd[1])) return false;
-  const b = path.bounds({ type: 'Sphere' });
+  let b = sphereBoundsCache.get(path);
+  if (!b) {
+    b = path.bounds({ type: 'Sphere' });
+    sphereBoundsCache.set(path, b);
+  }
   if (fwd[0] < b[0][0] - 1 || fwd[0] > b[1][0] + 1 || fwd[1] < b[0][1] - 1 || fwd[1] > b[1][1] + 1) {
     return false;
   }
@@ -352,19 +355,17 @@ export function fitProjectionToView(
   width: number,
   height: number,
   margin = FIT_MARGIN,
-  fitTarget: Polygon | null = null,
 ): GeoProjection {
-  if (cylCenterMap.has(proj) && fitTarget == null) {
-    const rot = proj.rotate();
-    // Probe the band rows in the identity frame (the drum never rotates).
-    proj.rotate([0, 0, 0]).scale(1).translate([0, 0]);
+  if (cylTag.has(proj)) {
+    // Probe the band rows in projection units (scale 1, origin at 0,0): the
+    // drum frame is static and carries no rotation, so the band rectangle —
+    // and therefore the scale — is INDEPENDENT of the sliders. Долгота /
+    // Параллель only re-project the geography inside the static graduated
+    // frame: no zoom, no slide.
+    proj.scale(1).translate([0, 0]);
     const halfWidth = (proj([180, 0]) as [number, number])[0];
     const topY = (proj([0, CLIP_LAT]) as [number, number])[1];
     const botY = (proj([0, -CLIP_LAT]) as [number, number])[1];
-    proj.rotate(rot);
-    // The scale comes from the FULL ±CLIP_LAT band and is INDEPENDENT of the
-    // sliders: rolling them only re-projects the geography inside the static
-    // graduated frame — no zoom, no slide.
     const s = Math.min((width - 2 * margin) / (2 * halfWidth), (height - 2 * margin) / (botY - topY));
     const t: [number, number] = [width / 2, height / 2];
     proj.scale(s).translate(t);
@@ -381,7 +382,7 @@ export function fitProjectionToView(
       [margin, margin],
       [width - margin, height - margin],
     ],
-    fitTarget ?? FIT_SPHERE,
+    FIT_SPHERE,
   );
   return proj;
 }

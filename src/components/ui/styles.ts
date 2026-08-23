@@ -8,9 +8,6 @@ export const labelClass = 'text-[11px] uppercase tracking-wider text-neon-blue/8
 export const activeTab = 'z-10 bg-neon-blue/15 text-neon-blue shadow-[0_0_10px_var(--color-neon-blue-soft)]';
 export const inactiveTab = 'text-neon-blue/70 hover:text-neon-blue hover:bg-neon-blue/5';
 
-// Square icon button used by overlay toggles and panel actions.
-export const iconBtn = 'flex h-9 w-[54px] items-center justify-center rounded border border-neon-blue/50 bg-panel-bg text-neon-blue drop-shadow-[0_0_3px_var(--color-neon-blue-soft)] transition hover:bg-neon-blue/10 hover:shadow-[0_0_8px_var(--color-neon-blue-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70';
-
 // Icon-only button (no rectangular backing) — just the neon icon.
 export const iconBtnPlain =
   'flex h-9 w-9 items-center justify-center rounded text-neon-blue/80 transition hover:text-neon-blue hover:bg-neon-blue/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70';
@@ -39,19 +36,6 @@ export const fieldRow = 'flex items-center gap-[12px]';
 export const sliderClass =
   'h-1 min-w-0 flex-1 cursor-pointer rounded-full bg-white/10 accent-neon-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70 disabled:opacity-40';
 
-// ---- toggle + radio + misc design-system additions (new spec) ----
-
-export const toggleTrack = 'relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200';
-export const toggleTrackOn = 'bg-neon-blue/30';
-export const toggleTrackOff = 'bg-white/10';
-export const toggleThumb = 'inline-block h-4 w-4 transform rounded-full bg-neon-blue shadow transition-transform duration-200';
-export const toggleThumbOn = 'translate-x-4';
-export const toggleThumbOff = 'translate-x-0';
-
-export const circularSliderTrack = 'fill-none stroke-white/10';
-export const circularSliderFill = 'fill-none stroke-neon-blue';
-export const circularSliderThumb = 'fill-neon-blue';
-
 export const radioGroup = 'flex gap-1';
 export const radioOption =
   'rounded px-2 py-1 text-[11px] uppercase transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70';
@@ -61,6 +45,3 @@ export const radioOptionInactive = 'text-neon-blue/70 hover:bg-neon-blue/5';
 export const presetChip =
   'rounded border border-neon-blue/40 px-2 py-1 text-[11px] text-neon-blue/80 transition hover:bg-neon-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70';
 export const presetChipActive = 'bg-neon-blue/20 text-neon-blue';
-
-export const numberInput =
-  'w-16 rounded border border-neon-blue/40 bg-panel-bg px-1.5 py-0.5 text-right text-[12px] text-neon-blue outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70';

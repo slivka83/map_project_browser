@@ -731,7 +731,7 @@ describe('computeCutLineLonLat', () => {
     // round-trip by DIRECTION: the seam lives on the cylinder (|p| ≠ R), so
     // lonLatToVec3 must reproduce each seam point's azimuth/elevation exactly.
     const surface = computeAuxSurfaceParams('cylindrical', 25, 0, 0.9, RADIUS, null, 0, 'equidistant')!;
-    const world = computeCutLine(surface, 25, 'cylindrical', 64);
+    const world = computeCutLine(surface, 64);
     expect(world.length).toBe(ring.length);
     for (let i = 0; i < ring.length; i++) {
       const u = lonLatToVec3(ring[i][0], ring[i][1], 1);
@@ -1040,17 +1040,17 @@ describe('rays always land on the rendered aux surface (no empty space)', () => 
 describe('computeCutLine', () => {
   it('для цилиндра: линия вдоль образующей', () => {
     const surface = computeAuxSurfaceParams('cylindrical', 0, 0, 1)!;
-    const pts = computeCutLine(surface, 0, 'cylindrical', 16);
+    const pts = computeCutLine(surface, 16);
     expect(pts.length).toBeGreaterThan(0);
   });
   it('для конуса: линия вдоль образующей', () => {
     const surface = computeAuxSurfaceParams('conic', 0, 45, 1)!;
-    const pts = computeCutLine(surface, 0, 'conic', 16);
+    const pts = computeCutLine(surface, 16);
     expect(pts.length).toBeGreaterThan(0);
   });
   it('для плоскости: окружность', () => {
     const surface = computeAuxSurfaceParams('azimuthalPerspective', 0, 30, 1)!;
-    const pts = computeCutLine(surface, 0, 'azimuthalPerspective', 16);
+    const pts = computeCutLine(surface, 16);
     expect(pts.length).toBeGreaterThan(0);
   });
 });

@@ -248,6 +248,69 @@ describe('Map2D', () => {
     });
   });
 
+  // Regression: the graticule used to be drawn through a SECOND path generator
+  // whose memo deps omitted lambda0/phiOrigin/gamma, so on the conic and
+  // azimuthal families the grid froze in place while the coastlines moved.
+  // Now one projection drives every layer, so the grid must follow Долгота.
+  it('graticule follows Долгота on a non-cylindrical map (azimuthal)', async () => {
+    useAppStore.setState({
+      family: 'azimuthalPerspective',
+      variant: 'gnomonic',
+      distortion: 'conformal',
+      azLight: 'center',
+      scaleFactor: 1,
+      gamma: 0,
+      lambda0: 0,
+      phiOrigin: 0,
+      showGraticule: true,
+      showTissot: false,
+      showBorders: false,
+      showIntersection: false,
+      showHoverRay: false,
+    });
+    const { container } = render(<Map2D />);
+    await waitFor(() => {
+      expect(container.querySelector('path[stroke="#334155"]')).not.toBeNull();
+    });
+    const before = container.querySelector('path[stroke="#334155"]')!.getAttribute('d');
+    expect(before).toBeTruthy();
+    act(() => {
+      useAppStore.getState().setParam('lambda0', 90);
+    });
+    const after = container.querySelector('path[stroke="#334155"]')!.getAttribute('d');
+    expect(after).toBeTruthy();
+    expect(after).not.toBe(before);
+  });
+
+  // …while the cylindrical drum is STATIC: its graduation grid never moves,
+  // whatever the sliders do (the geography rolls inside the fixed frame).
+  it('graticule stays static under Долгота on a cylindrical map', async () => {
+    useAppStore.setState({
+      family: 'cylindrical',
+      variant: 'mercator',
+      distortion: 'conformal',
+      scaleFactor: 1,
+      lambda0: 0,
+      phiOrigin: 0,
+      showGraticule: true,
+      showTissot: false,
+      showBorders: false,
+      showIntersection: false,
+      showHoverRay: false,
+    });
+    const { container } = render(<Map2D />);
+    await waitFor(() => {
+      expect(container.querySelector('path[stroke="#334155"]')).not.toBeNull();
+    });
+    const before = container.querySelector('path[stroke="#334155"]')!.getAttribute('d');
+    expect(before).toBeTruthy();
+    act(() => {
+      useAppStore.getState().setParam('lambda0', 90);
+    });
+    const after = container.querySelector('path[stroke="#334155"]')!.getAttribute('d');
+    expect(after).toBe(before);
+  });
+
   it('opens the geodesic summary modal from the map toolbar button', async () => {
     useAppStore.setState({ family: 'cylindrical', distortion: 'conformal', lambda0: 30, gamma: 0 });
     const { container, getByRole, queryByRole } = render(<Map2D />);

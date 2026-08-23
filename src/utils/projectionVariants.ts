@@ -9,11 +9,16 @@ export type ProjectionVariant =
   | ConicVariant
   | AzimuthalPerspectiveVariant;
 
+export interface TouchPointPreset {
+  label: string;
+  phi: number;
+  lambda: number;
+}
+
 export interface VariantDef {
   family: ProjectionFamily;
   distortion: DistortionModel;
   azLight: AzimuthalLight;
-  hasRays: boolean;
   hasLamp: boolean;
   lightIsParallel: boolean;
   lockedGamma: number | null;
@@ -31,170 +36,111 @@ export interface VariantDef {
   showNorthSouth: boolean;
   showTouchPointPresets: boolean;
 
-  touchPointPresets: { label: string; phi: number; lambda: number }[] | null;
+  touchPointPresets: TouchPointPreset[] | null;
 }
 
-const TOUCH_PRESETS: { label: string; phi: number; lambda: number }[] = [
+const TOUCH_PRESETS: TouchPointPreset[] = [
   { label: 'Северный полюс', phi: 90, lambda: 0 },
   { label: 'Экватор (0°,0°)', phi: 0, lambda: 0 },
   { label: 'Москва', phi: 55.75, lambda: 37.62 },
   { label: 'Южный полюс', phi: -90, lambda: 0 },
 ];
 
-const DEFAULT_CYL: Partial<VariantDef> = {
-  family: 'cylindrical',
-  azLight: 'center',
-  hasRays: true,
-  hasLamp: false,
-  lightIsParallel: false,
-  lockedGamma: 0,
-  lockedScaleFactor: null,
-  lockedStdParallel2: null,
-  lockedLight: true,
-  surfaceTypeLabel: 'Цилиндр',
-  propertyLabel: 'Компромиссная',
-  showParallel1: true,
-  showParallel2: false,
-  parallel2Editable: false,
-  showNorthSouth: false,
-  showTouchPointPresets: false,
-  touchPointPresets: null,
-};
+// Typed factories keep every variant definition complete (no casts) while the
+// shared per-family defaults live in exactly one place.
+function cylDef(label: string, distortion: DistortionModel, propertyLabel: string): VariantDef {
+  return {
+    family: 'cylindrical',
+    distortion,
+    azLight: 'center',
+    hasLamp: false,
+    lightIsParallel: false,
+    lockedGamma: 0,
+    lockedScaleFactor: null,
+    lockedStdParallel2: null,
+    lockedLight: true,
+    label,
+    surfaceTypeLabel: 'Цилиндр',
+    propertyLabel,
+    showParallel1: true,
+    showParallel2: false,
+    parallel2Editable: false,
+    showNorthSouth: false,
+    showTouchPointPresets: false,
+    touchPointPresets: null,
+  };
+}
+
+function conicDef(label: string, distortion: DistortionModel, propertyLabel: string): VariantDef {
+  return {
+    family: 'conic',
+    distortion,
+    azLight: 'center',
+    hasLamp: true,
+    lightIsParallel: false,
+    lockedGamma: null,
+    lockedScaleFactor: null,
+    lockedStdParallel2: null,
+    lockedLight: true,
+    label,
+    surfaceTypeLabel: 'Конус',
+    propertyLabel,
+    showParallel1: true,
+    showParallel2: true,
+    parallel2Editable: true,
+    showNorthSouth: true,
+    showTouchPointPresets: false,
+    touchPointPresets: null,
+  };
+}
+
+function azDef(
+  label: string,
+  azLight: AzimuthalLight,
+  hasLamp: boolean,
+  lightIsParallel: boolean,
+  propertyLabel: string,
+): VariantDef {
+  return {
+    family: 'azimuthalPerspective',
+    distortion: 'conformal',
+    azLight,
+    hasLamp,
+    lightIsParallel,
+    lockedGamma: null,
+    lockedScaleFactor: 1,
+    lockedStdParallel2: null,
+    lockedLight: true,
+    label,
+    surfaceTypeLabel: 'Плоскость',
+    propertyLabel,
+    showParallel1: false,
+    showParallel2: false,
+    parallel2Editable: false,
+    showNorthSouth: false,
+    showTouchPointPresets: true,
+    touchPointPresets: TOUCH_PRESETS,
+  };
+}
 
 export const CYLINDRICAL_VARIANTS: Record<CylindricalVariant, VariantDef> = {
-  equirectangular: {
-    ...DEFAULT_CYL as VariantDef,
-    label: 'Равнопромежуточная',
-    distortion: 'equidistant',
-    azLight: 'center',
-    lockedGamma: 0,
-    lockedStdParallel2: null,
-    lockedLight: true,
-    propertyLabel: 'Сохраняет расстояния по меридианам и параллелям',
-    showParallel1: true,
-    },
-  mercator: {
-    ...DEFAULT_CYL as VariantDef,
-    label: 'Меркатор',
-    distortion: 'conformal',
-    azLight: 'center',
-    lockedGamma: 0,
-    lockedStdParallel2: null,
-    lockedLight: true,
-    propertyLabel: 'Сохраняет углы',
-    showParallel1: true,
-    },
+  equirectangular: cylDef(
+    'Равнопромежуточная',
+    'equidistant',
+    'Сохраняет расстояния по меридианам и параллелям',
+  ),
+  mercator: cylDef('Меркатор', 'conformal', 'Сохраняет углы'),
 };
 
 export const CONIC_VARIANTS: Record<ConicVariant, VariantDef> = {
-  lambertConformal: {
-    family: 'conic',
-    distortion: 'conformal',
-    azLight: 'center',
-    hasRays: true,
-    hasLamp: true,
-    lightIsParallel: false,
-    lockedGamma: null,
-    lockedScaleFactor: null,
-    lockedStdParallel2: null,
-    lockedLight: true,
-    label: 'Ламберта конформная',
-    surfaceTypeLabel: 'Конус',
-    propertyLabel: 'Сохраняет углы (формы)',
-    showParallel1: true,
-    showParallel2: true,
-    parallel2Editable: true,
-    showNorthSouth: true,
-    showTouchPointPresets: false,
-      touchPointPresets: null,
-  },
-  albers: {
-    family: 'conic',
-    distortion: 'equalArea',
-    azLight: 'center',
-    hasRays: true,
-    hasLamp: true,
-    lightIsParallel: false,
-    lockedGamma: null,
-    lockedScaleFactor: null,
-    lockedStdParallel2: null,
-    lockedLight: true,
-    label: 'Альберса равновеликая',
-    surfaceTypeLabel: 'Конус',
-    propertyLabel: 'Сохраняет площади',
-    showParallel1: true,
-    showParallel2: true,
-    parallel2Editable: true,
-    showNorthSouth: true,
-    showTouchPointPresets: false,
-      touchPointPresets: null,
-  },
+  lambertConformal: conicDef('Ламберта конформная', 'conformal', 'Сохраняет углы (формы)'),
+  albers: conicDef('Альберса равновеликая', 'equalArea', 'Сохраняет площади'),
 };
 
 export const AZIMUTHAL_PERSPECTIVE_VARIANTS: Record<AzimuthalPerspectiveVariant, VariantDef> = {
-  gnomonic: {
-    family: 'azimuthalPerspective',
-    distortion: 'conformal',
-    azLight: 'center',
-    hasRays: true,
-    hasLamp: true,
-    lightIsParallel: false,
-    lockedGamma: null,
-    lockedScaleFactor: 1,
-    lockedStdParallel2: null,
-    lockedLight: true,
-    label: 'Гномоническая',
-    surfaceTypeLabel: 'Плоскость',
-    propertyLabel: 'Ортодромии = прямые линии',
-    showParallel1: false,
-    showParallel2: false,
-    parallel2Editable: false,
-    showNorthSouth: false,
-    showTouchPointPresets: true,
-      touchPointPresets: TOUCH_PRESETS,
-  },
-  stereographic: {
-    family: 'azimuthalPerspective',
-    distortion: 'conformal',
-    azLight: 'antipode',
-    hasRays: true,
-    hasLamp: true,
-    lightIsParallel: false,
-    lockedGamma: null,
-    lockedScaleFactor: 1,
-    lockedStdParallel2: null,
-    lockedLight: true,
-    label: 'Стереографическая',
-    surfaceTypeLabel: 'Плоскость',
-    propertyLabel: 'Сохраняет углы',
-    showParallel1: false,
-    showParallel2: false,
-    parallel2Editable: false,
-    showNorthSouth: false,
-    showTouchPointPresets: true,
-      touchPointPresets: TOUCH_PRESETS,
-  },
-  orthographic: {
-    family: 'azimuthalPerspective',
-    distortion: 'conformal',
-    azLight: 'infinity',
-    hasRays: true,
-    hasLamp: false,
-    lightIsParallel: true,
-    lockedGamma: null,
-    lockedScaleFactor: 1,
-    lockedStdParallel2: null,
-    lockedLight: true,
-    label: 'Ортографическая',
-    surfaceTypeLabel: 'Плоскость',
-    propertyLabel: 'Вид сферы из бесконечности',
-    showParallel1: false,
-    showParallel2: false,
-    parallel2Editable: false,
-    showNorthSouth: false,
-    showTouchPointPresets: true,
-      touchPointPresets: TOUCH_PRESETS,
-  },
+  gnomonic: azDef('Гномоническая', 'center', true, false, 'Ортодромии = прямые линии'),
+  stereographic: azDef('Стереографическая', 'antipode', true, false, 'Сохраняет углы'),
+  orthographic: azDef('Ортографическая', 'infinity', false, true, 'Вид сферы из бесконечности'),
 };
 
 export function variantDef(v: ProjectionVariant): VariantDef {

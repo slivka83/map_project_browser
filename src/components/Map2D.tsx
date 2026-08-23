@@ -5,17 +5,16 @@ import type { FeatureCollection, Polygon } from 'geojson';
 import { useAppStore } from '../store/useAppStore';
 import { useProjectionParams, useVisualizationParams } from '../store/selectors';
 import { getD3Projection, fitProjectionToView, computeAreaDistortion, isPointerOverGlobe, makeFrameRotation } from '../utils/projectionMapper';
-import { cutFeatureCollectionToBand, rotateFeatureCollection, rotatePolygon } from '../utils/geoBandClip';
+import { cutFeatureCollectionToBand, normalizeLon, rotateFeatureCollection, rotatePolygon } from '../utils/geoBandClip';
 import { computeTissotCircles } from '../utils/tissot';
 import { computeAuxSphereIntersectionsLonLat, computeCutLineLonLat } from '../utils/auxSurfaceGeometry';
 import { variantDef } from '../utils/projectionVariants';
-import { RADIUS } from '../constants/geometry';
+import { RADIUS, FIT_MARGIN } from '../constants/geometry';
 import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT, NEON_YELLOW, NEON_WHITE, GRATICULE_STROKE } from '../constants/designTokens';
 import { iconBtnPlain, iconGlow, glassPanel } from './ui/styles';
 import { TissotIcon, BorderIcon, DetailIcon, IntersectionIcon, HoverRayIcon, InfoIcon, GraticuleIcon } from './ui/icons';
 import ProjectionSummary from './ProjectionSummary';
 import useElementSize from '../hooks/useElementSize';
-import { FIT_MARGIN } from '../constants/geometry';
 
 export default function Map2D() {
   const params = useProjectionParams();
@@ -56,15 +55,20 @@ export default function Map2D() {
   const width = size.width || 800;
   const height = size.height || 600;
 
-  // ONE fitted projection per layer group: the graduated frame (graticule) is
-  // FIXED to the static cylinder and rendered without any slider rotations;
-  // the geography layer is a TRUE projection of the Earth rolled INSIDE the
-  // tube — Долгота/Параллель are a spherical rotation baked into the data, so
-  // the chosen central point lands on the middle row with least distortion.
-  // Non-cylindrical families render everything through a single fitted
-  // projection as before. Only ONE copy of the map is drawn; space above/below
-  // the finite band stays empty background (stacked wrapped copies read as
-  // broken, not as a tape).
+  // ONE fitted projection drives EVERY vector layer — the graduated frame
+  // (graticule) and the geography alike. For the cylindrical family the D3
+  // projection IS the static drum frame (getD3Projection bakes no rotation
+  // into it whatever the sliders do), so the grid stays fixed while the
+  // pre-rolled geography layers bend inside it; non-cylindrical families draw
+  // everything through the same rotated projection, so the grid follows
+  // Долгота/Параллель exactly like the coastlines. Only ONE copy of the map is
+  // drawn; space above/below the finite band stays empty background.
+  const pathGen = useMemo(
+    () => d3Geo.geoPath().projection(fitProjectionToView(getD3Projection(params), width, height, FIT_MARGIN)),
+    [params, width, height],
+  );
+  const projRef = pathGen.projection() as d3Geo.GeoProjection | null;
+
   const isCylindrical = params.family === 'cylindrical';
 
   // The drum-frame rotation: rolls the globe so the chosen central point
@@ -74,32 +78,16 @@ export default function Map2D() {
     [isCylindrical, lambda0, phiOrigin],
   );
 
-  const gridPathGen = useMemo(() => {
-    const proj = fitProjectionToView(
-      getD3Projection(isCylindrical ? { ...params, lambda0: 0, phiOrigin: 0 } : params),
-      width,
-      height,
-      FIT_MARGIN,
-    );
-    return d3Geo.geoPath().projection(proj);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isCylindrical, params.family, params.distortion, params.scaleFactor, params.stdParallel2, width, height]);
-
-  const pathGen = useMemo(
-    () => d3Geo.geoPath().projection(fitProjectionToView(getD3Projection(params), width, height, FIT_MARGIN)),
-    [params, width, height],
-  );
-
   const bandLand = useMemo(() => {
     if (!baseLand) return null;
     if (!isCylindrical || !frameRotation) return baseLand;
     return cutFeatureCollectionToBand(rotateFeatureCollection(baseLand as FeatureCollection, frameRotation));
-  }, [isCylindrical, frameRotation, baseLand]) as FeatureCollection | null;
+  }, [isCylindrical, frameRotation, baseLand]);
   const bandBorders = useMemo(() => {
     if (!borders) return null;
     if (!isCylindrical || !frameRotation) return borders;
     return cutFeatureCollectionToBand(rotateFeatureCollection(borders as FeatureCollection, frameRotation));
-  }, [isCylindrical, frameRotation, borders]) as FeatureCollection | null;
+  }, [isCylindrical, frameRotation, borders]);
 
   const graticuleObj = useMemo(
     () => (showGraticule ? d3Geo.geoGraticule().step([graticuleStep, graticuleStep])() : null),
@@ -135,9 +123,9 @@ export default function Map2D() {
   const intersectionRings = useMemo(
     () =>
       showIntersection
-        ? computeAuxSphereIntersectionsLonLat(family, lambda0, phiOrigin, scaleFactor, RADIUS, stdParallel2, family === 'cylindrical' ? 0 : params.gamma, params.distortion, params.azLight)
+        ? computeAuxSphereIntersectionsLonLat(family, lambda0, phiOrigin, scaleFactor, RADIUS, stdParallel2, isCylindrical ? 0 : params.gamma, params.distortion, params.azLight)
         : [],
-    [showIntersection, family, lambda0, phiOrigin, scaleFactor, stdParallel2, params],
+    [showIntersection, params, family, lambda0, phiOrigin, scaleFactor, stdParallel2, isCylindrical],
   );
 
   // The seam/cut line of the developable surface — the same white line the 3D
@@ -146,9 +134,9 @@ export default function Map2D() {
   const cutLine = useMemo(
     () =>
       showIntersection
-        ? computeCutLineLonLat(family, lambda0, phiOrigin, scaleFactor, RADIUS, stdParallel2, family === 'cylindrical' ? 0 : params.gamma, params.distortion, params.azLight)
+        ? computeCutLineLonLat(family, lambda0, phiOrigin, scaleFactor, RADIUS, stdParallel2, isCylindrical ? 0 : params.gamma, params.distortion, params.azLight)
         : [],
-    [showIntersection, family, lambda0, phiOrigin, scaleFactor, stdParallel2, params],
+    [showIntersection, params, family, lambda0, phiOrigin, scaleFactor, stdParallel2, isCylindrical],
   );
 
   const containerStyle: CSSProperties = {
@@ -158,36 +146,36 @@ export default function Map2D() {
     background: BG,
   };
 
-  const projRef = pathGen.projection() as d3Geo.GeoProjection | null;
+  // Convert a pointer event on the responsive <svg> (preserveAspectRatio
+  // letter-boxes it) into the internal map pixel space the projection uses.
+  const toMapPoint = (e: { clientX: number; clientY: number; currentTarget: SVGSVGElement }): [number, number] => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const scale = Math.min(rect.width / width, rect.height / height);
+    const offX = (rect.width - width * scale) / 2;
+    const offY = (rect.height - height * scale) / 2;
+    return [(e.clientX - rect.left - offX) / scale, (e.clientY - rect.top - offY) / scale];
+  };
 
   // Click on an azimuthal map moves the tangent point (touch-point presets).
   const handleMapClick = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (!projRef) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const scale = Math.min(rect.width / width, rect.height / height);
-    const offX = (rect.width - width * scale) / 2;
-    const offY = (rect.height - height * scale) / 2;
-    const x = (e.clientX - rect.left - offX) / scale;
-    const y = (e.clientY - rect.top - offY) / scale;
-    const inv = projRef.invert?.([x, y]);
-    if (!inv) return;
     const def = variantDef(params.variant);
-    if (def?.showTouchPointPresets && family === 'azimuthalPerspective') {
-      useAppStore.getState().setParam('phiOrigin', inv[1]);
-      useAppStore.getState().setParam('lambda0', inv[0]);
-    }
+    if (!def.showTouchPointPresets || family !== 'azimuthalPerspective') return;
+    const [x, y] = toMapPoint(e);
+    if (!isPointerOverGlobe(pathGen, x, y)) return;
+    const inv = projRef?.invert?.([x, y]);
+    if (!inv || !isFinite(inv[0]) || !isFinite(inv[1])) return;
+    useAppStore.getState().setParam('phiOrigin', Math.max(-90, Math.min(90, inv[1])));
+    useAppStore.getState().setParam('lambda0', normalizeLon(inv[0]));
   };
 
   const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const scale = Math.min(rect.width / width, rect.height / height);
-    const offX = (rect.width - width * scale) / 2;
-    const offY = (rect.height - height * scale) / 2;
-    const x = (e.clientX - rect.left - offX) / scale;
-    const y = (e.clientY - rect.top - offY) / scale;
-    const inv = projRef?.invert?.([x, y]);
-    if (!inv) return;
+    const [x, y] = toMapPoint(e);
+    // Reject cursor positions off the map first (letter-boxed margins, the
+    // hidden hemisphere of an azimuthal view, discontinuities) so a stale or
+    // meaningless invert can never leak into the shared hover state.
     if (!isPointerOverGlobe(pathGen, x, y)) return;
+    const inv = projRef?.invert?.([x, y]);
+    if (!inv || !isFinite(inv[0]) || !isFinite(inv[1])) return;
     // The cylindrical projection lives in the drum frame: un-roll the frame
     // coordinates back to geographic lon/lat for the shared hover state.
     const geo = frameRotation ? frameRotation.invert(inv) : inv;
@@ -229,16 +217,16 @@ export default function Map2D() {
           onClick={handleMapClick}
         >
           {graticuleObj && (
-            <path d={gridPathGen(graticuleObj) ?? ''} fill="none" stroke={GRATICULE_STROKE} strokeWidth={0.5} />
+            <path d={pathGen(graticuleObj) ?? ''} fill="none" stroke={GRATICULE_STROKE} strokeWidth={0.5} />
           )}
           {bandLand && (
             <g>
-              {(bandLand as FeatureCollection).features.map((feature, i) => (
+              {bandLand.features.map((feature, i) => (
                 <path key={i} d={pathGen(feature) ?? ''} fill={BG} stroke={NEON_BLUE} strokeWidth={1} />
               ))}
               {showBorders &&
                 bandBorders &&
-                (bandBorders as FeatureCollection).features.map((feature, i) => (
+                bandBorders.features.map((feature, i) => (
                   <path key={`border-${i}`} d={pathGen(feature) ?? ''} fill="none" stroke={NEON_BLUE_LINE} strokeWidth={0.6} />
                 ))}
             </g>
@@ -251,7 +239,7 @@ export default function Map2D() {
               {intersectionRings.map((ring, i) => (
                 <path
                   key={`intersection-${i}`}
-                  d={gridPathGen({ type: 'LineString', coordinates: ring }) ?? ''}
+                  d={pathGen({ type: 'LineString', coordinates: ring }) ?? ''}
                   fill="none"
                   stroke={NEON_WHITE}
                   strokeWidth={1.3}
@@ -261,7 +249,7 @@ export default function Map2D() {
               {cutLine.length > 0 && (
                 <path
                   data-testid="cut-line"
-                  d={gridPathGen({ type: 'LineString', coordinates: cutLine }) ?? ''}
+                  d={pathGen({ type: 'LineString', coordinates: cutLine }) ?? ''}
                   fill="none"
                   stroke={NEON_WHITE}
                   strokeWidth={1.6}

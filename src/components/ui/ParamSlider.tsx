@@ -1,7 +1,7 @@
 import { fieldRow, labelClass, sliderClass } from './styles';
 
 // Generic labelled range slider with a value readout, used by ControlPanel for
-// every projection parameter (lambda0, phiOrigin, scaleFactor, gamma, k₀, …).
+// every projection parameter (lambda0, phiOrigin, scaleFactor, gamma, …).
 // Shows a 🔒 prefix and a dimmed label when `disabled` (a locked param), or a
 // 🔗 + tooltip when `disabled` AND `tooltip` is provided (a param linked to the
 // selected variant). The value readout on the right carries the `suffix`

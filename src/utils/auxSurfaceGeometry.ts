@@ -593,8 +593,7 @@ export function computeAuxSphereIntersectionsLonLat(
   azLight: ProjectionParams['azLight'] = 'center',
   variant?: ProjectionParams['variant'],
 ): [number, number][][] {
-  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, variant)!;
-  if (!surface) return [];
+  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, variant);
   const rings = computeAuxSphereIntersections(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2);
   return rings.map((ring) =>
     ring.map((p) => (surface.kind === 'plane' ? vec3ToLonLat(p) : vec3ToLonLat(auxPointToWorld(surface, p)))),
@@ -619,18 +618,16 @@ export function computeCutLineLonLat(
   variant?: ProjectionParams['variant'],
   numPoints = 64,
 ): [number, number][] {
-  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, variant)!;
-  if (!surface || (surface.kind !== 'cylinder' && surface.kind !== 'cone')) return [];
-  const pts = computeCutLine(surface, lambda0, family, numPoints);
+  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, variant);
+  if (surface.kind !== 'cylinder' && surface.kind !== 'cone') return [];
+  const pts = computeCutLine(surface, numPoints);
   return pts.map((p) => vec3ToLonLat(p));
 }
 
-export function computeCutLine(
-  surface: AuxSurfaceParams,
-  _lambda0: number,
-  _family: ProjectionParams['family'],
-  numPoints = 64,
-): Vec3[] {
+// The developable surface's seam / cut line in world space (the 3D scene's
+// white line). Cylinder/cone → a vertical line at the local +X edge; plane →
+// the disk rim (unused by the UI — the azimuthal plane has no seam).
+export function computeCutLine(surface: AuxSurfaceParams, numPoints = 64): Vec3[] {
   const pts: Vec3[] = [];
   if (surface.kind === 'cylinder') {
     for (let i = 0; i <= numPoints; i++) {
@@ -696,7 +693,7 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
     rayCount = RAY_COUNT,
   } = params;
 
-  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, params.variant)!;
+  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, params.variant);
   const cy = VIEW_CENTER_Y;
   const wpp = worldPerPixel(radius);
   const PARALLEL_LEN = parallelBeamLength(radius);
@@ -765,8 +762,6 @@ export function computeCentralMeridianRays(params: RayParamsFull): RaySegment[] 
       continue;
     }
 
-    if (!surface) continue;
-
     const end = auxPointToWorld(surface, clampLocalToSurface(surface, localEnd));
 
     // light at infinity → parallel beams arriving along the radial normal (orthographic).
@@ -805,7 +800,7 @@ export function computeConicRayEnd(
   const localY = cone.flip * (yCone - cone.positionY);
   const local: Vec3 = [radCone, localY, 0];
   if (!clamp) return local;
-  const surface = computeAuxSurfaceParams('conic', lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma)!;
+  const surface = computeAuxSurfaceParams('conic', lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma);
   return clampLocalToSurface(surface, local);
 }
 
@@ -817,7 +812,7 @@ export function computeConicRayEnd(
 export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: number, radius = RADIUS): RaySegment | null {
   const { family, distortion, lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight } = params;
 
-  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, params.variant)!;
+  const surface = computeAuxSurfaceParams(family, lambda0, phiOrigin, scaleFactor, radius, stdParallel2, gamma, distortion, azLight, params.variant);
   const proj = getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, falseEasting, falseNorthing, gamma, stdParallel2, azLight, variant: params.variant }));
   // The static drum-frame projection: for the cylindrical family it carries NO
   // rotation — the hovered point is rolled into the frame explicitly below, so

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { useAppStore, DEFAULT_DISTORTION, type ProjectionFamily, type DistortionModel } from './useAppStore';
+import { useAppStore, type ProjectionFamily, type DistortionModel } from './useAppStore';
 import type { Topology } from 'topojson-specification';
 
 describe('useAppStore', () => {
@@ -81,29 +81,6 @@ describe('useAppStore', () => {
     useAppStore.setState({ family: 'azimuthalPerspective', distortion: 'conformal', azLight: 'antipode' });
     useAppStore.getState().setParam('distortion', 'equalArea');
     expect(useAppStore.getState().azLight).toBe('antipode');
-  });
-
-  it('applies a preset, overwriting several fields at once (spec §9.1)', () => {
-    const preset = {
-      family: 'azimuthalPerspective' as const,
-      distortion: 'conformal' as const,
-      lambda0: 45,
-      phiOrigin: 30,
-      scaleFactor: 1.05,
-      falseEasting: 100,
-      falseNorthing: -50,
-    };
-    useAppStore.getState().applyPreset(preset);
-    const s = useAppStore.getState();
-    expect(s.family).toBe('azimuthalPerspective');
-    expect(s.distortion).toBe('conformal');
-    expect(s.lambda0).toBe(45);
-    expect(s.phiOrigin).toBe(30);
-    expect(s.scaleFactor).toBe(1.05);
-    expect(s.falseEasting).toBe(100);
-    expect(s.falseNorthing).toBe(-50);
-    // UI flags preserved
-    expect(s.showTissot).toBe(false);
   });
 
   it('toggles showTissot via setShowTissot', () => {
@@ -209,34 +186,6 @@ describe('useAppStore', () => {
     expect((countries?.features.length ?? 0)).toBeGreaterThan(0);
 
     vi.unstubAllGlobals();
-  });
-
-  it('applyPreset merges partial fields and preserves the rest', () => {
-    useAppStore.getState().setVariant('albers');
-    useAppStore.setState({
-      lambda0: 90,
-      phiOrigin: 45,
-      scaleFactor: 1.1,
-      falseEasting: 100,
-      falseNorthing: -50,
-    });
-    useAppStore.getState().applyPreset({ lambda0: 10 });
-    const s = useAppStore.getState();
-    expect(s.lambda0).toBe(10);
-    // unspecified fields untouched
-    expect(s.family).toBe('conic');
-    expect(s.distortion).toBe('equalArea');
-    expect(s.phiOrigin).toBe(45);
-    expect(s.scaleFactor).toBe(1.1);
-    expect(s.falseEasting).toBe(100);
-    expect(s.falseNorthing).toBe(-50);
-  });
-
-  it('applyPreset can override distortion independently of family', () => {
-    useAppStore.getState().applyPreset({ family: 'azimuthalPerspective', distortion: 'conformal' });
-    const s = useAppStore.getState();
-    expect(s.family).toBe('azimuthalPerspective');
-    expect(s.distortion).toBe('conformal');
   });
 
   it('setFamily resets projection params but preserves UI flags', () => {
@@ -384,11 +333,5 @@ describe('useAppStore', () => {
     expect(s.family).toBe('azimuthalPerspective');
     expect(s.azLight).toBe('antipode');
     expect(s.coneHemisphere).toBe('north');
-  });
-
-  it('DEFAULT_DISTORTION covers the three families', () => {
-    expect(DEFAULT_DISTORTION.cylindrical).toBe('conformal');
-    expect(DEFAULT_DISTORTION.conic).toBe('equidistant');
-    expect(DEFAULT_DISTORTION.azimuthalPerspective).toBe('conformal');
   });
 });

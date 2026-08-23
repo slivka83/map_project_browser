@@ -1,18 +1,18 @@
 import type { FeatureCollection, Geometry, Polygon, Position } from 'geojson';
+import { CLIP_LAT } from '../constants/geometry';
 
-// Cuts geography geometry at the finite tube band ±`latBound`: any ring part
+// Cuts geography geometry at the finite tube band ±`CLIP_LAT`: any ring part
 // beyond the band (the polar caps — e.g. Antarctica's interior) is dropped,
 // and every crossing edge is replaced by two points lying exactly ON the cut
 // latitude. This guarantees that nothing ever crosses the wrap seam of the
 // folded cylindrical projection (no full-height jump chords on screen).
-const BOUND = 85;
 
-const inside = (p: Position): boolean => Math.abs(p[1]) <= BOUND;
+const inside = (p: Position): boolean => Math.abs(p[1]) <= CLIP_LAT;
 
 // Linear longitude interpolation at the cut latitude.
 const crossingPoint = (a: Position, b: Position): Position => {
-  const t = (BOUND - Math.abs(a[1])) / (Math.abs(b[1]) - Math.abs(a[1]));
-  return [a[0] + (b[0] - a[0]) * t, BOUND * Math.sign(b[1] || a[1] || 1)];
+  const t = (CLIP_LAT - Math.abs(a[1])) / (Math.abs(b[1]) - Math.abs(a[1]));
+  return [a[0] + (b[0] - a[0]) * t, CLIP_LAT * Math.sign(b[1] || a[1] || 1)];
 };
 
 function cutRing(ring: Position[]): Position[] {

@@ -4,20 +4,6 @@ import type {
   ConeHemisphere,
   AzimuthalLight,
 } from '../../store/useAppStore';
-import {
-  CYLINDRICAL_VARIANT_OPTIONS,
-  CONIC_VARIANT_OPTIONS,
-  AZIMUTHAL_PERSPECTIVE_VARIANT_OPTIONS,
-  variantDef,
-  type ProjectionVariant,
-} from '../../utils/projectionVariants';
-
-export {
-  CYLINDRICAL_VARIANT_OPTIONS,
-  CONIC_VARIANT_OPTIONS,
-  AZIMUTHAL_PERSPECTIVE_VARIANT_OPTIONS,
-};
-export { variantDef, type ProjectionVariant };
 
 const FAMILY_OPTIONS: { value: ProjectionFamily; label: string }[] = [
   { value: 'cylindrical', label: 'Цилиндрическая' },
