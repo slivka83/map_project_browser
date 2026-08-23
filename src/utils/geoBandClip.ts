@@ -54,82 +54,102 @@ function cutRing(ring: Position[]): Position[][] {
   }
   if (cutPts.length < 3) return [];
 
-  // Dateline split. The sequence is rotated to start at a vertex strictly
-  // away from the seam, so the implicit closing segment can never cross it
-  // and a plain forward scan catches every crossing exactly once.
+  // Dateline split. Every ring is cut into per-hemisphere CHAINS; a segment
+  // crosses the seam exactly when its endpoints' raw longitudes differ by more
+  // than 180° (no vertex sits ON the seam after the nudge, so this test is
+  // exact — an unwrapping-based detection is NOT: for vertices nudged just
+  // inside ±180° the unwrap can collapse past the boundary and silently miss
+  // the crossing, which used to close Antarctica with a full-width chord).
   const open = cutPts[0][0] === cutPts[cutPts.length - 1][0] && cutPts[0][1] === cutPts[cutPts.length - 1][1]
     ? cutPts.slice(0, -1)
     : cutPts.slice();
   const m = open.length;
   if (m < 3) return [];
-  let startIdx = 0;
+
+  // Start at a vertex whose PREDECESSOR is also strictly away from the seam,
+  // so the one pair the scan does not visit — the wrap-around back to the
+  // start — is guaranteed seam-free.
+  let startIdx = -1;
   for (let i = 0; i < m; i++) {
-    if (Math.abs(open[i][0]) < 179) {
+    if (Math.abs(open[i][0]) < 179 && Math.abs(open[(i - 1 + m) % m][0]) < 179) {
       startIdx = i;
       break;
     }
   }
-  const u: number[] = [];
-  for (let k = 0; k < m; k++) {
-    const lon = open[(startIdx + k) % m][0];
-    if (k === 0) {
-      u.push(lon);
-      continue;
+  if (startIdx < 0) {
+    for (let i = 0; i < m; i++) {
+      if (Math.abs(open[i][0]) < 179) {
+        startIdx = i;
+        break;
+      }
     }
-    const prevU = u[k - 1];
-    let w = lon;
-    while (w - prevU > 180) w -= 360;
-    while (w - prevU < -180) w += 360;
-    u.push(w);
   }
+  if (startIdx < 0) startIdx = 0;
 
-  const parts: Position[][] = [];
+  const chains: Position[][] = [];
   let cur: Position[] = [[open[startIdx][0], open[startIdx][1]]];
+  // Splice at one seam crossing: `a` / `b` are the straddling pair. When BOTH
+  // already sit on the rim (coastlines digitized along ±180°, e.g. the Fiji
+  // strait) the crossing latitude comes straight from the endpoints — the
+  // short way round is ~0° long and linear interpolation would explode.
+  const splice = (a: Position, b: Position): void => {
+    const delta = b[0] - a[0];
+    const bothSeam = Math.abs(a[0]) >= 179.9 && Math.abs(b[0]) >= 179.9;
+    const short = delta > 0 ? delta - 360 : delta + 360;
+    const S = short > 0 ? 180 : -180;
+    const exit = a[0] >= 0 ? 180 : -180;
+    const latExit = bothSeam ? a[1] : Math.max(-90, Math.min(90, a[1] + (b[1] - a[1]) * ((S - a[0]) / short)));
+    const latEnter = bothSeam ? b[1] : latExit;
+    cur.push([exit, latExit]);
+    chains.push(cur);
+    cur = [[-exit, latEnter], [b[0], b[1]]];
+  };
   for (let k = 1; k < m; k++) {
     const idx = (startIdx + k) % m;
-    const aU = u[k - 1];
-    const bU = u[k];
-    const aLat = open[(startIdx + k - 1) % m][1];
-    const bLat = open[idx][1];
-    const bRaw = open[idx][0];
-    // Does the unwrapped segment leave the frame through a seam meridian?
-    // A segment wholly BEYOND a rim (e.g. unwrapped 185..190, both really on
-    // the western side) does NOT cross anything and must not splice.
-    const lo = Math.min(aU, bU);
-    const hi = Math.max(aU, bU);
-    const leaves180 = lo <= 180 && hi > 180;
-    const leavesM180 = lo < -180 && hi >= -180;
-    if (leaves180 || leavesM180) {
-      const S = leaves180 ? 180 : -180;
-      // Splice: exit the frame on the side of the FIRST endpoint's true
-      // longitude (unwrapped values beyond ±180 encode the OPPOSITE rim),
-      // and continue the new part on the opposite rim.
-      const t = (S - aU) / (bU - aU);
-      const lat = Math.max(-90, Math.min(90, aLat + (bLat - aLat) * t));
-      const exit = aU > 180 ? -180 : aU < -180 ? 180 : aU >= 0 ? 180 : -180;
-      cur.push([exit, lat]);
-      parts.push(cur);
-      cur = [[-exit, lat], [bRaw, bLat]];
-    } else {
-      cur.push([bRaw, bLat]);
-    }
+    const a = cur[cur.length - 1];
+    const b = open[idx];
+    if (Math.abs(b[0] - a[0]) > 180) splice(a, b);
+    else cur.push([b[0], b[1]]);
   }
-  parts.push(cur);
-
-  // The ring is closed, so its TAIL part continues through the (seam-free)
-  // closing segment into the HEAD part: merge them into one same-side piece.
-  if (parts.length > 1) {
-    const head = parts.shift()!;
-    parts[parts.length - 1].push(...head);
+  // The one pair the scan never visits is the wrap-around back to the start
+  // (startIdx was chosen so it is USUALLY seam-free). If it crosses anyway —
+  // a ring whose every vertex hugs the seam — finish the tail chain at its
+  // rim and give the head its own entry stub instead of blindly gluing the
+  // two halves together (the glue used to weld Fiji's hemispheres back into
+  // one full-width chord).
+  const wPrev = open[(startIdx + m - 1) % m];
+  const wNext = open[startIdx];
+  if (Math.abs(wNext[0] - wPrev[0]) > 180) {
+    splice(wPrev, wNext);
+    chains.push(cur);
+    chains.unshift([cur[0]]);
+  } else if (chains.length === 0) {
+    chains.push(cur);
+  } else {
+    // Tail ends at open[startIdx-1], adjacent to open[startIdx]: glue through
+    // that seam-free pair.
+    chains[0] = [...cur, ...chains[0]];
   }
 
-  // Close every part explicitly (first == last), dropping degenerate ones.
-  // Splice points generated above sit exactly ON the rim, so the whole output
-  // is passed through the antimeridian nudge once more (see LON_EDGE above).
-  return parts
-    .filter((p) => p.length >= 3)
-    .map((p) => p.map(([lon, lat]) => [nudgeLon(lon), lat] as Position))
-    .map((p) => [...p, [p[0][0], p[0][1]] as Position]);
+  // Close every chain into an explicit loop. A chain whose endpoints sit on
+  // OPPOSITE rims spans the full frame width (a polar cap such as Antarctica):
+  // route its closure along the nearest band edge, where it coincides with
+  // the graticule rim rows instead of drawing a chord across the map. Same-rim
+  // chains close along the seam meridian automatically (first == last point).
+  return chains
+    .filter((ch) => ch.length >= 3)
+    .map((ch) => {
+      const first = ch[0];
+      const last = ch[ch.length - 1];
+      if (Math.abs(first[0]) >= 179.9 && Math.abs(last[0]) >= 179.9 && first[0] > 0 !== last[0] > 0) {
+        let latSum = 0;
+        for (const q of ch) latSum += q[1];
+        const edgeY = latSum / ch.length < 0 ? -CLIP_LAT : CLIP_LAT;
+        ch.push([last[0], edgeY], [first[0], edgeY]);
+      }
+      return ([...ch, [first[0], first[1]]] as Position[])
+        .map(([lon, lat]) => [nudgeLon(lon), lat] as Position);
+    });
 }
 
 // Bounding box [minX, minY]..[maxX, maxY] of one ring.
@@ -217,8 +237,16 @@ export function normalizeLon(lon: number): number {
 function rotatePosition(p: Position, rotate: (p: [number, number]) => [number, number]): Position {
   const r = rotate([p[0], p[1]]);
   // Poles can yield NaN longitudes — pin them to 0 so downstream math stays finite.
-  const lon = Number.isFinite(r[0]) ? normalizeLon(r[0]) : 0;
+  let lon = Number.isFinite(r[0]) ? normalizeLon(r[0]) : 0;
   const lat = Number.isFinite(r[1]) ? r[1] : p[1];
+  // A vertex exactly ON the antimeridian must stay on ITS OWN side: d3's
+  // spherical rotation flips exact ±180° inputs to the opposite rim (numerical
+  // noise at the singularity), which would give the ring a seam crossing it
+  // never had (Wrangel Island drew as a thin full-width rectangle because of
+  // this). normalizeLon maps both ±180° to -180°, so restore the input side.
+  if (Math.abs(Math.abs(p[0]) - 180) < 1e-6 && Math.abs(Math.abs(lon) - 180) < 1e-6 && lon !== p[0]) {
+    lon = p[0];
+  }
   return [lon, lat];
 }
 
