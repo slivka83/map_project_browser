@@ -15,6 +15,20 @@ const sampleFc: FeatureCollection = {
   ],
 };
 
+// A tiny island wound CLOCKWISE in lon/lat (d3's spherical exterior-ring
+// convention): renders as one simple ring instead of the band-cut complement
+// that a counter-clockwise fixture degenerates into.
+const triangleFc: FeatureCollection = {
+  type: 'FeatureCollection',
+  features: [
+    {
+      type: 'Feature',
+      properties: {},
+      geometry: { type: 'Polygon', coordinates: [[[0, 0], [0, 10], [10, 10], [10, 0], [0, 0]]] },
+    },
+  ],
+};
+
 describe('Map2D', () => {
   beforeEach(() => {
     useAppStore.setState({
@@ -67,6 +81,37 @@ describe('Map2D', () => {
     });
     expect(container.querySelector('[data-testid="intersection-lines"]')).toBeNull();
     expect(container.querySelector('[data-testid="cut-line"]')).toBeNull();
+  });
+
+  it('draws exactly ONE copy of the land layer for the cylindrical family (v2)', async () => {
+    // Regression: the cylindrical map used to stack THREE tile copies one band
+    // height apart ("endless tape"). On the short, wide equirectangular band
+    // the two extra copies filled the leftover rows and read as a rendering
+    // bug — three flattened worlds stacked vertically. The map must draw a
+    // SINGLE copy of each layer; spare space stays empty background.
+    const prevGraticule = useAppStore.getState().showGraticule;
+    useAppStore.setState({
+      showGraticule: false,
+      showTissot: false,
+      showBorders: false,
+      showIntersection: false,
+      showHoverRay: false,
+      detailedMap: false,
+      geoJsonData: triangleFc,
+    });
+    const { container } = render(<Map2D />);
+    await waitFor(() => {
+      expect(container.querySelector('svg[data-map="true"]')).not.toBeNull();
+    });
+    // Exactly one feature → exactly one land path element inside the MAP svg.
+    // (Scoped to the map svg: the overlay buttons carry their own icon paths.)
+    // With the removed three-tile tape this counted 3 — one path per stacked
+    // copy, two of them empty because the island lies outside their windows.
+    const mapSvg = container.querySelector('svg[data-map="true"]');
+    expect(mapSvg).not.toBeNull();
+    expect(mapSvg!.querySelectorAll('path').length).toBe(1);
+    // Restore the shared flag so later tests keep seeing the default.
+    useAppStore.setState({ showGraticule: prevGraticule });
   });
 
   it('renders country border paths when borders are enabled', async () => {

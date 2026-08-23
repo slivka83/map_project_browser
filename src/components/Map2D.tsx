@@ -4,7 +4,7 @@ import * as d3Geo from 'd3-geo';
 import type { FeatureCollection, Polygon } from 'geojson';
 import { useAppStore } from '../store/useAppStore';
 import { useProjectionParams, useVisualizationParams } from '../store/selectors';
-import { createProjectionTiles, computeAreaDistortion, isPointerOverGlobe, makeFrameRotation } from '../utils/projectionMapper';
+import { getD3Projection, fitProjectionToView, computeAreaDistortion, isPointerOverGlobe, makeFrameRotation } from '../utils/projectionMapper';
 import { cutFeatureCollectionToBand, rotateFeatureCollection, rotatePolygon } from '../utils/geoBandClip';
 import { computeTissotCircles } from '../utils/tissot';
 import { computeAuxSphereIntersectionsLonLat, computeCutLineLonLat } from '../utils/auxSurfaceGeometry';
@@ -56,13 +56,15 @@ export default function Map2D() {
   const width = size.width || 800;
   const height = size.height || 600;
 
-  // TWO-LAYER cylindrical model: the graduated frame (graticule, poles) is
+  // ONE fitted projection per layer group: the graduated frame (graticule) is
   // FIXED to the static cylinder and rendered without any slider rotations;
   // the geography layer is a TRUE projection of the Earth rolled INSIDE the
   // tube — Долгота/Параллель are a spherical rotation baked into the data, so
   // the chosen central point lands on the middle row with least distortion.
   // Non-cylindrical families render everything through a single fitted
-  // projection as before.
+  // projection as before. Only ONE copy of the map is drawn; space above/below
+  // the finite band stays empty background (stacked wrapped copies read as
+  // broken, not as a tape).
   const isCylindrical = params.family === 'cylindrical';
 
   // The drum-frame rotation: rolls the globe so the chosen central point
@@ -72,22 +74,21 @@ export default function Map2D() {
     [isCylindrical, lambda0, phiOrigin],
   );
 
-  // TWO-LAYER + infinite vertical wrap: the folded height law makes the band
-  // periodic, so THREE stacked copies of every layer form a seamless endless
-  // tape — scrolling past a pole wraps to the opposite one. Geography data is
-  // pre-rotated into the drum frame and then cut at ±CLIP_LAT so nothing
-  // crosses the wrap seam.
-  const gridPathGens = useMemo(() => {
-    const tiles = createProjectionTiles(isCylindrical ? { ...params, lambda0: 0, phiOrigin: 0 } : params, width, height, FIT_MARGIN);
-    return tiles.map((proj) => d3Geo.geoPath().projection(proj));
+  const gridPathGen = useMemo(() => {
+    const proj = fitProjectionToView(
+      getD3Projection(isCylindrical ? { ...params, lambda0: 0, phiOrigin: 0 } : params),
+      width,
+      height,
+      FIT_MARGIN,
+    );
+    return d3Geo.geoPath().projection(proj);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCylindrical, params.family, params.distortion, params.scaleFactor, params.stdParallel2, width, height]);
 
-  const pathGenerators = useMemo(
-    () => createProjectionTiles(params, width, height, FIT_MARGIN).map((proj) => d3Geo.geoPath().projection(proj)),
+  const pathGen = useMemo(
+    () => d3Geo.geoPath().projection(fitProjectionToView(getD3Projection(params), width, height, FIT_MARGIN)),
     [params, width, height],
   );
-  const pathGenerator = pathGenerators[0];
 
   const bandLand = useMemo(() => {
     if (!baseLand) return null;
@@ -157,7 +158,7 @@ export default function Map2D() {
     background: BG,
   };
 
-  const projRef = pathGenerator.projection() as d3Geo.GeoProjection | null;
+  const projRef = pathGen.projection() as d3Geo.GeoProjection | null;
 
   // Click on an azimuthal map moves the tangent point (touch-point presets).
   const handleMapClick = (e: React.MouseEvent<SVGSVGElement>) => {
@@ -186,7 +187,7 @@ export default function Map2D() {
     const y = (e.clientY - rect.top - offY) / scale;
     const inv = projRef?.invert?.([x, y]);
     if (!inv) return;
-    if (!isPointerOverGlobe(pathGenerator, x, y)) return;
+    if (!isPointerOverGlobe(pathGen, x, y)) return;
     // The cylindrical projection lives in the drum frame: un-roll the frame
     // coordinates back to geographic lon/lat for the shared hover state.
     const geo = frameRotation ? frameRotation.invert(inv) : inv;
@@ -227,35 +228,30 @@ export default function Map2D() {
           onPointerLeave={() => setHoverLonLat(null)}
           onClick={handleMapClick}
         >
-          {gridPathGens.map((pg, ti) =>
-            graticuleObj ? (
-              <path key={`grat-${ti}`} d={pg(graticuleObj) ?? ''} fill="none" stroke={GRATICULE_STROKE} strokeWidth={0.5} />
-            ) : null,
+          {graticuleObj && (
+            <path d={gridPathGen(graticuleObj) ?? ''} fill="none" stroke={GRATICULE_STROKE} strokeWidth={0.5} />
           )}
-          {bandLand &&
-            pathGenerators.map((pg, ti) => (
-              <g key={`land-${ti}`}>
-                {(bandLand as FeatureCollection).features.map((feature, i) => (
-                  <path key={i} d={pg(feature) ?? ''} fill={BG} stroke={NEON_BLUE} strokeWidth={1} />
+          {bandLand && (
+            <g>
+              {(bandLand as FeatureCollection).features.map((feature, i) => (
+                <path key={i} d={pathGen(feature) ?? ''} fill={BG} stroke={NEON_BLUE} strokeWidth={1} />
+              ))}
+              {showBorders &&
+                bandBorders &&
+                (bandBorders as FeatureCollection).features.map((feature, i) => (
+                  <path key={`border-${i}`} d={pathGen(feature) ?? ''} fill="none" stroke={NEON_BLUE_LINE} strokeWidth={0.6} />
                 ))}
-                {showBorders &&
-                  bandBorders &&
-                  (bandBorders as FeatureCollection).features.map((feature, i) => (
-                    <path key={`border-${i}`} d={pg(feature) ?? ''} fill="none" stroke={NEON_BLUE_LINE} strokeWidth={0.6} />
-                  ))}
-              </g>
-            ))}
-          {frameTissot.map((circle, i) =>
-            pathGenerators.map((pg, ti) => (
-              <path key={`tissot-${ti}-${i}`} d={pg(circle) ?? ''} fill={NEON_ORANGE_SOFT} stroke={NEON_ORANGE} />
-            )),
+            </g>
           )}
+          {frameTissot.map((circle, i) => (
+            <path key={`tissot-${i}`} d={pathGen(circle) ?? ''} fill={NEON_ORANGE_SOFT} stroke={NEON_ORANGE} />
+          ))}
           {showIntersection && (
             <g data-testid="intersection-lines">
               {intersectionRings.map((ring, i) => (
                 <path
                   key={`intersection-${i}`}
-                  d={gridPathGens[0]({ type: 'LineString', coordinates: ring }) ?? ''}
+                  d={gridPathGen({ type: 'LineString', coordinates: ring }) ?? ''}
                   fill="none"
                   stroke={NEON_WHITE}
                   strokeWidth={1.3}
@@ -265,7 +261,7 @@ export default function Map2D() {
               {cutLine.length > 0 && (
                 <path
                   data-testid="cut-line"
-                  d={gridPathGens[0]({ type: 'LineString', coordinates: cutLine }) ?? ''}
+                  d={gridPathGen({ type: 'LineString', coordinates: cutLine }) ?? ''}
                   fill="none"
                   stroke={NEON_WHITE}
                   strokeWidth={1.6}

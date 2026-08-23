@@ -293,7 +293,8 @@ describe('cylindrical honest roll: centre = least distortion, edges stretch', ()
 
   it('drum-frame fold wraps past the rim with period 2·CLIP_LAT', () => {
     // Frame latitudes just past +CLIP_LAT fold to the opposite side of the
-    // tape: y(+86°) must continue y(−84°) so the tile copies stay seamless.
+    // tape: y(+86°) must continue y(−84°) so content past the rim belongs to
+    // the opposite one (the wrap semantics stay in the height law).
     for (const distortion of DISTORTIONS) {
       const proj = getD3Projection(base({ family: 'cylindrical', distortion }));
       const a = proj([0, CLIP_LAT + 5]) as [number, number];

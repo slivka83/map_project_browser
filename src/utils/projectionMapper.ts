@@ -26,9 +26,9 @@ const cylCenterMap = new WeakMap<GeoProjection, number>();
 // while the old equator stretches toward the window edges. This mirrors the 3D
 // scene exactly (static upright tube + coastlines rolled by the same rotation).
 // The VERTICAL coordinate stays PERIODIC in the drum frame (folded with the
-// band period 2·CLIP_LAT), so the three stacked tile copies keep forming a
-// seamless endless tape at every slider position. Geography data is pre-rotated
-// and pre-cut at ±CLIP_LAT (see Map2D) so nothing crosses the wrap seam.
+// band period 2·CLIP_LAT): content past a drum rim belongs to the opposite
+// one. Geography data is pre-rotated and pre-cut at ±CLIP_LAT (see Map2D) so
+// nothing crosses the wrap seam.
 
 // Spherical rotation that rolls the globe inside the static cylinder: it brings
 // the chosen central point (lambda0, phiOrigin) to the drum-frame origin (0,0)
@@ -47,8 +47,8 @@ function makeCylindricalProjection(
   const cosS = Math.cos(phiS);
   // The VERTICAL coordinate is PERIODIC in the drum frame: frame latitude is
   // folded into the finite band ±CLIP_LAT with period 2·CLIP_LAT (exactly like
-  // longitude's horizontal periodicity). Content past a drum rim therefore
-  // wraps to the opposite one — an infinite vertical tape via the tile copies.
+  // longitude's horizontal periodicity), so content past a drum rim wraps to
+  // the opposite one.
   const periodRad = 2 * ((CLIP_LAT * Math.PI) / 180);
   const halfPeriodRad = (CLIP_LAT * Math.PI) / 180;
   // Symmetric modulo: folds into [-CLIP_LAT, +CLIP_LAT] and keeps the edges
@@ -384,37 +384,4 @@ export function fitProjectionToView(
     fitTarget ?? FIT_SPHERE,
   );
   return proj;
-}
-
-// The flat cylindrical maps scroll INFINITELY vertically: the folded height
-// law makes the band PERIODIC, so identical copies stacked one band height
-// apart continue each other seamlessly — scrolling past a pole wraps to the
-// opposite one (the south pole enters from the top, the north from the
-// bottom), exactly like longitude's horizontal wrap. Returns fully-fitted
-// projections: index 0 is the central tile; other families return a single
-// tile.
-export function createProjectionTiles(
-  params: ProjectionParams,
-  width: number,
-  height: number,
-  margin = FIT_MARGIN,
-): GeoProjection[] {
-  const main = fitProjectionToView(getD3Projection(params), width, height, margin);
-  if (!cylCenterMap.has(main)) return [main];
-  const s = main.scale();
-  const t = main.translate();
-  // Band height in pixels (identity-frame probe).
-  const rot = main.rotate();
-  const tr = main.translate();
-  main.rotate([0, 0, 0]).scale(1).translate([0, 0]);
-  const topY = (main([0, CLIP_LAT]) as [number, number])[1];
-  const botY = (main([0, -CLIP_LAT]) as [number, number])[1];
-  main.rotate(rot).scale(s).translate(tr);
-  const bandPx = (botY - topY) * s;
-  const neighbour = (dy: number): GeoProjection => {
-    const p = fitProjectionToView(getD3Projection(params), width, height, margin);
-    p.translate([t[0], t[1] + dy]);
-    return p;
-  };
-  return [main, neighbour(-bandPx), neighbour(bandPx)];
 }
