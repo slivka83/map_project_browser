@@ -4,7 +4,7 @@ import * as d3Geo from 'd3-geo';
 import type { FeatureCollection, Geometry } from 'geojson';
 import { useAppStore } from '../store/useAppStore';
 import { useProjectionParams, useVisualizationParams } from '../store/selectors';
-import { getD3Projection, fitProjectionToView, computeAreaDistortion, isPointerOverGlobe, makeFrameRotation } from '../utils/projectionMapper';
+import { getD3Projection, fitProjectionToView, computeAreaDistortion, isPointerOverGlobe, makeFrameRotation, makeGraticule } from '../utils/projectionMapper';
 import { cutFeatureCollectionToBand, normalizeLon, rotateFeatureCollection, rotatePolygon } from '../utils/geoBandClip';
 import { computeTissotCircles } from '../utils/tissot';
 import { computeAuxSphereIntersectionsLonLat, computeCutLineLonLat } from '../utils/auxSurfaceGeometry';
@@ -101,8 +101,8 @@ export default function Map2D() {
   }, [isCylindrical, frameRotation, borders]);
 
   const graticuleObj = useMemo(
-    () => (showGraticule ? d3Geo.geoGraticule().step([graticuleStep, graticuleStep])() : null),
-    [showGraticule, graticuleStep],
+    () => (showGraticule ? makeGraticule(graticuleStep, params.family) : null),
+    [showGraticule, graticuleStep, params.family],
   );
 
   const areaDistortion = useMemo(() => computeAreaDistortion(params), [params]);

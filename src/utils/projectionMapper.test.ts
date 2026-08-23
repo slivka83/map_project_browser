@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import * as d3Geo from 'd3-geo';
-import { getD3Projection, fitProjectionToView, FIT_SPHERE, computeAreaDistortion, isPointerOverGlobe, makeFrameRotation } from './projectionMapper';
+import type { MultiLineString } from 'geojson';
+import { getD3Projection, fitProjectionToView, FIT_SPHERE, computeAreaDistortion, isPointerOverGlobe, makeFrameRotation, makeGraticule } from './projectionMapper';
+import { CLIP_LAT, FIT_MARGIN } from '../constants/geometry';
 import type { ProjectionParams, ProjectionFamily, DistortionModel } from '../store/useAppStore';
 import type { ProjectionVariant } from '../utils/projectionVariants';
 
@@ -630,6 +632,81 @@ describe('все 7 вариантов разрешаются в конечную
       const c = p([0, 0]);
       expect(c).not.toBeNull();
       expect(Number.isFinite(c![0])).toBe(true);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// makeGraticule — the 2D map's graticule. The cylindrical grid's outline must
+// coincide exactly with the drum window (±CLIP_LAT × ±180): d3's pole-to-pole
+// default outline folds under the periodic fold law to a phantom inner
+// rectangle (±90° → ∓80° frame rows) whose bottom side Antarctica (drawn after
+// the grid) paints over and whose top side the +85° land pokes past.
+// ---------------------------------------------------------------------------
+describe('makeGraticule', () => {
+  const bounds = (g: MultiLineString) => {
+    let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
+    for (const line of g.coordinates) {
+      for (const [lon, lat] of line) {
+        minLon = Math.min(minLon, lon);
+        maxLon = Math.max(maxLon, lon);
+        minLat = Math.min(minLat, lat);
+        maxLat = Math.max(maxLat, lat);
+      }
+    }
+    return { minLon, maxLon, minLat, maxLat };
+  };
+
+  it('cylindrical: the grid outline coincides exactly with the drum window (±CLIP_LAT × ±180)', () => {
+    const g = makeGraticule(30, 'cylindrical');
+    const b = bounds(g);
+    expect(Math.abs(b.minLon + 180)).toBeLessThan(1e-6);
+    expect(Math.abs(b.maxLon - 180)).toBeLessThan(1e-6);
+    expect(Math.abs(b.minLat + CLIP_LAT)).toBeLessThan(1e-6);
+    expect(Math.abs(b.maxLat - CLIP_LAT)).toBeLessThan(1e-6);
+    // Nothing may lie outside the band — the outline must not wrap past a rim.
+    for (const line of g.coordinates) {
+      for (const [, lat] of line) expect(Math.abs(lat)).toBeLessThanOrEqual(CLIP_LAT + 1e-9);
+    }
+  });
+
+  it('cylindrical: the outline rows land on the fitted window edges as straight horizontals', () => {
+    const proj = fitProjectionToView(getD3Projection(makeState()), 800, 600);
+    let topY: number | null = null;
+    let botY: number | null = null;
+    for (const line of makeGraticule(30, 'cylindrical').coordinates) {
+      for (const [lon, lat] of line) {
+        if (Math.abs(Math.abs(lat) - CLIP_LAT) > 1e-9) continue;
+        const y = proj([lon, lat])![1];
+        if (lat > 0) {
+          topY = topY ?? y;
+          expect(Math.abs(y - topY)).toBeLessThan(1e-6);
+        } else {
+          botY = botY ?? y;
+          expect(Math.abs(y - botY)).toBeLessThan(1e-6);
+        }
+      }
+    }
+    // The rim rows ARE the fit bounds: exactly FIT_MARGIN from the container edge.
+    expect(Math.abs(topY! - FIT_MARGIN)).toBeLessThan(1e-6);
+    expect(Math.abs(botY! - (600 - FIT_MARGIN))).toBeLessThan(1e-6);
+  });
+
+  it('non-cylindrical families keep the default pole-to-pole outline', () => {
+    for (const family of ['conic', 'azimuthalPerspective'] as ProjectionFamily[]) {
+      const b = bounds(makeGraticule(30, family));
+      expect(Math.abs(b.maxLat - 90)).toBeLessThan(1e-4);
+      expect(Math.abs(b.minLat + 90)).toBeLessThan(1e-4);
+      expect(Math.abs(b.minLon + 180)).toBeLessThan(1e-6);
+      expect(Math.abs(b.maxLon - 180)).toBeLessThan(1e-6);
+    }
+  });
+
+  it('the grid honours the requested step (a parallel exists at every interior step latitude)', () => {
+    const g = makeGraticule(30, 'cylindrical');
+    for (const stepLat of [-60, -30, 30, 60]) {
+      const parallels = g.coordinates.filter((line) => line.length > 1 && line.every(([, lat]) => Math.abs(lat - stepLat) < 1e-9));
+      expect(parallels.length).toBeGreaterThan(0);
     }
   });
 });

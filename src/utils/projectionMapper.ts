@@ -1,6 +1,6 @@
 import * as d3Geo from 'd3-geo';
 import type { GeoProjection, GeoConicProjection } from 'd3-geo';
-import type { Polygon } from 'geojson';
+import type { Polygon, MultiLineString } from 'geojson';
 import type { ProjectionParams } from '../store/useAppStore';
 import { normalizeLon } from './geoBandClip';
 import {
@@ -37,6 +37,26 @@ const cylTag = new WeakSet<GeoProjection>();
 // callable with `.invert()` for the reverse mapping (frame → geographic).
 export function makeFrameRotation(lambda0: number, phiOrigin: number): d3Geo.GeoRotation {
   return d3Geo.geoRotation([-lambda0, -phiOrigin]);
+}
+
+// The 2D map's graticule. For the cylindrical family the extent is pinned to
+// the drum band ±CLIP_LAT so the grid's outline rectangle coincides exactly
+// with the map window — where the geography layers are band-cut. d3's default
+// outline follows the poles (±90°), which under the periodic fold law wraps to
+// frame latitude ∓80°: a phantom rectangle floating INSIDE the window, whose
+// bottom side Antarctica (drawn after the grid) paints over and whose top side
+// the +85° land pokes past. Other families keep the d3 defaults — there the
+// outline traces the natural sphere / fan boundary.
+export function makeGraticule(step: number, family: ProjectionParams['family']): MultiLineString {
+  const g = d3Geo.geoGraticule().step([step, step]);
+  if (family === 'cylindrical') {
+    // Sets BOTH extentMajor (the outline) and extentMinor (line span).
+    g.extent([
+      [-180, -CLIP_LAT],
+      [180, CLIP_LAT],
+    ]);
+  }
+  return g();
 }
 
 function makeCylindricalProjection(

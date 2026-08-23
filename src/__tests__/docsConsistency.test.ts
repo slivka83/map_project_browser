@@ -186,6 +186,7 @@ describe('docs ↔ code: key exports are documented', () => {
     'getD3Projection',
     'computeAreaDistortion',
     'fitProjectionToView',
+    'makeGraticule',
     'FIT_SPHERE',
     'localAreaScale',
     'computeAuxSurfaceParams',
