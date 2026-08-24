@@ -13,6 +13,7 @@ import {
   RING_SEGMENTS,
   AZIMUTHAL_POINT_DEG,
   VIEW_CENTER_Y,
+  conicStdParallels,
   standardParallelDeg,
   worldPerPixel,
   parallelBeamLength,
@@ -438,10 +439,12 @@ export function computeAuxSurfaceParams(
   }
 
   // conic: cone tangent (or secant) to the sphere at the standard parallel(s).
-  // `phiOrigin` keeps its sign so the cone sits in the correct hemisphere; the
-  // parallel magnitude uses the equatorial fallback on |phiOrigin| internally.
-  const phi2 = stdParallel2 != null ? stdParallel2 : phiOrigin;
-  const cone = computeCone(phiOrigin, phi2, radius, scaleFactor);
+  // The effective pair comes from the SINGLE source (conicStdParallels) also
+  // used by the 2D D3 projection, so the cone always touches the sphere at
+  // exactly the parallels the flat map treats as true-scale — including the
+  // equatorial fallback when |phiOrigin| is small.
+  const [phi1, phi2] = conicStdParallels(phiOrigin, stdParallel2);
+  const cone = computeCone(phi1, phi2, radius, scaleFactor);
   return {
     kind: 'cone',
     radius: cone.baseRadius,
@@ -533,8 +536,8 @@ export function computeAuxSphereIntersections(
   }
 
   if (family === 'conic') {
-    const phi2 = stdParallel2 != null ? stdParallel2 : phiOrigin;
-    const cone = computeCone(phiOrigin, phi2, radius, scaleFactor);
+    const [phi1, phi2] = conicStdParallels(phiOrigin, stdParallel2);
+    const cone = computeCone(phi1, phi2, radius, scaleFactor);
     const t = cone.tanA;
     const a = cone.sign * cone.apex;
     const A = scaleFactor * scaleFactor * t * t + 1;
@@ -691,10 +694,11 @@ export function computeCentralMeridianRays(options: RayFanOptions): RaySegment[]
       ? getD3Projection(projParams(family, distortion, { lambda0, phiOrigin, scaleFactor, gamma, stdParallel2, azLight, variant: params.variant }))
       : null;
 
-  // The conic cone keeps phiOrigin's sign (like the 3D aux surface) so a
+  // The conic cone is built from the SAME effective parallel pair as the 2D
+  // projection and the aux surface (single source: conicStdParallels), so a
   // southern phiOrigin yields a southern cone matching the rendered mesh.
-  const phi2c = stdParallel2 != null ? stdParallel2 : phiOrigin;
-  const cone = family === 'conic' ? computeCone(phiOrigin, phi2c, radius, scaleFactor) : null;
+  const [phi1c, phi2c] = conicStdParallels(phiOrigin, stdParallel2);
+  const cone = family === 'conic' ? computeCone(phi1c, phi2c, radius, scaleFactor) : null;
 
   // Loop invariants of the azimuthal fan: the tangent basis (its centre drives
   // the antipode light and its normal the parallel beams) and the projected
@@ -788,8 +792,8 @@ export function computeConicRayEnd(
   stdParallel2: number | null = null,
   clamp = false,
 ): Vec3 {
-  const phi2 = stdParallel2 != null ? stdParallel2 : phiOrigin;
-  const cone = computeCone(phiOrigin, phi2, radius, scaleFactor);
+  const [phi1, phi2] = conicStdParallels(phiOrigin, stdParallel2);
+  const cone = computeCone(phi1, phi2, radius, scaleFactor);
   const { r, y } = coneLanding(lat, cone, scaleFactor, radius);
   const local: Vec3 = [r, y, 0];
   if (!clamp) return local;
@@ -870,8 +874,8 @@ export function projectToAuxWorld(params: ProjectionParams, lon: number, lat: nu
     const c = proj([lambda0, phiOrigin]);
     if (!p || !c || !isFinite(p[0]) || !isFinite(p[1])) return null;
     const dx = p[0] - c[0];
-    const phi2c = stdParallel2 != null ? stdParallel2 : phiOrigin;
-    const cone = computeCone(phiOrigin, phi2c, radius, scaleFactor);
+    const [phi1c, phi2c] = conicStdParallels(phiOrigin, stdParallel2);
+    const cone = computeCone(phi1c, phi2c, radius, scaleFactor);
     const { r: radCone, y: localY } = coneLanding(lat, cone, scaleFactor, radius);
     const theta = radCone > 1e-9 ? (dx * wpp) / radCone : 0;
     localEnd = [radCone * Math.cos(theta), localY, radCone * Math.sin(theta)];

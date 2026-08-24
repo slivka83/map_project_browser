@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import type { GeoConicProjection } from 'd3-geo';
 import type { ProjectionParams } from '../store/useAppStore';
 import { defaultParamsForFamily } from '../store/useAppStore';
 import { RADIUS, RAY_COUNT, VIEW_CENTER_Y, MAP_SCALE, CLIP_LAT } from '../constants/geometry';
@@ -533,6 +534,37 @@ describe('secant cone (stdParallel2)', () => {
       const { radius, rho } = coneCheck(localEnd, cone, sf);
       closeTo(radius, rho, 1e-6);
     }
+  });
+
+  it('small |φ₀| + secant: the 3D cone agrees with the 2D projection parallels', () => {
+    // Regression: with |φ₀| < 10° the equatorial fallback (±30°) was applied
+    // to the 2D D3 projection but NOT to the 3D aux cone, so a secant cone
+    // built through φ₀=5° / φ₂=25° touched the globe at [5°, 25°] while the
+    // flat map treated [30°, 25°] as true-scale — the white intersection rings
+    // sat on rows the map did not consider standard. Both views now share ONE
+    // effective pair from `conicStdParallels`.
+    const p = makeTestParams({
+      family: 'conic',
+      distortion: 'conformal',
+      variant: 'lambertConformal',
+      phiOrigin: 5,
+      stdParallel2: 25,
+    });
+    // The 2D projection's true-scale parallels.
+    const proj = getD3Projection(p) as GeoConicProjection;
+    const [mapPhi1, mapPhi2] = proj.parallels() as [number, number];
+    closeTo(mapPhi1, 30, 1e-9);
+    closeTo(mapPhi2, 25, 1e-9);
+    // The 3D cone's contact circles sit on exactly the same latitudes.
+    const surface = computeAuxSurfaceParams(p)!;
+    if (surface.kind !== 'cone') throw new Error('expected cone');
+    const rings = computeAuxSphereIntersections(p, RADIUS);
+    expect(rings.length).toBe(2);
+    const lats = rings
+      .map((r) => Math.abs(vec3ToLonLat(auxPointToWorld(surface, r[0]))[1]))
+      .sort((a, b) => a - b);
+    closeTo(lats[0], 25, 1e-6);
+    closeTo(lats[1], 30, 1e-6);
   });
 });
 

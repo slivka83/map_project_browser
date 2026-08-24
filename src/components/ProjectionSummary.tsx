@@ -27,7 +27,9 @@ function describeProjection(p: ProjectionParams): string {
     return `${az[p.azLight]} (азимутальная)`;
   }
   const secant = p.family === 'conic' ? p.stdParallel2 != null : p.family === 'cylindrical' && p.scaleFactor !== 1;
-  return `${secant ? 'Секущая' : 'Касательная'} ${fam} ${dist}`;
+  // Russian grammar: only the leading word is capitalised («Секущая коническая
+  // равновеликая»), the class nouns stay lowercase mid-phrase.
+  return `${secant ? 'Секущая' : 'Касательная'} ${fam.toLowerCase()} ${dist.toLowerCase()}`;
 }
 
 function Row({ k, v }: { k: string; v: string }) {

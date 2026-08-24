@@ -16,18 +16,23 @@ export type FrameProject = (p: [number, number]) => [number, number] | null;
 // rows, seam chords, dropped outlines).
 //
 // Only polygonal geometry contributes; other geometry types are ignored.
+// Coordinates are rounded to 1/100 px — far below visual resolution, but it
+// keeps each `d` string (and thus the DOM the browser re-parses on every
+// slider tick) small for the dense 50m datasets.
+const px = (v: number): number => Math.round(v * 100) / 100;
+
 export function framePath(fc: FeatureCollection, project: FrameProject): string {
-  let d = '';
+  const parts: string[] = [];
   const addRing = (ring: Position[]): void => {
     let started = false;
     for (const p of ring) {
       const q = project([p[0], p[1]]);
       if (!q || !isFinite(q[0]) || !isFinite(q[1])) continue;
-      d += `${started ? 'L' : 'M'}${q[0]},${q[1]}`;
+      parts.push(`${started ? 'L' : 'M'}${px(q[0])},${px(q[1])}`);
       started = true;
     }
     // Close explicitly so fill and stroke treat the ring as a loop.
-    if (started) d += 'Z';
+    if (started) parts.push('Z');
   };
   for (const f of fc.features) {
     const g = f.geometry;
@@ -38,5 +43,5 @@ export function framePath(fc: FeatureCollection, project: FrameProject): string 
       for (const poly of g.coordinates) for (const ring of poly) addRing(ring);
     }
   }
-  return d;
+  return parts.join('');
 }

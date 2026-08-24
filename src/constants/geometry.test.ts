@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   standardParallelDeg,
   signedStandardParallelDeg,
+  conicStdParallels,
   STD_PARALLEL_MIN_ABS,
   STD_PARALLEL_FALLBACK,
   RADIUS,
@@ -56,6 +57,31 @@ describe('signedStandardParallelDeg', () => {
   it('handles the pole (signed)', () => {
     expect(signedStandardParallelDeg(90)).toBe(90);
     expect(signedStandardParallelDeg(-90)).toBe(-90);
+  });
+});
+
+describe('conicStdParallels', () => {
+  it('defaults φ₂ to the effective φ₁ (tangent surface)', () => {
+    expect(conicStdParallels(45, null)).toEqual([45, 45]);
+    expect(conicStdParallels(-45, null)).toEqual([-45, -45]);
+  });
+
+  it('applies the equatorial fallback to φ₁ even when a secant φ₂ is active', () => {
+    // Regression: with |φ₀| < 10° the 2D projection used the ±30° fallback
+    // while the 3D cone was built through the raw φ₀ — the two views
+    // disagreed on where the cone touched the Earth.
+    expect(conicStdParallels(STD_PARALLEL_MIN_ABS - 1, 25)).toEqual([STD_PARALLEL_FALLBACK, 25]);
+    expect(conicStdParallels(-(STD_PARALLEL_MIN_ABS - 1), -25)).toEqual([-STD_PARALLEL_FALLBACK, -25]);
+  });
+
+  it('re-signs an active secant φ₂ into φ₁\'s hemisphere', () => {
+    expect(conicStdParallels(-40, 60)).toEqual([-40, -60]);
+    expect(conicStdParallels(40, -60)).toEqual([40, 60]);
+  });
+
+  it('is idempotent on an already-effective φ₁ (fallback stable)', () => {
+    const [phi1] = conicStdParallels(0, null);
+    expect(conicStdParallels(phi1, null)).toEqual([phi1, phi1]);
   });
 });
 

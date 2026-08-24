@@ -51,6 +51,7 @@ export default function ProjectionHeader() {
   const params = useProjectionParams();
   const { variant, family } = params;
   const setVariant = useAppStore((s) => s.setVariant);
+  const resetParams = useAppStore((s) => s.resetParams);
 
   const current = variant;
   const def = variantDef(current);
@@ -118,7 +119,7 @@ export default function ProjectionHeader() {
           type="button"
           title="Сбросить параметры"
           aria-label="Сбросить параметры"
-          onClick={() => useAppStore.getState().resetParams()}
+          onClick={() => resetParams()}
           className="flex h-full w-14 shrink-0 items-center justify-center rounded-tr-lg text-neon-blue transition hover:bg-neon-blue/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70"
         >
           <ResetIcon />

@@ -162,6 +162,7 @@ describe('docs ↔ code: store shape matches ProjectionParams', () => {
     'hoverLonLat',
     'hoverSource',
     'showHoverRay',
+    'showGraticule',
   ];
   for (const f of paramFields) {
     it(`documents store field ${f}`, () => {

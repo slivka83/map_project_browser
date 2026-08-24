@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as d3Geo from 'd3-geo';
 import type { ProjectionParams, ProjectionFamily, DistortionModel } from '../store/useAppStore';
-import { RADIUS, RAY_COUNT, MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y, CLIP_LAT } from '../constants/geometry';
+import { RADIUS, RAY_COUNT, MAP_SCALE, VIEW_CENTER_X, VIEW_CENTER_Y, CLIP_LAT, conicStdParallels } from '../constants/geometry';
 import { getD3Projection, computeAreaDistortion, FIT_SPHERE, fitProjectionToView, makeFrameRotation } from '../utils/projectionMapper';
 import { normalizeLon } from '../utils/geoBandClip';
 import {
@@ -546,9 +546,11 @@ describe('rays link globe point to map point', () => {
         // each landing with the production computeConicRayEnd and confirm it lies
         // on the cone's lateral surface (radius = rho(height)). A ray that landed
         // anywhere else (off the cone) would break the developable-surface link
-        // and is caught here.
+        // and is caught here. The cone is rebuilt from the SAME effective
+        // parallel pair (`conicStdParallels`) the production code uses.
         if (family !== 'conic') return;
-        const cone = computeCone(p.phiOrigin, p.stdParallel2 ?? p.phiOrigin, RADIUS, p.scaleFactor);
+        const [phi1, phi2] = conicStdParallels(p.phiOrigin, p.stdParallel2);
+        const cone = computeCone(phi1, phi2, RADIUS, p.scaleFactor);
         for (let i = 0; i < RAY_COUNT; i++) {
           const lat = -90 + (i * 180) / (RAY_COUNT - 1);
           const local = computeConicRayEnd(lat, p.phiOrigin, p.scaleFactor, RADIUS, p.stdParallel2);

@@ -8,7 +8,8 @@ const MIN_STEP = 10;
 
 // Tissot indicatrices: small equal-radius (5°) circles on a grid, staggered
 // every other latitude row so the pattern is even. The grid step defaults to
-// 30° and follows the graticule step from the store (clamped to MIN_STEP).
+// 30°; Map2D passes the fixed GRATICULE_STEP constant so the indicatrices
+// line up with the visible graticule (clamped to MIN_STEP).
 export function computeTissotCircles(density = 30): Polygon[] {
   const step = Math.max(MIN_STEP, density > 0 ? density : 30);
   const circles: Polygon[] = [];

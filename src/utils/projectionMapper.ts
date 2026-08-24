@@ -9,7 +9,7 @@ import {
   VIEW_CENTER_Y,
   CLIP_LAT,
   FIT_MARGIN,
-  signedStandardParallelDeg,
+  conicStdParallels,
 } from '../constants/geometry';
 
 const clampScale = (s: number): number => Math.max(0, Math.min(1, s));
@@ -47,7 +47,7 @@ export function makeFrameRotation(lambda0: number, phiOrigin: number): d3Geo.Geo
 // window, whose bottom side Antarctica paints over and whose top side the
 // +85° land pokes past; and even with a pinned extent d3 emits the outline as
 // four degenerate great-circle corners that the projection stream drops
-// entirely (no visible frame at all). Sampling every line every 2° keeps all
+// entirely (no visible frame at all). Sampling every line every 5° keeps all
 // rows ruler-straight horizontal under precision(0). Other families keep the
 // d3 defaults — there the outline traces the natural sphere / fan boundary.
 export function makeGraticule(step: number, family: ProjectionParams['family']): MultiLineString {
@@ -157,14 +157,12 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
     if (distortion === 'conformal') proj = d3Geo.geoConicConformal();
     else if (distortion === 'equalArea') proj = d3Geo.geoConicEqualArea();
     else proj = d3Geo.geoConicEquidistant();
-    // The standard parallel already carries phiOrigin's sign (see
-    // signedStandardParallelDeg), so NO extra hemisphere sign is applied — that
-    // would double-flip and build a northern cone for a southern phiOrigin.
-    const phi1 = signedStandardParallelDeg(phiOrigin);
-    // A secant φ₂ must share φ₁'s hemisphere: parallels([−40°, +60°]) is an
-    // impossible cone spanning both hemispheres and degenerates the map. The
-    // store already normalizes on write; this guards every other caller.
-    const phi2 = state.stdParallel2 != null ? Math.sign(phi1) * Math.abs(state.stdParallel2) : phi1;
+    // The effective parallel pair comes from the SINGLE source shared with the
+    // 3D aux cone (see conicStdParallels): φ₁ carries the equatorial fallback
+    // and φ₀'s sign; a secant φ₂ is re-signed into φ₁'s hemisphere —
+    // parallels([−40°, +60°]) would be an impossible cone spanning both
+    // hemispheres and degenerate the map.
+    const [phi1, phi2] = conicStdParallels(phiOrigin, state.stdParallel2);
     (proj as GeoConicProjection).parallels([phi1, phi2]);
   } else if (azLight === 'center') {
     // azimuthalPerspective: the light-source position defines the projection
@@ -260,10 +258,11 @@ export function computeAreaDistortion(params: ProjectionParams): number {
     }
     aRef = best;
   } else if (params.family === 'conic') {
-    // Near the equator the conic standard parallel falls back to ±30° (see
-    // signedStandardParallelDeg); the reference area scale must be measured at
-    // that same parallel, not at phiOrigin (which may sit far from it).
-    const phi1 = signedStandardParallelDeg(params.phiOrigin);
+    // The reference area scale must be measured at the projection's actual
+    // first standard parallel — the same effective φ₁ (equatorial fallback
+    // included) the drawn map uses, not at phiOrigin (which may sit far from
+    // it near the equator).
+    const [phi1] = conicStdParallels(params.phiOrigin, params.stdParallel2);
     const centre = localAreaScale(proj, params.lambda0, phi1, d);
     aRef = centre != null && centre > 0 ? centre : null;
   } else {

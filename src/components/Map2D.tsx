@@ -81,6 +81,12 @@ export default function Map2D() {
   // the clipExtent bounds and would be dropped as null by the rectangle clip.
   const { fittedProj, pointProjector } = useMemo(() => {
     const fitted = fitProjectionToView(getD3Projection(params), width, height, FIT_MARGIN);
+    // The clip-free twin is needed ONLY by the cylindrical band layers (they
+    // are rendered via `framePath`, and their rim vertices sit exactly ON the
+    // clipExtent bounds and would be dropped as null by the rectangle clip).
+    // Other families draw every layer through the fitted generator alone, so
+    // the second projection build + fit is skipped entirely.
+    if (params.family !== 'cylindrical') return { fittedProj: fitted, pointProjector: null };
     const unclipped = fitProjectionToView(getD3Projection(params), width, height, FIT_MARGIN);
     unclipped.clipExtent(null);
     return {
@@ -247,7 +253,7 @@ export default function Map2D() {
           )}
           {bandLand && (
             <path
-              d={isCylindrical ? framePath(bandLand, pointProjector) : pathGen(bandLand) ?? ''}
+              d={isCylindrical ? framePath(bandLand, pointProjector!) : pathGen(bandLand) ?? ''}
               fill={BG}
               stroke={NEON_BLUE}
               strokeWidth={1}
@@ -255,7 +261,7 @@ export default function Map2D() {
           )}
           {showBorders && bandBorders && (
             <path
-              d={isCylindrical ? framePath(bandBorders, pointProjector) : pathGen(bandBorders) ?? ''}
+              d={isCylindrical ? framePath(bandBorders, pointProjector!) : pathGen(bandBorders) ?? ''}
               fill="none"
               stroke={NEON_BLUE_LINE}
               strokeWidth={0.6}
@@ -263,7 +269,7 @@ export default function Map2D() {
           )}
           {tissotLayer && (
             <path
-              d={isCylindrical ? framePath(tissotLayer, pointProjector) : pathGen(tissotLayer) ?? ''}
+              d={isCylindrical ? framePath(tissotLayer, pointProjector!) : pathGen(tissotLayer) ?? ''}
               fill={NEON_ORANGE_SOFT}
               stroke={NEON_ORANGE}
             />

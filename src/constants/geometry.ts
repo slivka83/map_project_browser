@@ -76,3 +76,20 @@ export const signedStandardParallelDeg = (phiOrigin: number): number => {
   const base = mag < STD_PARALLEL_MIN_ABS ? STD_PARALLEL_FALLBACK : mag;
   return phiOrigin < 0 ? -base : base;
 };
+
+// The EFFECTIVE conic standard-parallel pair — the SINGLE SOURCE consumed by
+// the 2D D3 projection (`getD3Projection`), the 3D aux cone, its intersection
+// rings and every ray builder, so both views can never disagree on where the
+// cone touches the Earth:
+// - φ₁ carries φ₀'s sign and the equatorial fallback (a cone tangent at ≤10°
+//   would be degenerate);
+// - an active secant φ₂ is re-signed into φ₁'s hemisphere and defaults to φ₁
+//   itself for a tangent surface.
+export const conicStdParallels = (
+  phiOrigin: number,
+  stdParallel2: number | null,
+): [number, number] => {
+  const phi1 = signedStandardParallelDeg(phiOrigin);
+  const phi2 = stdParallel2 != null ? Math.sign(phi1) * Math.abs(stdParallel2) : phi1;
+  return [phi1, phi2];
+};
