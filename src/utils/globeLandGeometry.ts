@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { FeatureCollection, Geometry, Position } from 'geojson';
-import { lonLatToVec3, matVec, type Mat3, type Vec3 } from './auxSurfaceGeometry';
+import { lonLatToVec3, vec3ToLonLat, matVec, type Mat3, type Vec3 } from './auxSurfaceGeometry';
 
 // Opaque continent FILL for the 3D globe (user decision 2026-08): the land
 // polygons are triangulated ONCE per dataset and re-projected onto the sphere
@@ -129,6 +129,35 @@ interface LandTriangles {
   indices: Uint32Array;
 }
 
+// Earcut triangulates in the FLAT (lon, lat) plane, so huge polygons come out
+// as giant fan triangles (tens of degrees across). Mapped onto the sphere such
+// a face is the flat CHORD triangle between its three corner points: it sags
+// up to R·(1−cos(θ/2)) BELOW the surface (0.3+ world units for a 30° face —
+// the fill rides only 0.02 above the ocean shell) and leaves the spherical
+// patch it should cover UNRENDERED — the dark horizontal tears across the
+// continents (Siberia ~65°N, Brazil ~16°S) at grazing camera angles. Every
+// emitted face is therefore subdivided on the unit sphere until no edge
+// exceeds MAX_FILL_EDGE_DEG: the finest sagitta is 10·(1−cos 2°) ≈ 0.006 —
+// an order of magnitude under the shell clearance, invisible like any small
+// triangle's dip.
+const MAX_FILL_EDGE_DEG = 4;
+const MAX_SUBDIV_LEVELS = 7;
+
+function angularDistDeg(a: Vec3, b: Vec3): number {
+  const d = Math.max(-1, Math.min(1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2]));
+  return Math.acos(d) * (180 / Math.PI);
+}
+
+// Edge midpoint on the unit sphere. A degenerate edge (identical endpoints —
+// e.g. a ring side running along a pole — or antipodal) has no midpoint:
+// reuse an endpoint; the collapsed sub-faces are dropped by the leaf guard.
+function midUnit(a: Vec3, b: Vec3): Vec3 {
+  const m: Vec3 = [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+  const len = Math.hypot(m[0], m[1], m[2]);
+  if (len < 1e-12) return a;
+  return [m[0] / len, m[1] / len, m[2] / len];
+}
+
 const vec2Ring = (ring: Ring): THREE.Vector2[] =>
   ring.map(([lon, lat]) => new THREE.Vector2(lon, lat));
 
@@ -163,16 +192,17 @@ function emitPolygon(
     const flat: Ring = ([] as Ring).concat(...poly);
     const faces = THREE.ShapeUtils.triangulateShape(vec2Ring(poly[0]), poly.slice(1).map(vec2Ring));
     if (faces.length === 0) continue;
-    // Unit-sphere images of the polygon's vertices, used to orient every
-    // face OUTWARD exactly (see below). Rotation-invariant, so this is done
-    // once here regardless of Долгота/Параллель.
+    // Unit-sphere images of the polygon's vertices. Subdivision and the
+    // outward test both run on these exact sphere positions (rotation-
+    // invariant, so independent of Долгота/Параллель).
     const unit = flat.map(([lon, lat]) => lonLatToVec3(lon, lat, 1));
-    const base = outCoords.length / 2;
+    let cursor = outCoords.length / 2;
     let emitted = false;
-    for (const [a, b, c] of faces) {
-      const A = unit[a];
-      const B = unit[b];
-      const C = unit[c];
+    // One leaf face: append its three vertices (lon/lat round-trips the unit
+    // vector exactly through vec3ToLonLat / lonLatToVec3) and index them
+    // wound OUTWARD — the fill renders FrontSide, so an inward face would
+    // be culled into a pinhole.
+    const emitLeaf = (A: Vec3, B: Vec3, C: Vec3): void => {
       const n: Vec3 = [
         (B[1] - A[1]) * (C[2] - A[2]) - (B[2] - A[2]) * (C[1] - A[1]),
         (B[2] - A[2]) * (C[0] - A[0]) - (B[0] - A[0]) * (C[2] - A[2]),
@@ -182,17 +212,37 @@ function emitPolygon(
       const facing = n[0] * mid[0] + n[1] * mid[1] + n[2] * mid[2];
       // Razor-thin slivers contribute nothing visually but their normal sign
       // is numerically meaningless — dropping them avoids culled pinholes.
-      if (Math.abs(facing) < 1e-12) continue;
+      if (Math.abs(facing) < 1e-12) return;
+      const tri = facing > 0 ? [A, B, C] : [A, C, B];
+      const base = cursor;
+      for (const v of tri) {
+        const [lon, lat] = vec3ToLonLat(v);
+        outCoords.push(lon, lat);
+        cursor++;
+      }
+      outIndices.push(base, base + 1, base + 2);
       emitted = true;
-      // FrontSide render contract: the fill draws with back-face culling, so
-      // every face MUST wind outward. Planar heuristics fail for pole-spanning
-      // polygons (Antarctica), so the decision is made from the exact sphere
-      // geometry: flip the winding whenever the normal dips toward the centre.
-      if (facing > 0) outIndices.push(base + a, base + b, base + c);
-      else outIndices.push(base + a, base + c, base + b);
-    }
+    };
+    // 4-way subdivision on the unit sphere until every edge is short enough
+    // for the chord triangle to hug the surface (see MAX_FILL_EDGE_DEG).
+    const subdivide = (A: Vec3, B: Vec3, C: Vec3, level: number): void => {
+      if (
+        level < MAX_SUBDIV_LEVELS &&
+        Math.max(angularDistDeg(A, B), angularDistDeg(B, C), angularDistDeg(C, A)) > MAX_FILL_EDGE_DEG
+      ) {
+        const ab = midUnit(A, B);
+        const bc = midUnit(B, C);
+        const ca = midUnit(C, A);
+        subdivide(A, ab, ca, level + 1);
+        subdivide(ab, B, bc, level + 1);
+        subdivide(ca, bc, C, level + 1);
+        subdivide(ab, bc, ca, level + 1);
+        return;
+      }
+      emitLeaf(A, B, C);
+    };
+    for (const [a, b, c] of faces) subdivide(unit[a], unit[b], unit[c], 0);
     if (!emitted) continue;
-    for (const ring of poly) for (const [lon, lat] of ring) outCoords.push(lon, lat);
   }
 }
 

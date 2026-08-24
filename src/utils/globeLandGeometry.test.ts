@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { feature } from 'topojson-client';
+import { geoContains } from 'd3-geo';
 import type { Topology } from 'topojson-specification';
-import type { FeatureCollection, Position } from 'geojson';
+import type { FeatureCollection, Polygon, Position } from 'geojson';
 import { triangulateLand, landPositions } from './globeLandGeometry';
 import { RADIUS, GLOBE_INFLATE } from '../constants/geometry';
-import { projectionRotationMatrix } from './auxSurfaceGeometry';
+import { projectionRotationMatrix, lonLatToVec3 } from './auxSurfaceGeometry';
 
 // The bundled 110m land dataset, loaded through Vite's ?raw import (no Node
 // APIs — the project has no @types/node and must not need them).
@@ -38,7 +39,9 @@ describe('triangulateLand', () => {
         ],
       ]),
     );
-    expect(vertexCount(t)).toBe(4); // closed ring → open chain of 4
+    // Closed ring → open chain (no duplicated closing vertex); the fill
+    // subdivides large faces, so the vertex count grows past the ring's own 4.
+    expect(vertexCount(t)).toBeGreaterThanOrEqual(4);
     expect(t.indices.length).toBeGreaterThanOrEqual(2 * 3);
     // All indices point at existing vertices.
     for (const idx of t.indices) expect(idx).toBeLessThan(vertexCount(t));
@@ -267,3 +270,185 @@ function squareRing(half: number): Position[] {
     [-half, -half],
   ];
 }
+
+// --- Fill subdivision: no giant chord triangles -----------------------------
+//
+// Earcut works in the flat (lon, lat) plane, so a huge polygon used to come
+// out as giant fan triangles (tens of degrees across). On the sphere such a
+// face is the flat chord triangle between its corners: it sags far below the
+// surface and leaves its spherical patch unrendered — the dark horizontal
+// tears across Siberia (~65°N) and Brazil (~16°S) at grazing camera angles.
+// The subdivision caps every edge at 4°; these tests lock that in.
+
+const MAX_EDGE_DEG = 4.5;
+
+function maxTriangleEdgeDeg(t: ReturnType<typeof triangulateLand>): number {
+  const at = (i: number): [number, number, number] => {
+    const v = lonLatToVec3(t.coords[i * 2], t.coords[i * 2 + 1], 1);
+    return [v[0], v[1], v[2]];
+  };
+  const ang = (a: number[], b: number[]): number => {
+    const d = Math.max(-1, Math.min(1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2]));
+    return (Math.acos(d) * 180) / Math.PI;
+  };
+  let maxEdge = 0;
+  for (let f = 0; f < t.indices.length; f += 3) {
+    const a = at(t.indices[f]);
+    const b = at(t.indices[f + 1]);
+    const c = at(t.indices[f + 2]);
+    maxEdge = Math.max(maxEdge, ang(a, b), ang(b, c), ang(c, a));
+  }
+  return maxEdge;
+}
+
+describe('fill subdivision (no giant chord triangles)', () => {
+  it('caps every edge of the REAL bundled dataset at ~4°', () => {
+    const topo = JSON.parse(WORLD_110M_RAW) as Topology;
+    const fc = feature(topo, topo.objects.land) as unknown as FeatureCollection;
+    const t = triangulateLand(fc);
+    expect(t.indices.length).toBeGreaterThan(100);
+    expect(maxTriangleEdgeDeg(t)).toBeLessThanOrEqual(MAX_EDGE_DEG + 1e-6);
+  });
+
+  it('subdivides a huge synthetic polygon instead of emitting giant faces', () => {
+    const t = triangulateLand(fcFromRings([squareRing(80)]));
+    expect(t.indices.length).toBeGreaterThan(0);
+    expect(maxTriangleEdgeDeg(t)).toBeLessThanOrEqual(MAX_EDGE_DEG + 1e-6);
+  });
+});
+
+// --- Spherical coverage: the horizontal-tear regression ---------------------
+//
+// Scans a lon/lat grid over the REAL dataset: every cell that is land on the
+// sphere (d3 geoContains — seam-crossing raw rings handled spherically, no
+// flat-space phantom chords; holes like the Caspian excluded) must lie ON the
+// emitted triangle mesh in 3D. The old bug — giant flat-plane earcut faces
+// whose chord triangles sag up to 0.3+ below the sphere — leaves such cells
+// FAR from any triangle; a flat (lon, lat) point-in-triangle scan cannot see
+// that sag, so the probe is a true 3D point-to-triangle distance. Flat-space
+// edge flips at high latitudes keep cells within ~0.005 (sub-pixel), so a
+// 0.012 threshold separates rendering artifacts from real tears with margin.
+
+const COVERAGE_EPS = 0.012; // on the unit sphere (~0.7°); real tears sit ≥ 10× farther
+
+function pointTriDist2(p: [number, number, number], a: [number, number, number], b: [number, number, number], c: [number, number, number]): number {
+  const sub = (u: [number, number, number], v: [number, number, number]): [number, number, number] => [u[0] - v[0], u[1] - v[1], u[2] - v[2]];
+  const dot = (u: [number, number, number], v: [number, number, number]): number => u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
+  const ab = sub(b, a);
+  const ac = sub(c, a);
+  const ap = sub(p, a);
+  const d1 = dot(ab, ap);
+  const d2 = dot(ac, ap);
+  if (d1 <= 0 && d2 <= 0) return dot(ap, ap);
+  const bp = sub(p, b);
+  const d3 = dot(ab, bp);
+  const d4 = dot(ac, bp);
+  if (d3 >= 0 && d4 <= d3) return dot(bp, bp);
+  const vc = d1 * d4 - d3 * d2;
+  if (vc <= 0 && d1 >= 0 && d3 <= 0) {
+    const v: [number, number, number] = [a[0] + (d1 / (d1 - d3)) * ab[0], a[1] + (d1 / (d1 - d3)) * ab[1], a[2] + (d1 / (d1 - d3)) * ab[2]];
+    return dot(sub(p, v), sub(p, v));
+  }
+  const cp = sub(p, c);
+  const d5 = dot(ab, cp);
+  const d6 = dot(ac, cp);
+  if (d6 >= 0 && d5 <= d6) return dot(cp, cp);
+  const vb = d5 * d2 - d1 * d6;
+  if (vb <= 0 && d2 >= 0 && d6 <= 0) {
+    const v: [number, number, number] = [a[0] + (d2 / (d2 - d6)) * ac[0], a[1] + (d2 / (d2 - d6)) * ac[1], a[2] + (d2 / (d2 - d6)) * ac[2]];
+    return dot(sub(p, v), sub(p, v));
+  }
+  const va = d3 * d6 - d5 * d4;
+  if (va <= 0 && d4 - d3 >= 0 && d5 - d6 >= 0) {
+    const t = (d4 - d3) / (d4 - d3 + (d5 - d6));
+    const v: [number, number, number] = [b[0] + t * (c[0] - b[0]), b[1] + t * (c[1] - b[1]), b[2] + t * (c[2] - b[2])];
+    return dot(sub(p, v), sub(p, v));
+  }
+  const denom = va + vb + vc;
+  const v = vb / denom;
+  const w = vc / denom;
+  const q: [number, number, number] = [a[0] + ab[0] * v + ac[0] * w, a[1] + ab[1] * v + ac[1] * w, a[2] + ab[2] * v + ac[2] * w];
+  return dot(sub(p, q), sub(p, q));
+}
+
+function coverageScan(fc: FeatureCollection, t: ReturnType<typeof triangulateLand>): number[] {
+  // Bucket the triangles by 4° flat cells so each probe checks a handful.
+  const CELL = 4;
+  const buckets = new Map<string, number[]>();
+  for (let f = 0; f < t.indices.length; f += 3) {
+    const lons = [0, 1, 2].map((k) => t.coords[t.indices[f + k] * 2]);
+    const lats = [0, 1, 2].map((k) => t.coords[t.indices[f + k] * 2 + 1]);
+    const i0 = Math.floor(Math.min(...lons) / CELL);
+    const i1 = Math.floor(Math.max(...lons) / CELL);
+    const j0 = Math.floor(Math.min(...lats) / CELL);
+    const j1 = Math.floor(Math.max(...lats) / CELL);
+    for (let i = i0; i <= i1; i++) {
+      for (let j = j0; j <= j1; j++) {
+        const key = `${i}:${j}`;
+        if (!buckets.has(key)) buckets.set(key, []);
+        buckets.get(key)!.push(f);
+      }
+    }
+  }
+  const at3 = (f: number, k: number): [number, number, number] => {
+    const v = lonLatToVec3(t.coords[t.indices[f + k] * 2], t.coords[t.indices[f + k] * 2 + 1], 1);
+    return [v[0], v[1], v[2]];
+  };
+  const covered = (lon: number, lat: number): boolean => {
+    const p = lonLatToVec3(lon, lat, 1) as [number, number, number];
+    const key = `${Math.floor(lon / CELL)}:${Math.floor(lat / CELL)}`;
+    for (const f of buckets.get(key) ?? []) {
+      if (pointTriDist2(p, at3(f, 0), at3(f, 1), at3(f, 2)) <= COVERAGE_EPS * COVERAGE_EPS) return true;
+    }
+    return false;
+  };
+  // Land mask: bbox prefilter per polygon, then the spherical point-in-
+  // polygon (correct across the ±180° seam, honours holes like the Caspian).
+  const polys: { rings: Position[][]; minX: number; maxX: number; minY: number; maxY: number }[] = [];
+  for (const f of fc.features) {
+    if (!f.geometry) continue;
+    const geom = f.geometry;
+    const multi = geom.type === 'MultiPolygon' ? geom.coordinates : geom.type === 'Polygon' ? [geom.coordinates] : [];
+    for (const rings of multi) {
+      let minX = Infinity;
+      let maxX = -Infinity;
+      let minY = Infinity;
+      let maxY = -Infinity;
+      for (const [x, y] of rings[0]) {
+        minX = Math.min(minX, x);
+        maxX = Math.max(maxX, x);
+        minY = Math.min(minY, y);
+        maxY = Math.max(maxY, y);
+      }
+      polys.push({ rings, minX, maxX, minY, maxY });
+    }
+  }
+  const isLand = (lon: number, lat: number): boolean => {
+    for (const p of polys) {
+      if (lon < p.minX || lon > p.maxX || lat < p.minY || lat > p.maxY) continue;
+      if (geoContains({ type: 'Polygon', coordinates: p.rings } as Polygon, [lon, lat])) return true;
+    }
+    return false;
+  };
+  const STEP = 2;
+  const uncovered: number[] = [];
+  for (let lat = -84; lat <= 84; lat += STEP) {
+    for (let lon = -178; lon <= 178; lon += STEP) {
+      if (!isLand(lon, lat)) continue;
+      if (!covered(lon, lat)) uncovered.push(lon, lat);
+    }
+  }
+  return uncovered;
+}
+
+describe('spherical fill coverage (no horizontal tears)', () => {
+  it('covers every land cell of the REAL bundled dataset', () => {
+    const topo = JSON.parse(WORLD_110M_RAW) as Topology;
+    const fc = feature(topo, topo.objects.land) as unknown as FeatureCollection;
+    const t = triangulateLand(fc);
+    const uncovered = coverageScan(fc, t);
+    const sample = uncovered.slice(0, 10).map((v, i) => (i % 2 === 0 ? `lon ${v}` : `lat ${v}`));
+    expect(uncovered).toEqual([]);
+    void sample;
+  }, 240000);
+});

@@ -58,8 +58,12 @@ export const parallelBeamLength = (radius: number): number => AUX_LENGTH * radiu
 // slightly above the sphere surface AT THE SAME radius — a radial gap between
 // them would show as a dark slit along every shore when viewed at grazing
 // angles (camera level with the equator). The fill's material resolves its
-// depth order against the lines via polygonOffset instead.
-export const GLOBE_INFLATE = 1.002;
+// depth order against the lines via polygonOffset instead. The clearance over
+// the transparent ocean shell (at the raw radius) must comfortably exceed the
+// fill's slope-scaled polygonOffset recession: too small a gap and the shell
+// wins the depth fight in bands near the limb, tinting faint stripes into the
+// land at equator-level cameras.
+export const GLOBE_INFLATE = 1.004;
 
 // Segment counts for circular geometry.
 export const RING_SEGMENTS = 96;
