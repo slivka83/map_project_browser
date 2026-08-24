@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import * as THREE from 'three';
 import type { ThreeEvent } from '@react-three/fiber';
-import { NEON_BLUE, BG } from '../constants/designTokens';
+import { GLOBE_COASTLINE, BG } from '../constants/designTokens';
 import { RADIUS, GLOBE_INFLATE } from '../constants/geometry';
 import { lonLatToVec3, matVec, type Mat3 } from '../utils/auxSurfaceGeometry';
 import type { FeatureCollection, Geometry } from 'geojson';
@@ -64,7 +64,7 @@ function Coastlines({ geoJson, roll }: { geoJson: FeatureCollection; roll: Mat3 
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[segments, 3]} />
       </bufferGeometry>
-      <lineBasicMaterial color={NEON_BLUE} transparent opacity={0.95} />
+      <lineBasicMaterial color={GLOBE_COASTLINE} transparent opacity={0.95} />
     </lineSegments>
   );
 }

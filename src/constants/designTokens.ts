@@ -6,6 +6,23 @@ export const NEON_YELLOW = '#ffe600';
 export const NEON_WHITE = '#ffffff';
 export const BG = '#05050A';
 
+// Uniformly multiplies each RGB channel of a #rrggbb colour by `factor`
+// (0 < factor ≤ 1) — the simple way to darken the neon palette on the
+// near-black background without introducing a hue shift.
+export const darkenHex = (hex: string, factor: number): string => {
+  const n = hex.replace('#', '');
+  const channel = (i: number): string =>
+    Math.round(parseInt(n.slice(i, i + 2), 16) * factor)
+      .toString(16)
+      .padStart(2, '0');
+  return `#${channel(0)}${channel(2)}${channel(4)}`;
+};
+
+// The 3D globe's coastline ink: NEON_BLUE darkened by 25% (user decision
+// 2026-08) so the continent outlines don't outshine the rest of the scene.
+// The flat map keeps full-strength NEON_BLUE.
+export const GLOBE_COASTLINE = darkenHex(NEON_BLUE, 0.75);
+
 // Alpha-tinted neon variants (derivatives of NEON_BLUE / NEON_ORANGE).
 export const NEON_BLUE_LINE = 'rgba(0, 229, 255, 0.55)';
 export const NEON_ORANGE_SOFT = 'rgba(255, 106, 0, 0.4)';
