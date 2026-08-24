@@ -93,8 +93,17 @@ function splitRingAtSeam(ring: Ring): Ring[] {
     // tail chain itself; the 2-point entry stub it leaves in `cur` carries
     // nothing new (the real continuation of open[startIdx] is chains[0]).
     splice(wPrev, wNext);
-  } else {
+  } else if (chains.length === 0) {
+    // No splices at all — the ring never touched the seam.
     chains.push(cur);
+  } else {
+    // Glue the tail into the head chain (mirrors geoBandClip.cutRing): after
+    // the glue chains[0] STARTS at the LAST splice's rim-entry stub and ENDS
+    // at the FIRST splice's rim-exit stub, so its implicit closure runs along
+    // the seam meridian. Without the glue both endpoints sit inland and the
+    // triangulator's closing chord cuts straight across the continent
+    // (Eurasia showed a horizontal tear through Siberia).
+    chains[0] = [...cur, ...chains[0]];
   }
   return chains.filter((ch) => ch.length >= 3);
 }

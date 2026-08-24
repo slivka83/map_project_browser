@@ -195,6 +195,69 @@ describe('fill orientation (FrontSide render contract)', () => {
   });
 });
 
+// Point-in-triangle over every emitted face (planar lon/lat barycentric test).
+function isCovered(t: ReturnType<typeof triangulateLand>, lon: number, lat: number): boolean {
+  const px = (i: number): [number, number] => [t.coords[i * 2], t.coords[i * 2 + 1]];
+  const sign = (p: [number, number], a: [number, number], b: [number, number]): number =>
+    (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]);
+  for (let f = 0; f < t.indices.length; f += 3) {
+    const a = px(t.indices[f]);
+    const b = px(t.indices[f + 1]);
+    const c = px(t.indices[f + 2]);
+    const d1 = sign([lon, lat], a, b);
+    const d2 = sign([lon, lat], b, c);
+    const d3 = sign([lon, lat], c, a);
+    const neg = d1 < 0 || d2 < 0 || d3 < 0;
+    const pos = d1 > 0 || d2 > 0 || d3 > 0;
+    if (!(neg && pos)) return true;
+  }
+  return false;
+}
+
+describe('seam-split fill integrity', () => {
+  it('fills the whole double-crossing ring — no tear between the seam lobes', () => {
+    // Regression: with TWO seam crossings the tail chain must be GLUED into
+    // the head chain so the implicit closure runs along the seam meridian.
+    // Without the glue both endpoints sat inland and the closing chord cut a
+    // horizontal tear straight through the polygon (visible on Eurasia).
+    const ring: Position[] = [
+      [150, 10],
+      [178, 12],
+      [-178, 14],
+      [-174, 16],
+      [179, 80],
+      [160, 82],
+      [150, 84],
+      [150, 10],
+    ];
+    const t = triangulateLand(fcFromRings([ring]));
+    expect(t.indices.length).toBeGreaterThan(0);
+    // Deep-interior probes along the whole height of the wedge are covered…
+    for (const [lon, lat] of [[165, 20], [165, 40], [165, 60], [165, 78]] as const) {
+      expect(isCovered(t, lon, lat)).toBe(true);
+    }
+    // …and a far-away point is not.
+    expect(isCovered(t, 100, 45)).toBe(false);
+  });
+
+  it('covers both lobes of a Chukotka-like coastal ring', () => {
+    const ring: Position[] = [
+      [150, 55],
+      [178, 57],
+      [-178, 59],
+      [-172, 62],
+      [-176, 64],
+      [179, 66],
+      [155, 68],
+      [150, 55],
+    ];
+    const t = triangulateLand(fcFromRings([ring]));
+    expect(isCovered(t, 165, 61)).toBe(true); // west of the seam
+    expect(isCovered(t, -175, 61)).toBe(true); // east of the seam
+    expect(isCovered(t, -170, 40)).toBe(false);
+  });
+});
+
 function squareRing(half: number): Position[] {
   return [
     [-half, -half],
