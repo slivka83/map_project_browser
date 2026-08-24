@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { computeTissotCircles } from './tissot';
+import { TISSOT_STEP } from '../constants/geometry';
 
 describe('computeTissotCircles', () => {
   it('returns a non-empty set of real Polygon geometries', () => {
@@ -35,5 +36,28 @@ describe('computeTissotCircles', () => {
     // The floor never affects the coarser, legitimate steps.
     expect(computeTissotCircles(15).length).toBeLessThan(computeTissotCircles(10).length);
     expect(computeTissotCircles(30).length).toBeLessThan(computeTissotCircles(15).length);
+  });
+
+  it('places centres TISSOT_STEP apart within every latitude row', () => {
+    // geoCircle starts each ring due EAST of its centre, so the centre is
+    // recoverable as ring[0] minus the 5° radius. Consecutive centres in a
+    // row must be exactly one production step apart.
+    const circles = computeTissotCircles(TISSOT_STEP);
+    const byRow = new Map<number, number[]>();
+    for (const c of circles) {
+      const ring = c.coordinates[0];
+      const lat = Math.round(ring[0][1]);
+      const lon = ring[0][0] - 5;
+      if (!byRow.has(lat)) byRow.set(lat, []);
+      byRow.get(lat)!.push(lon);
+    }
+    expect(byRow.size).toBeGreaterThan(1);
+    for (const lons of byRow.values()) {
+      expect(lons.length).toBeGreaterThan(1);
+      const sorted = lons.slice().sort((a, b) => a - b);
+      for (let i = 1; i < sorted.length; i++) {
+        expect(sorted[i] - sorted[i - 1]).toBeCloseTo(TISSOT_STEP, 6);
+      }
+    }
   });
 });

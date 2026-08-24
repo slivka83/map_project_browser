@@ -12,6 +12,7 @@ import {
   VIEW_CENTER_Y,
   CLIP_LAT,
   GRATICULE_STEP,
+  TISSOT_STEP,
 } from './geometry';
 
 describe('standardParallelDeg', () => {
@@ -106,6 +107,12 @@ describe('geometry constants are self-consistent', () => {
   it('uses a sane fixed graticule step', () => {
     expect(GRATICULE_STEP).toBeGreaterThan(0);
     expect(GRATICULE_STEP).toBeLessThanOrEqual(30);
+  });
+
+  it('spaces the Tissot indicatrices at double the graticule step', () => {
+    // User decision 2026-08: indicatrix centres sit on every SECOND
+    // graticule intersection instead of every one.
+    expect(TISSOT_STEP).toBe(2 * GRATICULE_STEP);
   });
 });
 

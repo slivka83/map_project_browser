@@ -10,7 +10,7 @@ import { framePath } from '../utils/framePath';
 import { computeTissotCircles } from '../utils/tissot';
 import { computeAuxSphereIntersectionsLonLat } from '../utils/auxSurfaceGeometry';
 import { variantDef } from '../utils/projectionVariants';
-import { FIT_MARGIN, GRATICULE_STEP } from '../constants/geometry';
+import { FIT_MARGIN, GRATICULE_STEP, TISSOT_STEP } from '../constants/geometry';
 import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT, NEON_YELLOW, NEON_WHITE, GRATICULE_STROKE } from '../constants/designTokens';
 import { iconBtnPlain, iconGlow, glassPanel } from './ui/styles';
 import { TissotIcon, BorderIcon, DetailIcon, IntersectionIcon, HoverRayIcon, InfoIcon } from './ui/icons';
@@ -124,7 +124,7 @@ export default function Map2D() {
   const areaDistortion = useMemo(() => computeAreaDistortion(params), [params]);
 
   const tissotCircles = useMemo(
-    () => (showTissot ? computeTissotCircles(GRATICULE_STEP) : []),
+    () => (showTissot ? computeTissotCircles(TISSOT_STEP) : []),
     [showTissot],
   );
   // Tissot indicatrices are inked onto the Earth's surface, so they ride with

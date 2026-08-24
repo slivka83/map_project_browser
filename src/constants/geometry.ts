@@ -26,9 +26,14 @@ export const VIEW_CENTER_Y = 300;
 // in the local frame) is off the tube and clipped out.
 export const CLIP_LAT = 85;
 
-// Degree step of the 2D map's graticule (and of the Tissot indicatrix grid that
-// aligns with it). Fixed by design — there is deliberately no UI control for it.
+// Degree step of the 2D map's graticule (and the base of the Tissot indicatrix
+// grid). Fixed by design — there is deliberately no UI control for it.
 export const GRATICULE_STEP = 15;
+
+// Degree step between Tissot indicatrix CENTRES: double the graticule step
+// (user decision 2026-08 — the previous every-15° packing read as a dense
+// carpet), so each indicatrix sits on every SECOND graticule intersection.
+export const TISSOT_STEP = GRATICULE_STEP * 2;
 
 // Uniform margin (px) used when fitting the 2D map to its viewport.
 export const FIT_MARGIN = 16;
