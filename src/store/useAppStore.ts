@@ -32,6 +32,9 @@ export function defaultParamsForFamily(family: ProjectionFamily): ProjectionPara
 interface AppState extends ProjectionParams {
   // Monotonic token for loadGeoData: a newer fetch supersedes an older one.
   _geoToken: number;
+  // Monotonic token bumped by resetParams: GlobeScene watches it and snaps
+  // the 3D camera back to its initial pose («Сбросить» restores the view).
+  _sceneResetToken: number;
   showTissot: boolean;
   showBorders: boolean;
   // White lines marking where the auxiliary (developable) surface intersects
@@ -91,6 +94,7 @@ const signedSecantParallel = (phiOrigin: number, magnitude: number): number => {
 export const useAppStore = create<AppState>((set) => ({
   ...defaultParamsForFamily('cylindrical'),
   _geoToken: 0,
+  _sceneResetToken: 0,
   showTissot: false,
   showBorders: false,
   showIntersection: false,
@@ -146,12 +150,16 @@ export const useAppStore = create<AppState>((set) => ({
       lambda0: s.lambda0,
     })),
   resetParams: () =>
-    set((s) =>
+    set((s) => ({
       // Reset the params of the CURRENTLY selected projection: keep the
       // variant (the projection itself) and restore its default parameter
       // values — which is exactly the variant's canonical param set.
-      canonicalParams(s.variant),
-    ),
+      ...canonicalParams(s.variant),
+      // Bump the scene-reset token so the 3D scene snaps its camera back to
+      // the initial pose too — «Сбросить» restores the whole apparatus, not
+      // only the sliders (GlobeScene watches this counter).
+      _sceneResetToken: s._sceneResetToken + 1,
+    })),
   loadGeoData: async () => {
     // Skip while a fetch is already running (React StrictMode mounts effects
     // twice in dev; a second concurrent pass would only duplicate the network

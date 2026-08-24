@@ -142,6 +142,23 @@ describe('useAppStore', () => {
     expect(s.scaleFactor).toBe(1);
   });
 
+  it('resetParams bumps the scene-reset token; other actions do not', () => {
+    // «Сбросить» must restore the 3D scene's camera too — GlobeScene watches
+    // this counter and snaps the view back to its initial pose.
+    const t0 = useAppStore.getState()._sceneResetToken;
+    useAppStore.getState().resetParams();
+    expect(useAppStore.getState()._sceneResetToken).toBe(t0 + 1);
+    useAppStore.getState().resetParams();
+    expect(useAppStore.getState()._sceneResetToken).toBe(t0 + 2);
+
+    // Ordinary state changes never move the camera: no token bump.
+    const t = useAppStore.getState()._sceneResetToken;
+    useAppStore.getState().setParam('lambda0', 45);
+    useAppStore.getState().setVariant('gnomonic');
+    useAppStore.getState().setFamily('cylindrical');
+    expect(useAppStore.getState()._sceneResetToken).toBe(t);
+  });
+
   it('normalizes the secant parallel sign when Параллель 1 crosses the equator', () => {
     // A secant cone active in the north (φ₂ = 60) dragged to a southern φ₀ must
     // re-sign φ₂ — otherwise d3 receives parallels([−40, +60]), an impossible

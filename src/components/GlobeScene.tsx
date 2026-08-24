@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
+import type { ComponentRef } from 'react';
 import { Canvas, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { useAppStore } from '../store/useAppStore';
@@ -24,6 +25,10 @@ export default function GlobeScene() {
   // rings + seam/cut line) in BOTH views — the 3D scene and the 2D map.
   const showIntersection = useAppStore((s) => s.showIntersection);
   const setHoverLonLat = useAppStore((s) => s.setHoverLonLat);
+  // «Сбросить параметры» bumps this counter; the effect below snaps the
+  // camera back to its construction pose so the whole 3D apparatus returns
+  // to its initial state together with the sliders.
+  const sceneResetToken = useAppStore((s) => s._sceneResetToken);
 
   const def = variantDef(params.variant);
 
@@ -62,9 +67,17 @@ export default function GlobeScene() {
     if (useAppStore.getState().hoverSource === 'globe') setHoverLonLat(null);
   };
 
+  type ControlsImpl = ComponentRef<typeof OrbitControls>;
+  const controlsRef = useRef<ControlsImpl>(null);
+
+  useEffect(() => {
+    // Token 0 is the initial state — nothing to restore on mount.
+    if (sceneResetToken > 0) controlsRef.current?.reset();
+  }, [sceneResetToken]);
+
   return (
     <Canvas camera={{ position: [0, 5, 42], fov: 50 }} className="rounded-lg">
-      <OrbitControls makeDefault enablePan={false} enableDamping dampingFactor={0.08} minDistance={18} maxDistance={90} />
+      <OrbitControls ref={controlsRef} makeDefault enablePan={false} enableDamping dampingFactor={0.08} minDistance={18} maxDistance={90} />
       <Globe geoJson={geoJson} roll={roll} onPointerMove={handleGlobeMove} onPointerOut={handleGlobeOut} />
       <AuxSurface surface={surface} />
       <LightSource surface={surface} params={params} />
