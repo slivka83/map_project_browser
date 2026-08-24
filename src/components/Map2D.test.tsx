@@ -97,9 +97,7 @@ describe('Map2D', () => {
     // the two extra copies filled the leftover rows and read as a rendering
     // bug — three flattened worlds stacked vertically. The map must draw a
     // SINGLE copy of each layer; spare space stays empty background.
-    const prevGraticule = useAppStore.getState().showGraticule;
     useAppStore.setState({
-      showGraticule: false,
       showTissot: false,
       showBorders: false,
       showIntersection: false,
@@ -111,15 +109,13 @@ describe('Map2D', () => {
     await waitFor(() => {
       expect(container.querySelector('svg[data-map="true"]')).not.toBeNull();
     });
-    // Exactly one feature → exactly one land path element inside the MAP svg.
-    // (Scoped to the map svg: the overlay buttons carry their own icon paths.)
-    // With the removed three-tile tape this counted 3 — one path per stacked
-    // copy, two of them empty because the island lies outside their windows.
+    // Exactly one feature → exactly TWO path elements inside the MAP svg: the
+    // always-drawn graticule plus the single land copy. (Scoped to the map svg:
+    // the overlay buttons carry their own icon paths.) With the removed
+    // three-tile tape this counted 4 — three stacked land copies + graticule.
     const mapSvg = container.querySelector('svg[data-map="true"]');
     expect(mapSvg).not.toBeNull();
-    expect(mapSvg!.querySelectorAll('path').length).toBe(1);
-    // Restore the shared flag so later tests keep seeing the default.
-    useAppStore.setState({ showGraticule: prevGraticule });
+    expect(mapSvg!.querySelectorAll('path').length).toBe(2);
   });
 
   it('renders country border paths when borders are enabled', async () => {
@@ -175,10 +171,9 @@ describe('Map2D', () => {
     expect(link.getAttribute('rel')).toContain('noopener');
   });
 
-  it('shows all seven overlay buttons in a row, always visible', () => {
+  it('shows all six overlay buttons in a row, always visible', () => {
     const { getByRole, container } = render(<Map2D />);
     const tissot = getByRole('button', { name: 'Индикатрисы Тиссо' });
-    const grid = getByRole('button', { name: 'Сетка' });
     const detail = getByRole('button', { name: 'Детализация карты' });
     const borders = getByRole('button', { name: 'Границы стран' });
     const intersection = getByRole('button', { name: 'Линии пересечения и линия разреза' });
@@ -187,14 +182,14 @@ describe('Map2D', () => {
     });
     const summary = getByRole('button', { name: 'Точные параметры проекции' });
     expect(tissot).toBeTruthy();
-    expect(grid).toBeTruthy();
     expect(detail).toBeTruthy();
     expect(borders).toBeTruthy();
     expect(intersection).toBeTruthy();
     expect(hoverRay).toBeTruthy();
     expect(summary).toBeTruthy();
-    // Seven buttons total, rendered as a single horizontal row.
-    expect(container.querySelectorAll('button').length).toBe(7);
+    // Six buttons total, rendered as a single horizontal row. The graticule
+    // has NO button — it is always drawn.
+    expect(container.querySelectorAll('button').length).toBe(6);
     expect(useAppStore.getState().detailedMap).toBe(false);
     expect(useAppStore.getState().showBorders).toBe(false);
 
@@ -209,9 +204,6 @@ describe('Map2D', () => {
 
     fireEvent.click(hoverRay);
     expect(useAppStore.getState().showHoverRay).toBe(false);
-
-    fireEvent.click(grid);
-    expect(useAppStore.getState().showGraticule).toBe(false);
   });
 
   it('mirrors the shared hover as a yellow marker from EITHER view while the feature is on', async () => {
@@ -358,21 +350,17 @@ describe('Map2D', () => {
     expect(useAppStore.getState().hoverSource).toBe('globe');
   });
 
-  it('draws the graticule when the toggle is on and drops it when off', async () => {
-    act(() => {
-      useAppStore.getState().setShowGraticule(true);
-    });
-    const { container, unmount } = render(<Map2D />);
+  it('always draws the graticule (no toggle)', async () => {
+    // The «Сетка» button was removed: the grid is part of the map and is
+    // rendered unconditionally, whatever the other toggles are.
+    useAppStore.setState({ showTissot: false, showBorders: false, showIntersection: false });
+    const { container } = render(<Map2D />);
     await waitFor(() => {
       // GRATICULE_STROKE (#334155) identifies the graticule path.
       const grat = container.querySelector('path[stroke="#334155"]');
       expect(grat).not.toBeNull();
       expect((grat as SVGPathElement).getAttribute('d')?.length ?? 0).toBeGreaterThan(10);
     });
-    unmount();
-    useAppStore.getState().setShowGraticule(false);
-    const { container: c2 } = render(<Map2D />);
-    expect(c2.querySelector('path[stroke="#334155"]')).toBeNull();
   });
 
   // Regression: the graticule used to be drawn through a SECOND path generator
@@ -389,7 +377,6 @@ describe('Map2D', () => {
       gamma: 0,
       lambda0: 0,
       phiOrigin: 0,
-      showGraticule: true,
       showTissot: false,
       showBorders: false,
       showIntersection: false,
@@ -419,7 +406,6 @@ describe('Map2D', () => {
       scaleFactor: 1,
       lambda0: 0,
       phiOrigin: 0,
-      showGraticule: true,
       showTissot: false,
       showBorders: false,
       showIntersection: false,

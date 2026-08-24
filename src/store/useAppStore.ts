@@ -68,9 +68,6 @@ interface AppState extends ProjectionParams {
   showHoverRay: boolean;
   setShowHoverRay: (value: boolean) => void;
 
-  // --- Non-parametric visualization / interaction state ---
-  showGraticule: boolean;
-
   setParam: <K extends keyof ProjectionParams>(key: K, value: ProjectionParams[K]) => void;
   setVariant: (v: ProjectionVariant) => void;
   setShowTissot: (value: boolean) => void;
@@ -80,8 +77,6 @@ interface AppState extends ProjectionParams {
   setFamily: (family: ProjectionFamily) => void;
   resetParams: () => void;
   loadGeoData: () => Promise<void>;
-
-  setShowGraticule: (value: boolean) => void;
 }
 
 // The cone hemisphere is DERIVED from φ₀'s sign (a southern φ₀ yields a
@@ -109,7 +104,6 @@ export const useAppStore = create<AppState>((set) => ({
   hoverLonLat: null,
   hoverSource: null,
   showHoverRay: false,
-  showGraticule: true,
   setHoverLonLat: (v, source) => set({ hoverLonLat: v, hoverSource: source ?? null }),
   setShowHoverRay: (value) => set({ showHoverRay: value }),
 
@@ -207,6 +201,4 @@ export const useAppStore = create<AppState>((set) => ({
         : null,
     });
   },
-
-  setShowGraticule: (value) => set({ showGraticule: value }),
 }));

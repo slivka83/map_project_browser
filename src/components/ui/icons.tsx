@@ -102,15 +102,6 @@ export function HoverRayIcon() {
   );
 }
 
-export function GraticuleIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M3 12h18M12 3v18" />
-    </svg>
-  );
-}
-
 export function ChevronDownIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">

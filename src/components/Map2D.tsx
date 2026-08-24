@@ -13,7 +13,7 @@ import { variantDef } from '../utils/projectionVariants';
 import { FIT_MARGIN, GRATICULE_STEP } from '../constants/geometry';
 import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT, NEON_YELLOW, NEON_WHITE, GRATICULE_STROKE } from '../constants/designTokens';
 import { iconBtnPlain, iconGlow, glassPanel } from './ui/styles';
-import { TissotIcon, BorderIcon, DetailIcon, IntersectionIcon, HoverRayIcon, InfoIcon, GraticuleIcon } from './ui/icons';
+import { TissotIcon, BorderIcon, DetailIcon, IntersectionIcon, HoverRayIcon, InfoIcon } from './ui/icons';
 import ProjectionSummary from './ProjectionSummary';
 import useElementSize from '../hooks/useElementSize';
 
@@ -29,8 +29,6 @@ const CONTAINER_STYLE: CSSProperties = {
 export default function Map2D() {
   const params = useProjectionParams();
   const { lambda0, phiOrigin } = params;
-  const showGraticule = useAppStore((s) => s.showGraticule);
-  const setShowGraticule = useAppStore((s) => s.setShowGraticule);
   const showTissot = useAppStore((s) => s.showTissot);
   const setShowTissot = useAppStore((s) => s.setShowTissot);
   const showBorders = useAppStore((s) => s.showBorders);
@@ -117,9 +115,10 @@ export default function Map2D() {
     return cutFeatureCollectionToBand(rotateFeatureCollection(borders, frameRotation));
   }, [isCylindrical, frameRotation, borders]);
 
+  // The graticule is ALWAYS drawn (no toggle — the grid is part of the map).
   const graticuleObj = useMemo(
-    () => (showGraticule ? makeGraticule(GRATICULE_STEP, params.family) : null),
-    [showGraticule, params.family],
+    () => makeGraticule(GRATICULE_STEP, params.family),
+    [params.family],
   );
 
   const areaDistortion = useMemo(() => computeAreaDistortion(params), [params]);
@@ -292,9 +291,6 @@ export default function Map2D() {
       <div className="absolute right-3 top-3 z-10 flex gap-1 items-start">
         <button type="button" title="Индикатрисы Тиссо" aria-label="Индикатрисы Тиссо" onClick={() => setShowTissot(!showTissot)} aria-pressed={showTissot} className={iconBtnPlain} style={{ color: showTissot ? NEON_BLUE : undefined, filter: iconGlow(showTissot) }}>
           <TissotIcon />
-        </button>
-        <button type="button" title="Сетка" aria-label="Сетка" onClick={() => setShowGraticule(!showGraticule)} aria-pressed={showGraticule} className={iconBtnPlain} style={{ color: showGraticule ? NEON_BLUE : undefined, filter: iconGlow(showGraticule) }}>
-          <GraticuleIcon />
         </button>
         <button type="button" title="Детализация карты" aria-label="Детализация карты" onClick={() => setDetailedMap(!detailedMap)} aria-pressed={detailedMap} className={iconBtnPlain} style={{ color: detailedMap ? NEON_BLUE : undefined, filter: iconGlow(detailedMap) }}>
           <DetailIcon />
