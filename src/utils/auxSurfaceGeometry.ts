@@ -590,22 +590,6 @@ export function computeAuxSphereIntersectionsLonLat(
   return rings.map((ring) => intersectionRingToWorld(surface, ring).map((p) => vec3ToLonLat(p)));
 }
 
-// Convenience wrapper for the 2D map: returns the developable surface's
-// seam / cut line as a single [lon, lat] ring, ready to be fed to the D3 path
-// generator — so the flat map draws EXACTLY the same white seam line the 3D
-// scene does (`CutLine`). Empty for the azimuthal tangent plane (a plane has
-// no seam) — mirrors the 3D component, which renders nothing there either.
-export function computeCutLineLonLat(
-  params: ProjectionParams,
-  radius = RADIUS,
-  numPoints = 64,
-): [number, number][] {
-  const surface = computeAuxSurfaceParams(params, radius);
-  if (surface.kind !== 'cylinder' && surface.kind !== 'cone') return [];
-  const pts = computeCutLine(surface, numPoints);
-  return pts.map((p) => vec3ToLonLat(p));
-}
-
 // The developable surface's seam / cut line in world space (the 3D scene's
 // white line). Cylinder/cone → a vertical line at the local +X edge; plane →
 // the disk rim (unused by the UI — the azimuthal plane has no seam).

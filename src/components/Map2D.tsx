@@ -8,7 +8,7 @@ import { getD3Projection, fitProjectionToView, computeAreaDistortion, isPointerO
 import { cutFeatureCollectionToBand, normalizeLon, rotateFeatureCollection, rotatePolygon } from '../utils/geoBandClip';
 import { framePath } from '../utils/framePath';
 import { computeTissotCircles } from '../utils/tissot';
-import { computeAuxSphereIntersectionsLonLat, computeCutLineLonLat } from '../utils/auxSurfaceGeometry';
+import { computeAuxSphereIntersectionsLonLat } from '../utils/auxSurfaceGeometry';
 import { variantDef } from '../utils/projectionVariants';
 import { FIT_MARGIN, GRATICULE_STEP } from '../constants/geometry';
 import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT, NEON_YELLOW, NEON_WHITE, GRATICULE_STROKE } from '../constants/designTokens';
@@ -155,14 +155,6 @@ export default function Map2D() {
     [showIntersection, params],
   );
 
-  // The seam/cut line of the developable surface — the same white line the 3D
-  // scene draws (`CutLine`), here as a lon/lat ring. Empty for the azimuthal
-  // tangent plane (no seam), mirroring the 3D component.
-  const cutLine = useMemo(
-    () => (showIntersection ? computeCutLineLonLat(params) : []),
-    [showIntersection, params],
-  );
-
   // Convert a pointer event on the responsive <svg> (preserveAspectRatio
   // letter-boxes it) into the internal map pixel space the projection uses.
   const toMapPoint = (e: { clientX: number; clientY: number; currentTarget: SVGSVGElement }): [number, number] => {
@@ -290,16 +282,6 @@ export default function Map2D() {
                   opacity={0.9}
                 />
               ))}
-              {cutLine.length > 0 && (
-                <path
-                  data-testid="cut-line"
-                  d={pathGen({ type: 'LineString', coordinates: cutLine }) ?? ''}
-                  fill="none"
-                  stroke={NEON_WHITE}
-                  strokeWidth={1.6}
-                  opacity={0.95}
-                />
-              )}
             </g>
           )}
           {hoverPoint && (

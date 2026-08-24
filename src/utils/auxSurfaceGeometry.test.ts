@@ -12,7 +12,6 @@ import {
   computeAuxGraticule,
   computeAuxSphereIntersections,
   computeAuxSphereIntersectionsLonLat,
-  computeCutLineLonLat,
   computeCentralMeridianRays,
   projectToAuxWorld,
   auxPointToWorld,
@@ -76,19 +75,6 @@ const sil = (
   stdParallel2: number | null = null,
 ): [number, number][][] =>
   computeAuxSphereIntersectionsLonLat(makeTestParams({ family, lambda0, phiOrigin, scaleFactor, stdParallel2 }), radius);
-
-const scl = (
-  family: ProjectionParams['family'],
-  lambda0 = 0,
-  phiOrigin = 0,
-  scaleFactor = 1,
-  radius = RADIUS,
-  stdParallel2: number | null = null,
-  gamma = 0,
-): [number, number][] =>
-  // The legacy wrapper defaulted the distortion to equidistant; keep that so
-  // the cylinder seam height matches what these tests have always asserted.
-  computeCutLineLonLat(makeTestParams({ family, lambda0, phiOrigin, scaleFactor, stdParallel2, gamma, distortion: 'equidistant' }), radius);
 
 // Mirror of the pole handling inside computeCentralMeridianRays: the two pole rays
 // land on the cylinder's topmost / bottommost edge (the central-meridian rim), i.e.
@@ -801,59 +787,6 @@ describe('computeAuxSphereIntersectionsLonLat', () => {
     expect(rings.length).toBe(2);
     const lats = rings.flat().map(([, lat]) => Math.abs(lat));
     for (const lat of lats) closeTo(lat, 60, 1e-6);
-  });
-});
-
-describe('computeCutLineLonLat', () => {
-  it('cylinder seam: one meridian — constant longitude, latitude runs rim to rim', () => {
-    const ring = scl('cylindrical', 25, 0, 0.9);
-    expect(ring.length).toBeGreaterThan(10);
-    // the whole seam sits on a single longitude (the drum's cut meridian)
-    const lon0 = ring[0][0];
-    for (const [lon] of ring) closeTo(((lon - lon0 + 540) % 360) - 180, 0, 1e-6);
-    // latitude increases monotonically from the southern to the northern rim
-    for (let i = 1; i < ring.length; i++) {
-      expect(ring[i][1]).toBeGreaterThanOrEqual(ring[i - 1][1] - 1e-9);
-    }
-    // round-trip by DIRECTION: the seam lives on the cylinder (|p| ≠ R), so
-    // lonLatToVec3 must reproduce each seam point's azimuth/elevation exactly.
-    const surface = sp('cylindrical', 25, 0, 0.9, RADIUS, null, 0, 'equidistant')!;
-    const world = computeCutLine(surface, 64);
-    expect(world.length).toBe(ring.length);
-    for (let i = 0; i < ring.length; i++) {
-      const u = lonLatToVec3(ring[i][0], ring[i][1], 1);
-      const w = world[i];
-      const n = Math.hypot(w[0], w[1], w[2]) || 1;
-      closeTo(u[0], w[0] / n, 1e-9);
-      closeTo(u[1], w[1] / n, 1e-9);
-      closeTo(u[2], w[2] / n, 1e-9);
-    }
-  });
-
-  it('cone seam is a finite non-empty ring', () => {
-    const ring = scl('conic', 0, 40, 0.95, RADIUS, null, 10);
-    expect(ring.length).toBeGreaterThan(10);
-    for (const [lon, lat] of ring) {
-      expect(Number.isFinite(lon)).toBe(true);
-      expect(Number.isFinite(lat)).toBe(true);
-    }
-  });
-
-  it('azimuthal tangent plane has no seam (empty)', () => {
-    expect(scl('azimuthalPerspective', 20, 30, 1)).toEqual([]);
-  });
-
-  it('follows gamma: the seam twists with the cone tilt', () => {
-    // A tilted cone carries its seam around the axis; the lon/lat projection
-    // must differ from the untilted case (not a rigid copy).
-    const straight = scl('conic', 0, 40, 0.95, RADIUS, null, 0);
-    const tilted = scl('conic', 0, 40, 0.95, RADIUS, null, 25);
-    expect(straight.length).toBeGreaterThan(0);
-    let maxDiff = 0;
-    for (let i = 0; i < Math.min(straight.length, tilted.length); i++) {
-      maxDiff = Math.max(maxDiff, Math.abs(((straight[i][0] - tilted[i][0] + 540) % 360) - 180));
-    }
-    expect(maxDiff).toBeGreaterThan(0.5);
   });
 });
 

@@ -70,16 +70,19 @@ describe('Map2D', () => {
     expect(container.querySelectorAll('path').length).toBe(base);
   });
 
-  it('draws and hides the white intersection + cut-line layers with the toggle', async () => {
-    // The «Линии пересечения и линия разреза» button drives BOTH apparatus
-    // layers on the map (the same flag also gates the 3D rings + seam line).
+  it('draws the white intersection rings with the toggle; the seam line stays 3D-only', async () => {
+    // The «Линии пересечения и линия разреза» button drives the intersection
+    // rings on BOTH views, but the seam/cut LINE is drawn only in the 3D
+    // scene: on the flat map it used to cut through the middle of the window,
+    // while the real wrap seam of the unrolled map is at the window edges
+    // (user decision 2026-08). The map must never draw a cut-line layer.
     useAppStore.setState({ showIntersection: true });
     const { container } = render(<Map2D />);
     await waitFor(() => {
       expect(container.querySelector('svg[data-map="true"]')).not.toBeNull();
     });
     expect(container.querySelector('[data-testid="intersection-lines"]')).not.toBeNull();
-    expect(container.querySelector('[data-testid="cut-line"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="cut-line"]')).toBeNull();
 
     act(() => {
       useAppStore.getState().setShowIntersection(false);
