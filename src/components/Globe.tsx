@@ -85,12 +85,16 @@ function LandFill({ geoJson, roll }: { geoJson: FeatureCollection; roll: Mat3 })
   return (
     <group quaternion={quaternion}>
       {/* raycast disabled: the transparent shell below owns the hover events,
-          and an opaque fill closer to the camera would otherwise steal them. */}
+          and an opaque fill closer to the camera would otherwise steal them.
+          FrontSide only: a DoubleSide fill bleeds the FAR hemisphere's
+          continents through the oceans at full brightness (the shell does not
+          write depth), turning the globe into overlapping cyan silhouettes —
+          the far side keeps its old lines-only see-through look instead. */}
       <mesh raycast={() => null}>
         <bufferGeometry>
           <bufferAttribute attach="attributes-position" args={[positions, 3]} />
         </bufferGeometry>
-        <meshBasicMaterial color={GLOBE_COASTLINE} side={THREE.DoubleSide} />
+        <meshBasicMaterial color={GLOBE_COASTLINE} side={THREE.FrontSide} />
       </mesh>
     </group>
   );
