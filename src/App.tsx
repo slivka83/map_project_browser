@@ -52,12 +52,12 @@ export default function App() {
           }}
         >
           {/* Left column split into three parts: a slim header for projection
-              selection, the scrolling control panel, and — in the bottom half
-              (the middle divider sits exactly at the panel's vertical centre:
-              both the top block and the scene are flex-1) — the 3D scene
-              filling the entire lower part. All dividers are solid lines
-              spanning the panel edge to edge. */}
-          <div className="flex min-h-0 flex-1 flex-col">
+              selection, the scrolling control panel, and the 3D scene. The
+              scene is 25% taller than a half split (flex 5:3 → 62.5% vs
+              37.5% of the column height; user decision 2026-08), so the
+              middle divider sits above the panel's vertical centre. All
+              dividers are solid lines spanning the panel edge to edge. */}
+          <div className="flex min-h-0 flex-[3] flex-col">
             <div className="-mx-3 -mt-3 shrink-0">
               <ProjectionHeader />
             </div>
@@ -67,7 +67,7 @@ export default function App() {
             </div>
           </div>
           <div className="-mx-3 h-px shrink-0" style={{ background: NEON_DIVIDER, boxShadow: NEON_DIVIDER_GLOW }} />
-          <div className="relative min-h-0 flex-1">
+          <div className="relative min-h-0 flex-[5]">
             <ErrorBoundary fallback={<GlobeSceneFallback />}>
               {/* Suspense keeps rendering until the lazy 3D chunk arrives; a
                   failed chunk load lands in the same WebGL fallback panel. */}
