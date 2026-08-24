@@ -10,8 +10,8 @@ const MARKER_R = 0.13;
 
 // Dashes are in world units (sphere radius = RADIUS); shared by every ray so
 // the whole apparatus reads as one dashed beam family.
-const DASH_SIZE = 0.6;
-const GAP_SIZE = 0.4;
+const DASH_SIZE = 0.32;
+const GAP_SIZE = 0.22;
 
 // The single projection visualization in the 3D scene: a dashed yellow fan of
 // rays from the light source through the globe points onto the developable
