@@ -877,9 +877,9 @@ describe('computeAuxSurfaceParams surface-kind invariants', () => {
     // The static drum carries no orientation/offset fields at all — a local
     // point IS a world point (Долгота/Параллель slide only the geography).
     expect(Object.keys(p).sort()).toEqual(['height', 'kind', 'radius']);
-    // The seam keeps pointing at lambda0 (the graduation is fixed to the tube).
-    const seam = auxPointToWorld(p, [p.radius, 0, 0]);
-    expect(Math.atan2(-seam[2], seam[0])).toBeCloseTo(0, 9);
+    // Identity transform: a local +X point lands exactly on world azimuth 0.
+    const plusX = auxPointToWorld(p, [p.radius, 0, 0]);
+    expect(Math.atan2(-plusX[2], plusX[0])).toBeCloseTo(0, 9);
   });
 
   it('cylindrical: gamma does not move the static tube at all', () => {
@@ -1058,15 +1058,29 @@ describe('rays always land on the rendered aux surface (no empty space)', () => 
 });
 
 describe('computeCutLine', () => {
-  it('для цилиндра: линия вдоль образующей', () => {
+  it('для цилиндра: линия вдоль образующей НА реальном шве развёртки (−X, кадровая долгота ±180°)', () => {
+    // The flat map wraps at frame longitudes ±180°, which sit on the drum's
+    // −X generator (the +X generator carries frame longitude 0 — the map's
+    // continuous centre, where NO cut exists).
     const surface = sp('cylindrical', 0, 0, 1)!;
     const pts = computeCutLine(surface, 16);
     expect(pts.length).toBeGreaterThan(0);
+    for (const q of pts) {
+      closeTo(q[0], -RADIUS, 1e-9);
+      closeTo(q[2], 0, 1e-9);
+    }
   });
-  it('для конуса: линия вдоль образующей', () => {
+  it('для конуса: линия вдоль образующей на −X (шов развёртки, а не центр карты)', () => {
     const surface = sp('conic', 0, 45, 1)!;
     const pts = computeCutLine(surface, 16);
     expect(pts.length).toBeGreaterThan(0);
+    // A cone tilt rotates (y, z) only — x keeps its side. Every point sits on
+    // or left of the −X generator (the apex itself has radius 0).
+    for (const q of pts) {
+      expect(q[0]).toBeLessThanOrEqual(1e-9);
+      closeTo(q[2], 0, 1e-9);
+    }
+    expect(pts.some((q) => q[0] < -1e-9)).toBe(true);
   });
   it('для плоскости: окружность', () => {
     const surface = sp('azimuthalPerspective', 0, 30, 1)!;

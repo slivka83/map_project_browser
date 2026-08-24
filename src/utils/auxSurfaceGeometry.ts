@@ -591,20 +591,23 @@ export function computeAuxSphereIntersectionsLonLat(
 }
 
 // The developable surface's seam / cut line in world space (the 3D scene's
-// white line). Cylinder/cone → a vertical line at the local +X edge; plane →
-// the disk rim (unused by the UI — the azimuthal plane has no seam).
+// white line). Cylinder/cone → a vertical line on the surface's local **−X**
+// generator: that generator carries frame longitudes ±180°, where the flat
+// map actually wraps — the +X generator carries frame longitude 0, the map's
+// continuous centre, so a seam marked there claimed a cut that does not exist.
+// Plane → the disk rim (unused by the UI — the azimuthal plane has no seam).
 export function computeCutLine(surface: AuxSurfaceParams, numPoints = 64): Vec3[] {
   const pts: Vec3[] = [];
   if (surface.kind === 'cylinder') {
     for (let i = 0; i <= numPoints; i++) {
       const y = -surface.height / 2 + (surface.height * i) / numPoints;
-      pts.push(auxPointToWorld(surface, [surface.radius, y, 0]));
+      pts.push(auxPointToWorld(surface, [-surface.radius, y, 0]));
     }
   } else if (surface.kind === 'cone') {
     for (let i = 0; i <= numPoints; i++) {
       const y = -surface.height / 2 + (surface.height * i) / numPoints;
       const r = surface.radius * (1 - (y + surface.height / 2) / surface.height);
-      pts.push(auxPointToWorld(surface, [r, y, 0]));
+      pts.push(auxPointToWorld(surface, [-r, y, 0]));
     }
   } else {
     for (let i = 0; i <= numPoints; i++) {
