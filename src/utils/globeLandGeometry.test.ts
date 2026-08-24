@@ -1,8 +1,19 @@
 import { describe, it, expect } from 'vitest';
+import { feature } from 'topojson-client';
+import type { Topology } from 'topojson-specification';
 import type { FeatureCollection, Position } from 'geojson';
 import { triangulateLand, landPositions } from './globeLandGeometry';
 import { RADIUS, GLOBE_LAND_INFLATE } from '../constants/geometry';
 import { projectionRotationMatrix } from './auxSurfaceGeometry';
+
+// The bundled 110m land dataset, loaded through Vite's ?raw import (no Node
+// APIs — the project has no @types/node and must not need them).
+const worldModules = import.meta.glob('../../public/world-110m.topojson', {
+  eager: true,
+  query: '?raw',
+  import: 'default',
+}) as Record<string, string>;
+const WORLD_110M_RAW = Object.values(worldModules)[0];
 
 const closeTo = (a: number, b: number, eps = 1e-6) => expect(Math.abs(a - b)).toBeLessThan(eps);
 const identity: number[] = [1, 0, 0, 0, 1, 0, 0, 0, 1];
@@ -132,6 +143,55 @@ describe('landPositions', () => {
     let moved = 0;
     for (let i = 0; i < rolled.length; i++) moved += Math.abs(rolled[i] - plain[i]);
     expect(moved).toBeGreaterThan(0);
+  });
+});
+
+// The fill renders FrontSide-only: a DoubleSide mesh would bleed the far
+// hemisphere through the transparent ocean. That only works when EVERY
+// triangle faces OUT of the sphere — locked here for synthetic fixtures
+// (including seam-split and hole cases) and for the real bundled dataset.
+function expectOutwardNormals(coords: Float64Array, indices: Uint32Array, roll: number[]): void {
+  const pos = landPositions(coords, roll, RADIUS * GLOBE_LAND_INFLATE);
+  const at = (i: number): [number, number, number] => [pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]];
+  const sub = (a: [number,number,number], b: [number,number,number]): [number,number,number] => [a[0]-b[0], a[1]-b[1], a[2]-b[2]];
+  const cross = (a: [number,number,number], b: [number,number,number]): [number,number,number] => [
+    a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0],
+  ];
+  const dot = (a: [number,number,number], b: [number,number,number]): number =>
+    a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+  for (let f = 0; f < indices.length; f += 3) {
+    const a = at(indices[f]);
+    const b = at(indices[f + 1]);
+    const c = at(indices[f + 2]);
+    const n = cross(sub(b, a), sub(c, a));
+    const mid: [number, number, number] = [(a[0]+b[0]+c[0])/3, (a[1]+b[1]+c[1])/3, (a[2]+b[2]+c[2])/3];
+    // Normal × midpoint must be positive: the face points away from centre.
+    expect(dot(n, mid)).toBeGreaterThan(0);
+  }
+}
+
+describe('fill orientation (FrontSide render contract)', () => {
+  it('faces every fixture triangle outward', () => {
+    const fixtures: Position[][][] = [
+      [squareRing(30)],
+      [squareRing(20), squareRing(4)],
+      [[[160,62],[-175,63],[-172,66],[168,67],[160,62]]],
+      [[[-180,-78],[-140,-72],[-60,-70],[0,-70],[60,-71],[140,-73],[180,-78],[180,-90],[-180,-90],[-180,-78]]],
+    ];
+    for (const rings of fixtures) {
+      const t = triangulateLand(fcFromRings(rings));
+      expectOutwardNormals(t.coords, t.indices, identity);
+    }
+  });
+
+  it('faces every triangle of the REAL bundled land dataset outward (any roll)', () => {
+    expect(WORLD_110M_RAW).toBeTruthy();
+    const topo = JSON.parse(WORLD_110M_RAW) as Topology;
+    const fc = feature(topo, topo.objects.land) as unknown as FeatureCollection;
+    const t = triangulateLand(fc);
+    expect(t.indices.length).toBeGreaterThan(100);
+    expectOutwardNormals(t.coords, t.indices, identity);
+    expectOutwardNormals(t.coords, t.indices, projectionRotationMatrix(-90, 37, 0));
   });
 });
 

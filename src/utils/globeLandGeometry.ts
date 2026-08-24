@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { FeatureCollection, Geometry, Position } from 'geojson';
-import { lonLatToVec3, matVec, type Mat3 } from './auxSurfaceGeometry';
+import { lonLatToVec3, matVec, type Mat3, type Vec3 } from './auxSurfaceGeometry';
 
 // Opaque continent FILL for the 3D globe (user decision 2026-08): the land
 // polygons are triangulated ONCE per dataset and re-projected onto the sphere
@@ -123,10 +123,6 @@ interface LandTriangles {
 const vec2Ring = (ring: Ring): THREE.Vector2[] =>
   ring.map(([lon, lat]) => new THREE.Vector2(lon, lat));
 
-// Triangulate one polygon's outer parts (+ their attached holes) into the
-// shared vertex/index buffers. Holes are attached by bbox containment of the
-// hole's first vertex (falling back to the largest outer part), mirroring
-// geoBandClip.cutPolygonRings — interior lakes must stay holes, not land.
 function emitPolygon(
   rings: Position[][],
   outCoords: number[],
@@ -155,11 +151,39 @@ function emitPolygon(
   }
 
   for (const poly of polys) {
+    const flat: Ring = ([] as Ring).concat(...poly);
     const faces = THREE.ShapeUtils.triangulateShape(vec2Ring(poly[0]), poly.slice(1).map(vec2Ring));
     if (faces.length === 0) continue;
+    // Unit-sphere images of the polygon's vertices, used to orient every
+    // face OUTWARD exactly (see below). Rotation-invariant, so this is done
+    // once here regardless of Долгота/Параллель.
+    const unit = flat.map(([lon, lat]) => lonLatToVec3(lon, lat, 1));
     const base = outCoords.length / 2;
+    let emitted = false;
+    for (const [a, b, c] of faces) {
+      const A = unit[a];
+      const B = unit[b];
+      const C = unit[c];
+      const n: Vec3 = [
+        (B[1] - A[1]) * (C[2] - A[2]) - (B[2] - A[2]) * (C[1] - A[1]),
+        (B[2] - A[2]) * (C[0] - A[0]) - (B[0] - A[0]) * (C[2] - A[2]),
+        (B[0] - A[0]) * (C[1] - A[1]) - (B[1] - A[1]) * (C[0] - A[0]),
+      ];
+      const mid: Vec3 = [(A[0] + B[0] + C[0]) / 3, (A[1] + B[1] + C[1]) / 3, (A[2] + B[2] + C[2]) / 3];
+      const facing = n[0] * mid[0] + n[1] * mid[1] + n[2] * mid[2];
+      // Razor-thin slivers contribute nothing visually but their normal sign
+      // is numerically meaningless — dropping them avoids culled pinholes.
+      if (Math.abs(facing) < 1e-12) continue;
+      emitted = true;
+      // FrontSide render contract: the fill draws with back-face culling, so
+      // every face MUST wind outward. Planar heuristics fail for pole-spanning
+      // polygons (Antarctica), so the decision is made from the exact sphere
+      // geometry: flip the winding whenever the normal dips toward the centre.
+      if (facing > 0) outIndices.push(base + a, base + b, base + c);
+      else outIndices.push(base + a, base + c, base + b);
+    }
+    if (!emitted) continue;
     for (const ring of poly) for (const [lon, lat] of ring) outCoords.push(lon, lat);
-    for (const [a, b, c] of faces) outIndices.push(base + a, base + b, base + c);
   }
 }
 

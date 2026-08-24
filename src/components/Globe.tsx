@@ -99,12 +99,19 @@ export default function Globe({
     <group>
       <GlobeShell onPointerMove={onPointerMove} onPointerOut={onPointerOut} />
       {fillPositions && triangles && (
-        <mesh>
+        // raycast disabled: the transparent shell owns the hover events, and
+        // an opaque fill closer to the camera would otherwise steal them.
+        // FrontSide only: a DoubleSide fill bleeds the FAR hemisphere's
+        // continents through the oceans at full brightness (the shell does
+        // not write depth) — globeLandGeometry orients every face outward
+        // from its exact sphere geometry, so the near side fills while the
+        // far side keeps its lines-only look.
+        <mesh raycast={() => null}>
           <bufferGeometry>
             <bufferAttribute attach="attributes-position" args={[fillPositions, 3]} />
             <bufferAttribute attach="index" args={[triangles.indices, 1]} />
           </bufferGeometry>
-          <meshBasicMaterial color={LAND_FILL} side={THREE.DoubleSide} toneMapped={false} />
+          <meshBasicMaterial color={LAND_FILL} side={THREE.FrontSide} toneMapped={false} />
         </mesh>
       )}
       {geoJson && <Coastlines geoJson={geoJson} roll={roll} />}
