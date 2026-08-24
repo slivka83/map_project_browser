@@ -185,6 +185,10 @@ export default function Map2D() {
   };
 
   const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    // The hover is tracked ONLY while the feature is on: nothing renders it
+    // otherwise, and writing the store on every pixel of cursor travel would
+    // re-render the 3D-scene subscribers for a value no consumer ever reads.
+    if (!showHoverRay) return;
     const [x, y] = toMapPoint(e);
     // Reject cursor positions off the map first (letter-boxed margins, the
     // hidden hemisphere of an azimuthal view, discontinuities) so a stale or

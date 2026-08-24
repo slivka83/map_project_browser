@@ -285,6 +285,59 @@ describe('Map2D', () => {
     expect(useAppStore.getState().hoverSource).toBeNull();
   });
 
+  it('does not track the hover into the store while the feature is off', async () => {
+    // Regression: with «Луч проекции по курсору» off nothing renders the
+    // hover, yet every pointer move over the map still wrote hoverLonLat /
+    // hoverSource into the store — re-rendering the 3D scene subscribers on
+    // each pixel of cursor travel for a value no consumer ever reads. With
+    // the feature off the map must not track the hover at all.
+    useAppStore.setState({ family: 'cylindrical', variant: 'mercator', distortion: 'conformal', scaleFactor: 1 });
+    act(() => {
+      useAppStore.getState().setShowHoverRay(false);
+    });
+    const { container } = render(<Map2D />);
+    await waitFor(() => {
+      expect(container.querySelector('svg[data-map="true"]')).not.toBeNull();
+    });
+    const svg = container.querySelector('svg[data-map="true"]') as SVGSVGElement;
+    vi.spyOn(svg, 'getBoundingClientRect').mockReturnValue({
+      x: 0, y: 0, left: 0, top: 0, width: 800, height: 600, right: 800, bottom: 600,
+      toJSON: () => ({}),
+    } as DOMRect);
+    // Dead centre of the fitted band — on the globe.
+    fireEvent.pointerMove(svg, { clientX: 400, clientY: 300 });
+    expect(useAppStore.getState().hoverLonLat).toBeNull();
+    expect(useAppStore.getState().hoverSource).toBeNull();
+  });
+
+  it('tracks an on-globe pointer move into the shared hover while the feature is on', async () => {
+    // Positive control for the tracking path: with «Луч проекции по курсору»
+    // on, a move over the map's centre must land in the shared store as a
+    // map-sourced geographic (lon, lat). jsdom used to deliver pointer events
+    // without coordinates, so this branch had no coverage at all.
+    useAppStore.setState({ family: 'cylindrical', variant: 'mercator', distortion: 'conformal', scaleFactor: 1 });
+    act(() => {
+      useAppStore.getState().setShowHoverRay(true);
+    });
+    const { container } = render(<Map2D />);
+    await waitFor(() => {
+      expect(container.querySelector('svg[data-map="true"]')).not.toBeNull();
+    });
+    const svg = container.querySelector('svg[data-map="true"]') as SVGSVGElement;
+    vi.spyOn(svg, 'getBoundingClientRect').mockReturnValue({
+      x: 0, y: 0, left: 0, top: 0, width: 800, height: 600, right: 800, bottom: 600,
+      toJSON: () => ({}),
+    } as DOMRect);
+    fireEvent.pointerMove(svg, { clientX: 400, clientY: 300 });
+    const { hoverLonLat, hoverSource } = useAppStore.getState();
+    expect(hoverSource).toBe('map');
+    expect(hoverLonLat).not.toBeNull();
+    // Mercator λ₀=0 / φ₀=0: the fitted centre is the frame origin, which
+    // un-rolls to the geographic origin.
+    expect(Math.abs(hoverLonLat![0])).toBeLessThan(1e-6);
+    expect(Math.abs(hoverLonLat![1])).toBeLessThan(1e-6);
+  });
+
   it('keeps a globe-sourced shared hover when the cursor merely leaves the map', async () => {
     // The 2D map may only clear a hover IT set. A hover that came from the 3D
     // globe must survive leaving the map — otherwise brushing the cursor

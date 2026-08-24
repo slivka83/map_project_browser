@@ -67,6 +67,7 @@ export default function ProjectionSummary({ params, onClose }: { params: Project
     >
       <div
         role="dialog"
+        aria-modal="true"
         aria-label="Точные параметры проекции"
         className={`${modalShell} w-[460px]`}
         onClick={(e) => e.stopPropagation()}

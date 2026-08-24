@@ -120,9 +120,12 @@ function cutRing(ring: Position[]): Position[][] {
   const wPrev = open[(startIdx + m - 1) % m];
   const wNext = open[startIdx];
   if (Math.abs(wNext[0] - wPrev[0]) > 180) {
+    // The one pair the scan never visits crosses anyway — a ring whose every
+    // vertex hugs the seam. Finish the tail chain at its rim (`splice` pushes
+    // it onto `chains` itself); the ring's own start already begins chains[0],
+    // so the 2-point entry stub `splice` leaves in `cur` carries nothing new
+    // and is dropped (it would be filtered out below regardless).
     splice(wPrev, wNext);
-    chains.push(cur);
-    chains.unshift([cur[0]]);
   } else if (chains.length === 0) {
     chains.push(cur);
   } else {

@@ -47,6 +47,9 @@ export default function GlobeScene() {
   // back through the roll before reading the geographic coordinates.
   const handleGlobeMove = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
+    // Track only while the feature is on — nothing renders the hover
+    // otherwise, and every write would re-render the map subscribers.
+    if (!showHoverRay) return;
     const inv = matVec(rollInv, [e.point.x, e.point.y, e.point.z]);
     const [lon, lat] = vec3ToLonLat(inv);
     setHoverLonLat([lon, lat], 'globe');
