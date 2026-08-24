@@ -4,6 +4,7 @@ import type { ThreeEvent } from '@react-three/fiber';
 import { GLOBE_COASTLINE, BG } from '../constants/designTokens';
 import { RADIUS, GLOBE_INFLATE } from '../constants/geometry';
 import { lonLatToVec3, matVec, type Mat3 } from '../utils/auxSurfaceGeometry';
+import { buildLandFillPositions } from '../utils/globeFillGeometry';
 import type { FeatureCollection, Geometry } from 'geojson';
 
 function GlobeShell({
@@ -69,6 +70,32 @@ function Coastlines({ geoJson, roll }: { geoJson: FeatureCollection; roll: Mat3 
   );
 }
 
+function LandFill({ geoJson, roll }: { geoJson: FeatureCollection; roll: Mat3 }) {
+  // The continent interiors, filled in the SAME darkened ink as the coastline
+  // outlines. The triangulation is expensive, so it is computed ONCE per
+  // geodata load — the Долгота/Параллель rotation is applied as an OBJECT
+  // quaternion instead (a pure rigid rotation of the finished geometry), which
+  // keeps every slider tick rebuild-free.
+  const positions = useMemo(() => buildLandFillPositions(geoJson, RADIUS), [geoJson]);
+  const quaternion = useMemo(() => {
+    const m3 = new THREE.Matrix3().set(roll[0], roll[1], roll[2], roll[3], roll[4], roll[5], roll[6], roll[7], roll[8]);
+    return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().setFromMatrix3(m3));
+  }, [roll]);
+
+  return (
+    <group quaternion={quaternion}>
+      {/* raycast disabled: the transparent shell below owns the hover events,
+          and an opaque fill closer to the camera would otherwise steal them. */}
+      <mesh raycast={() => null}>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        </bufferGeometry>
+        <meshBasicMaterial color={GLOBE_COASTLINE} side={THREE.DoubleSide} />
+      </mesh>
+    </group>
+  );
+}
+
 export default function Globe({
   geoJson,
   roll,
@@ -86,6 +113,7 @@ export default function Globe({
   return (
     <group>
       <GlobeShell onPointerMove={onPointerMove} onPointerOut={onPointerOut} />
+      {geoJson && <LandFill geoJson={geoJson} roll={roll} />}
       {geoJson && <Coastlines geoJson={geoJson} roll={roll} />}
     </group>
   );
