@@ -8,10 +8,15 @@ import { useAppStore } from '../store/useAppStore';
 
 const MARKER_R = 0.13;
 
-// The single projection visualization in the 3D scene: a yellow fan of rays
-// from the light source through the globe points onto the developable surface
-// (always shown — no toggle), plus the cursor hover ray while the 2D map is
-// hovered with the «Луч проекции» feature enabled.
+// Dashes are in world units (sphere radius = RADIUS); shared by every ray so
+// the whole apparatus reads as one dashed beam family.
+const DASH_SIZE = 0.6;
+const GAP_SIZE = 0.4;
+
+// The single projection visualization in the 3D scene: a dashed yellow fan of
+// rays from the light source through the globe points onto the developable
+// surface (always shown — no toggle), plus the cursor hover ray while the 2D
+// map is hovered with the «Луч проекции» feature enabled.
 export default function Rays({ params }: { params: ProjectionParams }) {
   const hoverLonLat = useAppStore((s) => s.hoverLonLat);
   const hoverSource = useAppStore((s) => s.hoverSource);
@@ -39,6 +44,9 @@ export default function Rays({ params }: { params: ProjectionParams }) {
             transparent
             opacity={0.85}
             depthTest={false}
+            dashed
+            dashSize={DASH_SIZE}
+            gapSize={GAP_SIZE}
           />
           <mesh position={seg.globe} renderOrder={11}>
             <sphereGeometry args={[MARKER_R, 12, 12]} />
@@ -58,6 +66,9 @@ export default function Rays({ params }: { params: ProjectionParams }) {
           transparent
           opacity={1}
           depthTest={false}
+          dashed
+          dashSize={DASH_SIZE * 1.25}
+          gapSize={GAP_SIZE}
         />
       )}
     </group>

@@ -61,7 +61,7 @@ npm run dev      # дев-сервер (http://localhost:5173)
 | `src/components/AuxSurface.tsx` | Вспомогательная поверхность — прозрачный неоновый каркас (цилиндр / конус / плоскость) |
 | `src/components/IntersectionDisks.tsx` | Полые белые неоновые кольца в местах реального пересечения поверхности с глобусом (0, 1 или 2 окружности) |
 | `src/components/LightSource.tsx` | Жёлтый светящийся «источник света» (точечная лампа для азимутальных, вершина конуса для конических; для цилиндрических не рисуется) |
-| `src/components/Rays.tsx`    | Жёлтый веер лучей проекции от источника к вспомогательной поверхности |
+| `src/components/Rays.tsx`    | Жёлтый веер пунктирных лучей проекции от источника к вспомогательной поверхности |
 | `src/constants/designTokens.ts` | Общая палитра `NEON_BLUE` / `NEON_ORANGE` / `BG` и производные  |
 | `src/constants/geometry.ts`  | Общие числовые константы (`MAP_SCALE`, `VIEW_CENTER_*`, `RADIUS`, `RAY_COUNT`, …) и `standardParallelDeg` |
 | `src/store/selectors.ts`     | `useProjectionParams()` — мемоизированный селектор стора |
