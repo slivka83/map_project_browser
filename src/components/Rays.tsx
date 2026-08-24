@@ -13,6 +13,28 @@ const MARKER_R = 0.13;
 const DASH_SIZE = 0.32;
 const GAP_SIZE = 0.22;
 
+// One ray = ONE depth-tested dashed line (light source → globe point → aux
+// surface). Depth testing matters: with it off (the old behaviour) the fan
+// drew over everything, and from camera positions near the fan's plane the
+// whole apparatus collapsed into a horizontal dashed streak laid across the
+// visible land face — read as a dark tear just south of the Caspian. Now the
+// beams hide behind the opaque land fill (and stay visible through the
+// transparent ocean, matching the see-through far-side coastlines).
+function RaySegments({ seg, lineWidth, opacity, dashScale = 1 }: { seg: RaySegment; lineWidth: number; opacity: number; dashScale?: number }) {
+  return (
+    <Line
+      points={[seg.start, seg.globe, seg.end]}
+      color={NEON_YELLOW}
+      lineWidth={lineWidth}
+      transparent
+      opacity={opacity}
+      dashed
+      dashSize={DASH_SIZE * dashScale}
+      gapSize={GAP_SIZE}
+    />
+  );
+}
+
 // The single projection visualization in the 3D scene: a dashed yellow fan of
 // rays from the light source through the globe points onto the developable
 // surface (always shown — no toggle), plus the cursor hover ray while the 2D
@@ -37,39 +59,19 @@ export default function Rays({ params }: { params: ProjectionParams }) {
     <group renderOrder={10}>
       {segments.map((seg, i) => (
         <group key={i}>
-          <Line
-            points={[seg.start, seg.globe, seg.end]}
-            color={NEON_YELLOW}
-            lineWidth={1.2}
-            transparent
-            opacity={0.85}
-            depthTest={false}
-            dashed
-            dashSize={DASH_SIZE}
-            gapSize={GAP_SIZE}
-          />
+          <RaySegments seg={seg} lineWidth={1.2} opacity={0.85} />
           <mesh position={seg.globe} renderOrder={11}>
             <sphereGeometry args={[MARKER_R, 12, 12]} />
-            <meshBasicMaterial color={NEON_YELLOW} toneMapped={false} depthTest={false} />
+            <meshBasicMaterial color={NEON_YELLOW} toneMapped={false} />
           </mesh>
           <mesh position={seg.end} renderOrder={11}>
             <sphereGeometry args={[MARKER_R, 12, 12]} />
-            <meshBasicMaterial color={NEON_YELLOW} toneMapped={false} depthTest={false} />
+            <meshBasicMaterial color={NEON_YELLOW} toneMapped={false} />
           </mesh>
         </group>
       ))}
       {hoverRay && (
-        <Line
-          points={[hoverRay.start, hoverRay.globe, hoverRay.end]}
-          color={NEON_YELLOW}
-          lineWidth={2.4}
-          transparent
-          opacity={1}
-          depthTest={false}
-          dashed
-          dashSize={DASH_SIZE * 1.25}
-          gapSize={GAP_SIZE}
-        />
+        <RaySegments seg={hoverRay} lineWidth={2.4} opacity={1} dashScale={1.25} />
       )}
     </group>
   );
