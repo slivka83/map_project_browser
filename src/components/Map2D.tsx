@@ -288,33 +288,42 @@ export default function Map2D() {
           )}
         </svg>
       )}
-      <div className="absolute right-3 top-3 z-10 flex gap-1 items-start">
-        <button type="button" title="Индикатрисы Тиссо" aria-label="Индикатрисы Тиссо" onClick={() => setShowTissot(!showTissot)} aria-pressed={showTissot} className={iconBtnPlain} style={{ color: showTissot ? NEON_BLUE : undefined, filter: iconGlow(showTissot) }}>
-          <TissotIcon />
-        </button>
-        <button type="button" title="Детализация карты" aria-label="Детализация карты" onClick={() => setDetailedMap(!detailedMap)} aria-pressed={detailedMap} className={iconBtnPlain} style={{ color: detailedMap ? NEON_BLUE : undefined, filter: iconGlow(detailedMap) }}>
-          <DetailIcon />
-        </button>
-        <button type="button" title="Границы стран" aria-label="Границы стран" onClick={() => setShowBorders(!showBorders)} aria-pressed={showBorders} className={iconBtnPlain} style={{ color: showBorders ? NEON_BLUE : undefined, filter: iconGlow(showBorders) }}>
-          <BorderIcon />
-        </button>
-        <button
-          type="button"
-          title="Линии пересечения и линия разреза"
-          aria-label="Линии пересечения и линия разреза"
-          onClick={() => setShowIntersection(!showIntersection)}
-          aria-pressed={showIntersection}
-          className={iconBtnPlain}
-          style={{ color: showIntersection ? NEON_BLUE : undefined, filter: iconGlow(showIntersection) }}
-        >
-          <IntersectionIcon />
-        </button>
-        <button type="button" title="Луч проекции по курсору (показывать при наведении на карту)" aria-label="Луч проекции по курсору (показывать при наведении на карту)" onClick={() => setShowHoverRay(!showHoverRay)} aria-pressed={showHoverRay} className={iconBtnPlain} style={{ color: showHoverRay ? NEON_BLUE : undefined, filter: iconGlow(showHoverRay) }}>
-          <HoverRayIcon />
-        </button>
-        <button type="button" title="Точные параметры проекции" aria-label="Точные параметры проекции" onClick={() => setShowSummary(true)} className={iconBtnPlain}>
-          <InfoIcon />
-        </button>
+      {/* Map toolbar: a horizontal row of the main toggles with the
+          exact-parameters button rightmost, and a vertical column hanging
+          UNDER it with the two demo toggles (hover ray, Tissot) — user
+          decision 2026-08. items-end pins the column to the right edge, i.e.
+          exactly under the info button. */}
+      <div className="absolute right-3 top-3 z-10 flex flex-col items-end gap-1">
+        <div className="flex gap-1 items-start">
+          <button type="button" title="Детализация карты" aria-label="Детализация карты" onClick={() => setDetailedMap(!detailedMap)} aria-pressed={detailedMap} className={iconBtnPlain} style={{ color: detailedMap ? NEON_BLUE : undefined, filter: iconGlow(detailedMap) }}>
+            <DetailIcon />
+          </button>
+          <button type="button" title="Границы стран" aria-label="Границы стран" onClick={() => setShowBorders(!showBorders)} aria-pressed={showBorders} className={iconBtnPlain} style={{ color: showBorders ? NEON_BLUE : undefined, filter: iconGlow(showBorders) }}>
+            <BorderIcon />
+          </button>
+          <button
+            type="button"
+            title="Линии пересечения и линия разреза"
+            aria-label="Линии пересечения и линия разреза"
+            onClick={() => setShowIntersection(!showIntersection)}
+            aria-pressed={showIntersection}
+            className={iconBtnPlain}
+            style={{ color: showIntersection ? NEON_BLUE : undefined, filter: iconGlow(showIntersection) }}
+          >
+            <IntersectionIcon />
+          </button>
+          <button type="button" title="Точные параметры проекции" aria-label="Точные параметры проекции" onClick={() => setShowSummary(true)} className={iconBtnPlain}>
+            <InfoIcon />
+          </button>
+        </div>
+        <div className="flex flex-col gap-1">
+          <button type="button" title="Луч проекции по курсору (показывать при наведении на карту)" aria-label="Луч проекции по курсору (показывать при наведении на карту)" onClick={() => setShowHoverRay(!showHoverRay)} aria-pressed={showHoverRay} className={iconBtnPlain} style={{ color: showHoverRay ? NEON_BLUE : undefined, filter: iconGlow(showHoverRay) }}>
+            <HoverRayIcon />
+          </button>
+          <button type="button" title="Индикатрисы Тиссо" aria-label="Индикатрисы Тиссо" onClick={() => setShowTissot(!showTissot)} aria-pressed={showTissot} className={iconBtnPlain} style={{ color: showTissot ? NEON_BLUE : undefined, filter: iconGlow(showTissot) }}>
+            <TissotIcon />
+          </button>
+        </div>
       </div>
       {showSummary && <ProjectionSummary params={params} onClose={() => setShowSummary(false)} />}
       <div

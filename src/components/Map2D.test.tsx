@@ -171,7 +171,10 @@ describe('Map2D', () => {
     expect(link.getAttribute('rel')).toContain('noopener');
   });
 
-  it('shows all six overlay buttons in a row, always visible', () => {
+  it('lays out the six overlay buttons as a main row plus a column under «Точные параметры»', () => {
+    // Layout (user decision 2026-08): Детализация / Границы / Линии
+    // пересечения / Точные параметры form the top row; the hover-ray and
+    // Tissot toggles hang BELOW the exact-parameters button in a column.
     const { getByRole, container } = render(<Map2D />);
     const tissot = getByRole('button', { name: 'Индикатрисы Тиссо' });
     const detail = getByRole('button', { name: 'Детализация карты' });
@@ -181,15 +184,26 @@ describe('Map2D', () => {
       name: 'Луч проекции по курсору (показывать при наведении на карту)',
     });
     const summary = getByRole('button', { name: 'Точные параметры проекции' });
-    expect(tissot).toBeTruthy();
-    expect(detail).toBeTruthy();
-    expect(borders).toBeTruthy();
-    expect(intersection).toBeTruthy();
-    expect(hoverRay).toBeTruthy();
-    expect(summary).toBeTruthy();
-    // Six buttons total, rendered as a single horizontal row. The graticule
-    // has NO button — it is always drawn.
+    for (const b of [tissot, detail, borders, intersection, hoverRay, summary]) {
+      expect(b).toBeTruthy();
+    }
     expect(container.querySelectorAll('button').length).toBe(6);
+
+    const toolbar = container.querySelector('div.absolute.right-3');
+    expect(toolbar).not.toBeNull();
+    const groups = toolbar!.querySelectorAll(':scope > div');
+    expect(groups.length).toBe(2);
+    expect(groups[0].querySelectorAll('button').length).toBe(4);
+    expect(groups[1].querySelectorAll('button').length).toBe(2);
+    // The column sits under the rightmost button of the row.
+    expect((groups[0].lastElementChild as HTMLElement).getAttribute('aria-label')).toBe(
+      'Точные параметры проекции',
+    );
+    expect(groups[1].children[0].getAttribute('aria-label')).toBe(
+      'Луч проекции по курсору (показывать при наведении на карту)',
+    );
+    expect(groups[1].children[1].getAttribute('aria-label')).toBe('Индикатрисы Тиссо');
+
     expect(useAppStore.getState().detailedMap).toBe(false);
     expect(useAppStore.getState().showBorders).toBe(false);
 
