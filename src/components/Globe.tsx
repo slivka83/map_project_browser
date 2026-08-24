@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
 import * as THREE from 'three';
 import type { ThreeEvent } from '@react-three/fiber';
-import { GLOBE_COASTLINE, BG } from '../constants/designTokens';
-import { RADIUS, GLOBE_INFLATE } from '../constants/geometry';
+import { GLOBE_COASTLINE, LAND_FILL, BG } from '../constants/designTokens';
+import { RADIUS, GLOBE_INFLATE, GLOBE_LAND_INFLATE } from '../constants/geometry';
 import { lonLatToVec3, matVec, type Mat3 } from '../utils/auxSurfaceGeometry';
-import { buildLandFillPositions } from '../utils/globeFillGeometry';
+import { triangulateLand, landPositions } from '../utils/globeLandGeometry';
 import type { FeatureCollection, Geometry } from 'geojson';
 
 function GlobeShell({
@@ -70,36 +70,6 @@ function Coastlines({ geoJson, roll }: { geoJson: FeatureCollection; roll: Mat3 
   );
 }
 
-function LandFill({ geoJson, roll }: { geoJson: FeatureCollection; roll: Mat3 }) {
-  // The continent interiors, filled in the SAME darkened ink as the coastline
-  // outlines. The triangulation is expensive, so it is computed ONCE per
-  // geodata load — the Долгота/Параллель rotation is applied as an OBJECT
-  // quaternion instead (a pure rigid rotation of the finished geometry), which
-  // keeps every slider tick rebuild-free.
-  const positions = useMemo(() => buildLandFillPositions(geoJson, RADIUS), [geoJson]);
-  const quaternion = useMemo(() => {
-    const m3 = new THREE.Matrix3().set(roll[0], roll[1], roll[2], roll[3], roll[4], roll[5], roll[6], roll[7], roll[8]);
-    return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().setFromMatrix3(m3));
-  }, [roll]);
-
-  return (
-    <group quaternion={quaternion}>
-      {/* raycast disabled: the transparent shell below owns the hover events,
-          and an opaque fill closer to the camera would otherwise steal them.
-          FrontSide only: a DoubleSide fill bleeds the FAR hemisphere's
-          continents through the oceans at full brightness (the shell does not
-          write depth), turning the globe into overlapping cyan silhouettes —
-          the far side keeps its old lines-only see-through look instead. */}
-      <mesh raycast={() => null}>
-        <bufferGeometry>
-          <bufferAttribute attach="attributes-position" args={[positions, 3]} />
-        </bufferGeometry>
-        <meshBasicMaterial color={GLOBE_COASTLINE} side={THREE.FrontSide} />
-      </mesh>
-    </group>
-  );
-}
-
 export default function Globe({
   geoJson,
   roll,
@@ -114,10 +84,29 @@ export default function Globe({
   // `roll` is the rigid Долгота/Параллель rotation of the geography layer,
   // computed once in GlobeScene and shared with the hover marker so every
   // consumer rides the same rolled Earth.
+  //
+  // Opaque continent fill (user decision 2026-08): triangulated ONCE per
+  // dataset, re-rolled per slider change — the patches sit a hair BELOW the
+  // coastline lines so the outlines never z-fight with the fill they trace.
+  // The fill is opaque and depth-written, so land occludes what is behind it.
+  const triangles = useMemo(() => (geoJson ? triangulateLand(geoJson) : null), [geoJson]);
+  const fillPositions = useMemo(
+    () => (triangles ? landPositions(triangles.coords, roll, RADIUS * GLOBE_LAND_INFLATE) : null),
+    [triangles, roll],
+  );
+
   return (
     <group>
       <GlobeShell onPointerMove={onPointerMove} onPointerOut={onPointerOut} />
-      {geoJson && <LandFill geoJson={geoJson} roll={roll} />}
+      {fillPositions && triangles && (
+        <mesh>
+          <bufferGeometry>
+            <bufferAttribute attach="attributes-position" args={[fillPositions, 3]} />
+            <bufferAttribute attach="index" args={[triangles.indices, 1]} />
+          </bufferGeometry>
+          <meshBasicMaterial color={LAND_FILL} side={THREE.DoubleSide} toneMapped={false} />
+        </mesh>
+      )}
       {geoJson && <Coastlines geoJson={geoJson} roll={roll} />}
     </group>
   );

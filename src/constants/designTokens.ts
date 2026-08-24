@@ -23,6 +23,11 @@ export const darkenHex = (hex: string, factor: number): string => {
 // The flat map keeps full-strength NEON_BLUE.
 export const GLOBE_COASTLINE = darkenHex(NEON_BLUE, 0.75);
 
+// Opaque fill of the continents on the 3D globe (user decision 2026-08):
+// a dark graphite-blue that reads against the near-black shell while staying
+// far below the coastline ink. The flat map does not use it.
+export const LAND_FILL = '#0f2027';
+
 // Alpha-tinted neon variants (derivatives of NEON_BLUE / NEON_ORANGE).
 export const NEON_BLUE_LINE = 'rgba(0, 229, 255, 0.55)';
 export const NEON_ORANGE_SOFT = 'rgba(255, 106, 0, 0.4)';

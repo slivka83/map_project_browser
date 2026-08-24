@@ -57,6 +57,11 @@ export const parallelBeamLength = (radius: number): number => AUX_LENGTH * radiu
 // Globe render inflation: coastlines drawn slightly above the sphere surface.
 export const GLOBE_INFLATE = 1.002;
 
+// Land-fill inflation: the opaque continent patches sit a hair BELOW the
+// coastline lines (but still above the shell) so the outlines never z-fight
+// with the fill they trace.
+export const GLOBE_LAND_INFLATE = 1.0008;
+
 // Segment counts for circular geometry.
 export const RING_SEGMENTS = 96;
 
