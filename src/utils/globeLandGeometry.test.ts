@@ -3,7 +3,7 @@ import { feature } from 'topojson-client';
 import type { Topology } from 'topojson-specification';
 import type { FeatureCollection, Position } from 'geojson';
 import { triangulateLand, landPositions } from './globeLandGeometry';
-import { RADIUS, GLOBE_LAND_INFLATE } from '../constants/geometry';
+import { RADIUS, GLOBE_INFLATE } from '../constants/geometry';
 import { projectionRotationMatrix } from './auxSurfaceGeometry';
 
 // The bundled 110m land dataset, loaded through Vite's ?raw import (no Node
@@ -119,8 +119,8 @@ describe('triangulateLand', () => {
 describe('landPositions', () => {
   it('places every vertex on the inflated sphere', () => {
     const t = triangulateLand(fcFromRings([squareRing(30)]));
-    const pos = landPositions(t.coords, identity, RADIUS * GLOBE_LAND_INFLATE);
-    const r = RADIUS * GLOBE_LAND_INFLATE;
+    const pos = landPositions(t.coords, identity, RADIUS * GLOBE_INFLATE);
+    const r = RADIUS * GLOBE_INFLATE;
     for (let i = 0; i < pos.length; i += 3) {
       closeTo(Math.hypot(pos[i], pos[i + 1], pos[i + 2]), r, 1e-3);
     }
@@ -129,8 +129,8 @@ describe('landPositions', () => {
   it('applies the roll matrix exactly like the coastline layer does', () => {
     const t = triangulateLand(fcFromRings([squareRing(30)]));
     const roll = projectionRotationMatrix(-37, -12, 0);
-    const rolled = landPositions(t.coords, roll, RADIUS * GLOBE_LAND_INFLATE);
-    const plain = landPositions(t.coords, identity, RADIUS * GLOBE_LAND_INFLATE);
+    const rolled = landPositions(t.coords, roll, RADIUS * GLOBE_INFLATE);
+    const plain = landPositions(t.coords, identity, RADIUS * GLOBE_INFLATE);
     // Rotation preserves lengths: every vertex keeps its distance from centre.
     for (let i = 0; i < rolled.length; i += 3) {
       closeTo(
@@ -151,7 +151,7 @@ describe('landPositions', () => {
 // triangle faces OUT of the sphere — locked here for synthetic fixtures
 // (including seam-split and hole cases) and for the real bundled dataset.
 function expectOutwardNormals(coords: Float64Array, indices: Uint32Array, roll: number[]): void {
-  const pos = landPositions(coords, roll, RADIUS * GLOBE_LAND_INFLATE);
+  const pos = landPositions(coords, roll, RADIUS * GLOBE_INFLATE);
   const at = (i: number): [number, number, number] => [pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]];
   const sub = (a: [number,number,number], b: [number,number,number]): [number,number,number] => [a[0]-b[0], a[1]-b[1], a[2]-b[2]];
   const cross = (a: [number,number,number], b: [number,number,number]): [number,number,number] => [

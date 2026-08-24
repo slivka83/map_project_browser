@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import * as THREE from 'three';
 import type { ThreeEvent } from '@react-three/fiber';
 import { GLOBE_COASTLINE, LAND_FILL, BG } from '../constants/designTokens';
-import { RADIUS, GLOBE_INFLATE, GLOBE_LAND_INFLATE } from '../constants/geometry';
+import { RADIUS, GLOBE_INFLATE } from '../constants/geometry';
 import { lonLatToVec3, matVec, type Mat3 } from '../utils/auxSurfaceGeometry';
 import { triangulateLand, landPositions } from '../utils/globeLandGeometry';
 import type { FeatureCollection, Geometry } from 'geojson';
@@ -86,12 +86,14 @@ export default function Globe({
   // consumer rides the same rolled Earth.
   //
   // Opaque continent fill (user decision 2026-08): triangulated ONCE per
-  // dataset, re-rolled per slider change — the patches sit a hair BELOW the
-  // coastline lines so the outlines never z-fight with the fill they trace.
-  // The fill is opaque and depth-written, so land occludes what is behind it.
+  // dataset, re-rolled per slider change. It rides at the SAME inflated
+  // radius as the coastline lines — any radial gap would open a dark slit
+  // along every shore at grazing (equator-level) camera angles — and yields
+  // depth order via polygonOffset instead. Opaque and depth-written, so land
+  // occludes what is behind it.
   const triangles = useMemo(() => (geoJson ? triangulateLand(geoJson) : null), [geoJson]);
   const fillPositions = useMemo(
-    () => (triangles ? landPositions(triangles.coords, roll, RADIUS * GLOBE_LAND_INFLATE) : null),
+    () => (triangles ? landPositions(triangles.coords, roll, RADIUS * GLOBE_INFLATE) : null),
     [triangles, roll],
   );
 
@@ -111,7 +113,14 @@ export default function Globe({
             <bufferAttribute attach="attributes-position" args={[fillPositions, 3]} />
             <bufferAttribute attach="index" args={[triangles.indices, 1]} />
           </bufferGeometry>
-          <meshBasicMaterial color={LAND_FILL} side={THREE.FrontSide} toneMapped={false} />
+          <meshBasicMaterial
+            color={LAND_FILL}
+            side={THREE.FrontSide}
+            toneMapped={false}
+            polygonOffset
+            polygonOffsetFactor={2}
+            polygonOffsetUnits={2}
+          />
         </mesh>
       )}
       {geoJson && <Coastlines geoJson={geoJson} roll={roll} />}
