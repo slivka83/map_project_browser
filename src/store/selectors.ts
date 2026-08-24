@@ -16,14 +16,3 @@ export const useProjectionParams = (): ProjectionParams =>
       azLight: s.azLight,
     })),
   );
-
-// Visualization / interaction params (separate from the projection math so a
-// viz-method change never re-runs the projection math).
-export function useVisualizationParams() {
-  return useAppStore(
-    useShallow((s) => ({
-      graticuleStep: s.graticuleStep,
-      showGraticule: s.showGraticule,
-    })),
-  );
-}

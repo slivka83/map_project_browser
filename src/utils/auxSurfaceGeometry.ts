@@ -3,7 +3,7 @@ import { normalizeLon } from './geoBandClip';
 import { geoRotation } from 'd3-geo';
 import type { GeoProjection } from 'd3-geo';
 import type { ProjectionParams } from '../store/useAppStore';
-import { defaultVariant } from './projectionVariants';
+import { defaultVariant, canonicalParams } from './projectionVariants';
 import {
   RADIUS,
   RAY_COUNT,
@@ -21,27 +21,19 @@ import {
 export type Vec3 = [number, number, number];
 
 // Build a complete ProjectionParams object from the family + distortion plus a
-// few overrides, filling the rest with the canonical defaults. Used by the
-// internal getD3Projection calls (which only need a handful of fields) so the
-// projection math always receives a fully-populated params object. An
-// explicitly-`undefined` override never shadows a canonical default (only real
-// values are applied), so optional inputs (e.g. RayFanOptions.variant) are safe.
+// few overrides, filling the rest with the canonical defaults (the SINGLE
+// source in projectionVariants.canonicalParams — the same defaults the store's
+// setVariant / setFamily / resetParams apply). Used by the internal
+// getD3Projection calls (which only need a handful of fields) so the projection
+// math always receives a fully-populated params object. An explicitly-
+// `undefined` override never shadows a canonical default (only real values are
+// applied), so optional inputs (e.g. RayFanOptions.variant) are safe.
 function projParams(
   family: ProjectionParams['family'],
   distortion: ProjectionParams['distortion'],
   over: Partial<ProjectionParams> = {},
 ): ProjectionParams {
-  const base: ProjectionParams = {
-    variant: defaultVariant(family),
-    family,
-    distortion,
-    lambda0: 0,
-    phiOrigin: 0,
-    scaleFactor: 1,
-    gamma: 0,
-    stdParallel2: null,
-    azLight: 'center',
-  };
+  const base: ProjectionParams = { ...canonicalParams(defaultVariant(family)), distortion };
   const applied = Object.fromEntries(
     Object.entries(over).filter(([, value]) => value !== undefined),
   ) as Partial<ProjectionParams>;

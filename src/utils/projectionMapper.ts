@@ -8,7 +8,6 @@ import {
   VIEW_CENTER_X,
   VIEW_CENTER_Y,
   CLIP_LAT,
-  CLAMP_LAT,
   FIT_MARGIN,
   signedStandardParallelDeg,
 } from '../constants/geometry';
@@ -56,13 +55,12 @@ export function makeGraticule(step: number, family: ProjectionParams['family']):
     const lines: [number, number][][] = [];
     // Parallels: multiples of `step` inside the band + the rim rows themselves.
     const lats = new Set<number>([-CLIP_LAT, CLIP_LAT]);
-    for (let lat = -180; lat <= 180; lat += step) {
+    for (let lat = -90; lat <= 90; lat += step) {
       if (lat >= -CLIP_LAT && lat <= CLIP_LAT) lats.add(lat);
     }
     for (const lat of [...lats].sort((a, b) => a - b)) {
       const line: [number, number][] = [];
       for (let lon = -180; lon <= 180; lon += 5) line.push([lon, lat]);
-      line.push([180, lat]);
       lines.push(line);
     }
     // Meridians: multiples of `step` including both seam edges ±180.
@@ -71,7 +69,6 @@ export function makeGraticule(step: number, family: ProjectionParams['family']):
     for (const lon of [...lons].sort((a, b) => a - b)) {
       const line: [number, number][] = [];
       for (let lat = -CLIP_LAT; lat <= CLIP_LAT; lat += 5) line.push([lon, lat]);
-      line.push([lon, CLIP_LAT]);
       lines.push(line);
     }
     return { type: 'MultiLineString', coordinates: lines };
@@ -89,7 +86,9 @@ function makeCylindricalProjection(
   // The VERTICAL coordinate is PERIODIC in the drum frame: frame latitude is
   // folded into the finite band ±CLIP_LAT with period 2·CLIP_LAT (exactly like
   // longitude's horizontal periodicity), so content past a drum rim wraps to
-  // the opposite one.
+  // the opposite one. The symmetric modulo below maps EVERY real latitude into
+  // [-CLIP_LAT, +CLIP_LAT] — which is also what keeps the Mercator height law
+  // finite: the folded argument never reaches the pole, where y → ∞.
   const periodRad = 2 * ((CLIP_LAT * Math.PI) / 180);
   const halfPeriodRad = (CLIP_LAT * Math.PI) / 180;
   // Symmetric modulo: folds into [-CLIP_LAT, +CLIP_LAT] and keeps the edges
@@ -100,12 +99,7 @@ function makeCylindricalProjection(
     else if (f < -halfPeriodRad) f += periodRad;
     return f;
   };
-  // The folded height law is additionally clamped to ±CLAMP_LAT (just beyond
-  // the visible window edge) purely to keep the Mercator law finite at the
-  // pole (y = ln(tan(π/4+φ/2)) → ∞ as φ approaches the fold edge ±90°).
-  const clampRad = (CLAMP_LAT * Math.PI) / 180;
-  const clampPhi = (φ: number): number => Math.max(-clampRad, Math.min(clampRad, φ));
-  const φf = (φ: number): number => clampPhi(foldPhi(φ));
+  const φf = foldPhi;
   type RawProjection = ((λ: number, φ: number) => [number, number]) & {
     invert?: (x: number, y: number) => [number, number];
   };
@@ -143,10 +137,8 @@ function makeCylindricalProjection(
 export const getD3Projection = (state: ProjectionParams): GeoProjection => {
   const { family, distortion, lambda0, phiOrigin, scaleFactor, gamma, azLight } = state;
 
-  let proj: GeoProjection;
-
   if (family === 'cylindrical') {
-    proj = makeCylindricalProjection(distortion, scaleFactor);
+    const proj = makeCylindricalProjection(distortion, scaleFactor);
     // The projection is the STATIC drum frame — no rotations at all. Долгота /
     // Параллель roll the geography via makeFrameRotation BEFORE coordinates
     // reach this projection (see Map2D / projectToAuxWorld), so the chosen
@@ -158,6 +150,9 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
     return proj;
   }
 
+  // Conic and azimuthal share the same rotation/scale/translate wiring; only
+  // the projection constructor differs.
+  let proj: GeoProjection;
   if (family === 'conic') {
     if (distortion === 'conformal') proj = d3Geo.geoConicConformal();
     else if (distortion === 'equalArea') proj = d3Geo.geoConicEqualArea();
@@ -170,23 +165,18 @@ export const getD3Projection = (state: ProjectionParams): GeoProjection => {
     // impossible cone spanning both hemispheres and degenerates the map. The
     // store already normalizes on write; this guards every other caller.
     const phi2 = state.stdParallel2 != null ? Math.sign(phi1) * Math.abs(state.stdParallel2) : phi1;
-    proj = (proj as GeoConicProjection).parallels([phi1, phi2]);
-    const rotZ = -gamma;
-    proj.rotate([-lambda0, -phiOrigin, rotZ]).scale(MAP_SCALE * scaleFactor).translate([VIEW_CENTER_X, VIEW_CENTER_Y]);
-    return proj;
+    (proj as GeoConicProjection).parallels([phi1, phi2]);
+  } else if (azLight === 'center') {
+    // azimuthalPerspective: the light-source position defines the projection
+    // (center → gnomonic, antipode → stereographic, infinity → orthographic).
+    proj = d3Geo.geoGnomonic();
+  } else if (azLight === 'antipode') {
+    proj = d3Geo.geoStereographic();
+  } else {
+    proj = d3Geo.geoOrthographic();
   }
-
-  // azimuthalPerspective: the light-source position defines the projection
-  // (center → gnomonic, antipode → stereographic, infinity → orthographic).
-  if (azLight === 'center') proj = d3Geo.geoGnomonic();
-  else if (azLight === 'antipode') proj = d3Geo.geoStereographic();
-  else proj = d3Geo.geoOrthographic();
-  const rotZ = -gamma;
-  proj.rotate([-lambda0, -phiOrigin, rotZ]).scale(MAP_SCALE * scaleFactor).translate([VIEW_CENTER_X, VIEW_CENTER_Y]);
-  return proj;
-};
-
-
+  return proj.rotate([-lambda0, -phiOrigin, -gamma]).scale(MAP_SCALE * scaleFactor).translate([VIEW_CENTER_X, VIEW_CENTER_Y]);
+}
 
 // Local area scale factor (projected px² per steradian) of `proj` at (lon,lat),
 // measured from a small quad of half-size `d` degrees. Returns null when any

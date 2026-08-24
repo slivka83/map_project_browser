@@ -1,4 +1,4 @@
-import type { ProjectionFamily, DistortionModel, AzimuthalLight } from '../store/useAppStore';
+import type { ProjectionFamily, DistortionModel, AzimuthalLight, ProjectionParams } from '../store/useAppStore';
 
 // Family-level variant unions exist only to key the records below; the public
 // surface is the merged `ProjectionVariant`.
@@ -119,6 +119,25 @@ const ALL_VARIANTS: Record<ProjectionVariant, VariantDef> = {
 
 export function variantDef(v: ProjectionVariant): VariantDef {
   return ALL_VARIANTS[v];
+}
+
+// The canonical parameter set of a variant: its own defaults, sliders zeroed.
+// SINGLE SOURCE for every consumer — the store's setVariant / setFamily /
+// resetParams and the aux-surface geometry's synthetic param objects all start
+// from here, so the "canonical defaults" can never drift apart between them.
+export function canonicalParams(variant: ProjectionVariant): ProjectionParams {
+  const def = variantDef(variant);
+  return {
+    variant,
+    family: def.family,
+    distortion: def.distortion,
+    lambda0: 0,
+    phiOrigin: 0,
+    scaleFactor: def.lockedScaleFactor ?? 1,
+    gamma: 0,
+    stdParallel2: null,
+    azLight: def.azLight,
+  };
 }
 
 export function defaultVariant(family: ProjectionFamily): ProjectionVariant {

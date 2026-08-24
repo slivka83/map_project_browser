@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { useAppStore, type ProjectionFamily, type DistortionModel } from './useAppStore';
+import { useAppStore, defaultParamsForFamily, type ProjectionFamily, type DistortionModel } from './useAppStore';
+import { canonicalParams, defaultVariant } from '../utils/projectionVariants';
 import type { Topology } from 'topojson-specification';
 
 describe('useAppStore', () => {
@@ -367,10 +368,13 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().showHoverRay).toBe(true);
   });
 
-  it('exposes graticule step controls', () => {
-    const store = useAppStore.getState();
-    store.setGraticuleStep(5);
-    expect(useAppStore.getState().graticuleStep).toBe(5);
+  it('canonical variant defaults agree with the family defaults (single source, no drift)', () => {
+    // The store's reset/setVariant path and the aux-surface geometry's
+    // synthetic param objects both derive from projectionVariants.canonicalParams.
+    // This guard fails if anyone re-splits the canonical defaults.
+    for (const family of ['cylindrical', 'conic', 'azimuthalPerspective'] as const) {
+      expect(canonicalParams(defaultVariant(family))).toEqual(defaultParamsForFamily(family));
+    }
   });
 
   it('setVariant resets the params to the variant defaults', () => {

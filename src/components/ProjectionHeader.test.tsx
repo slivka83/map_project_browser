@@ -49,6 +49,22 @@ describe('ProjectionHeader', () => {
     expect(s.variant).toBe('gnomonic');
   });
 
+  it('keyboard Enter selects the FOCUSED option, not a stale hover highlight', () => {
+    // Regression: Enter/Space pick ALL_OPTIONS[highlight]. The highlight used to
+    // follow only the mouse (mouseenter), so a keyboard user who Tab-focused one
+    // option while the highlight sat on another got the WRONG projection. Focus
+    // must move the highlight together with the hover.
+    render(<ProjectionHeader />);
+    fireEvent.click(screen.getByRole('button', { name: 'Выбрать проекцию' }));
+    // Hover one option (moves the highlight)…
+    fireEvent.mouseEnter(screen.getByRole('option', { name: 'Гномоническая' }));
+    // …then focus a DIFFERENT option and confirm Enter picks the focused one.
+    fireEvent.focus(screen.getByRole('option', { name: 'Стереографическая' }));
+    fireEvent.keyDown(window, { key: 'Enter' });
+    expect(useAppStore.getState().variant).toBe('stereographic');
+    expect(screen.queryByRole('listbox')).toBeNull();
+  });
+
   it('closes the dropdown on Escape', () => {
     render(<ProjectionHeader />);
     fireEvent.click(screen.getByRole('button', { name: 'Выбрать проекцию' }));

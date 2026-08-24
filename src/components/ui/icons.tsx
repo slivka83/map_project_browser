@@ -27,6 +27,7 @@ export function FamilyIcon({ family }: { family: ProjectionFamily }) {
       </svg>
     );
   }
+  // Exhaustive for the ProjectionFamily union — never reached.
   return (
     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
       <circle cx="12" cy="12" r="8" />

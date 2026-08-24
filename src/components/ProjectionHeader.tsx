@@ -54,7 +54,6 @@ export default function ProjectionHeader() {
 
   const current = variant;
   const def = variantDef(current);
-  const highlightedValue = ALL_OPTIONS[highlight]?.value;
 
   useEffect(() => {
     if (!open) return;
@@ -136,24 +135,32 @@ export default function ProjectionHeader() {
               <div className="px-3 pb-0.5 pt-2 text-[10px] font-medium uppercase tracking-wider text-neon-blue/50">
                 {FAMILY_LABEL[f]}
               </div>
-              {FAMILY_OPTIONS[f].map((o) => (
-                <button
-                  key={o.value}
-                  type="button"
-                  role="option"
-                  aria-selected={o.value === current}
-                  onMouseEnter={() => setHighlight(ALL_OPTIONS.findIndex((x) => x.value === o.value))}
-                  onClick={() => {
-                    setVariant(o.value);
-                    setOpen(false);
-                  }}
-                  className={`block w-full px-3 py-1.5 text-left text-[12px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70 ${
-                    o.value === highlightedValue ? 'bg-neon-blue/10 text-neon-blue' : 'text-gray-300'
-                  } ${o.value === current ? 'text-neon-blue' : ''}`}
-                >
-                  {o.label}
-                </button>
-              ))}
+              {FAMILY_OPTIONS[f].map((o) => {
+                const idx = ALL_OPTIONS.findIndex((x) => x.value === o.value);
+                return (
+                  <button
+                    key={o.value}
+                    type="button"
+                    role="option"
+                    aria-selected={o.value === current}
+                    // Keyboard focus must move the highlight together with the
+                    // hover: Enter/Space select ALL_OPTIONS[highlight], so a
+                    // stale highlight would pick a different option than the
+                    // focused one.
+                    onFocus={() => setHighlight(idx)}
+                    onMouseEnter={() => setHighlight(idx)}
+                    onClick={() => {
+                      setVariant(o.value);
+                      setOpen(false);
+                    }}
+                    className={`block w-full px-3 py-1.5 text-left text-[12px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-blue/70 ${
+                      idx === highlight ? 'bg-neon-blue/10 text-neon-blue' : 'text-gray-300'
+                    } ${o.value === current ? 'text-neon-blue' : ''}`}
+                  >
+                    {o.label}
+                  </button>
+                );
+              })}
             </div>
           ))}
         </div>

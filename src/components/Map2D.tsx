@@ -3,14 +3,14 @@ import type { CSSProperties } from 'react';
 import * as d3Geo from 'd3-geo';
 import type { FeatureCollection, Geometry } from 'geojson';
 import { useAppStore } from '../store/useAppStore';
-import { useProjectionParams, useVisualizationParams } from '../store/selectors';
+import { useProjectionParams } from '../store/selectors';
 import { getD3Projection, fitProjectionToView, computeAreaDistortion, isPointerOverGlobe, makeFrameRotation, makeGraticule } from '../utils/projectionMapper';
 import { cutFeatureCollectionToBand, normalizeLon, rotateFeatureCollection, rotatePolygon } from '../utils/geoBandClip';
 import { framePath } from '../utils/framePath';
 import { computeTissotCircles } from '../utils/tissot';
 import { computeAuxSphereIntersectionsLonLat, computeCutLineLonLat } from '../utils/auxSurfaceGeometry';
 import { variantDef } from '../utils/projectionVariants';
-import { FIT_MARGIN } from '../constants/geometry';
+import { FIT_MARGIN, GRATICULE_STEP } from '../constants/geometry';
 import { NEON_BLUE, NEON_ORANGE, BG, NEON_BLUE_LINE, NEON_ORANGE_SOFT, NEON_YELLOW, NEON_WHITE, GRATICULE_STROKE } from '../constants/designTokens';
 import { iconBtnPlain, iconGlow, glassPanel } from './ui/styles';
 import { TissotIcon, BorderIcon, DetailIcon, IntersectionIcon, HoverRayIcon, InfoIcon, GraticuleIcon } from './ui/icons';
@@ -28,16 +28,15 @@ const CONTAINER_STYLE: CSSProperties = {
 
 export default function Map2D() {
   const params = useProjectionParams();
-  const viz = useVisualizationParams();
   const { lambda0, phiOrigin } = params;
-  const { graticuleStep, showGraticule } = viz;
+  const showGraticule = useAppStore((s) => s.showGraticule);
+  const setShowGraticule = useAppStore((s) => s.setShowGraticule);
   const showTissot = useAppStore((s) => s.showTissot);
   const setShowTissot = useAppStore((s) => s.setShowTissot);
   const showBorders = useAppStore((s) => s.showBorders);
   const setShowBorders = useAppStore((s) => s.setShowBorders);
   const showIntersection = useAppStore((s) => s.showIntersection);
   const setShowIntersection = useAppStore((s) => s.setShowIntersection);
-  const setShowGraticule = useAppStore((s) => s.setShowGraticule);
   const showHoverRay = useAppStore((s) => s.showHoverRay);
   const setShowHoverRay = useAppStore((s) => s.setShowHoverRay);
   const detailedMap = useAppStore((s) => s.detailedMap);
@@ -75,24 +74,22 @@ export default function Map2D() {
   // everything through the same rotated projection, so the grid follows
   // Долгота/Параллель exactly like the coastlines. Only ONE copy of the map is
   // drawn; space above/below the finite band stays empty background.
-  const fittedProj = useMemo(
-    () => fitProjectionToView(getD3Projection(params), width, height, FIT_MARGIN),
-    [params, width, height],
-  );
-  const pathGen = useMemo(() => d3Geo.geoPath().projection(fittedProj), [fittedProj]);
-  const projRef = pathGen.projection() as d3Geo.GeoProjection | null;
-
-  // Point projector for the pre-cut drum layers: a clip-free clone of the
-  // fitted projection, so rim vertices (exactly ON the clipExtent bounds)
-  // still project instead of being dropped as null by the clip rectangle.
-  const pointProjector = useMemo<(p: [number, number]) => [number, number] | null>(() => {
-    // A second identical fitting WITHOUT the clip rectangle: rim vertices sit
-    // exactly ON the clip bounds and must still project instead of being
-    // dropped as null by the rectangle clip.
+  //
+  // Built together with its clip-free clone in a single memo so the two can
+  // never desync (they must always share identical fitting): the clone serves
+  // the pre-cut drum layers via `framePath` — their rim vertices sit exactly ON
+  // the clipExtent bounds and would be dropped as null by the rectangle clip.
+  const { fittedProj, pointProjector } = useMemo(() => {
+    const fitted = fitProjectionToView(getD3Projection(params), width, height, FIT_MARGIN);
     const unclipped = fitProjectionToView(getD3Projection(params), width, height, FIT_MARGIN);
     unclipped.clipExtent(null);
-    return (p) => unclipped(p) as [number, number] | null;
+    return {
+      fittedProj: fitted,
+      pointProjector: (p: [number, number]) => unclipped(p) as [number, number] | null,
+    };
   }, [params, width, height]);
+  const pathGen = useMemo(() => d3Geo.geoPath().projection(fittedProj), [fittedProj]);
+  const projRef = pathGen.projection() as d3Geo.GeoProjection | null;
 
   const isCylindrical = params.family === 'cylindrical';
 
@@ -115,15 +112,15 @@ export default function Map2D() {
   }, [isCylindrical, frameRotation, borders]);
 
   const graticuleObj = useMemo(
-    () => (showGraticule ? makeGraticule(graticuleStep, params.family) : null),
-    [showGraticule, graticuleStep, params.family],
+    () => (showGraticule ? makeGraticule(GRATICULE_STEP, params.family) : null),
+    [showGraticule, params.family],
   );
 
   const areaDistortion = useMemo(() => computeAreaDistortion(params), [params]);
 
   const tissotCircles = useMemo(
-    () => (showTissot ? computeTissotCircles(graticuleStep) : []),
-    [showTissot, graticuleStep],
+    () => (showTissot ? computeTissotCircles(GRATICULE_STEP) : []),
+    [showTissot],
   );
   // Tissot indicatrices are inked onto the Earth's surface, so they ride with
   // the rolled geography layer: rotated into the drum frame they show exactly
@@ -301,19 +298,20 @@ export default function Map2D() {
         </svg>
       )}
       <div className="absolute right-3 top-3 z-10 flex gap-1 items-start">
-        <button title="Индикатрисы Тиссо" aria-label="Индикатрисы Тиссо" onClick={() => setShowTissot(!showTissot)} aria-pressed={showTissot} className={iconBtnPlain} style={{ color: showTissot ? NEON_BLUE : undefined, filter: iconGlow(showTissot) }}>
+        <button type="button" title="Индикатрисы Тиссо" aria-label="Индикатрисы Тиссо" onClick={() => setShowTissot(!showTissot)} aria-pressed={showTissot} className={iconBtnPlain} style={{ color: showTissot ? NEON_BLUE : undefined, filter: iconGlow(showTissot) }}>
           <TissotIcon />
         </button>
-        <button title="Сетка" aria-label="Сетка" onClick={() => setShowGraticule(!showGraticule)} aria-pressed={showGraticule} className={iconBtnPlain} style={{ color: showGraticule ? NEON_BLUE : undefined, filter: iconGlow(showGraticule) }}>
+        <button type="button" title="Сетка" aria-label="Сетка" onClick={() => setShowGraticule(!showGraticule)} aria-pressed={showGraticule} className={iconBtnPlain} style={{ color: showGraticule ? NEON_BLUE : undefined, filter: iconGlow(showGraticule) }}>
           <GraticuleIcon />
         </button>
-        <button title="Детализация карты" aria-label="Детализация карты" onClick={() => setDetailedMap(!detailedMap)} aria-pressed={detailedMap} className={iconBtnPlain} style={{ color: detailedMap ? NEON_BLUE : undefined, filter: iconGlow(detailedMap) }}>
+        <button type="button" title="Детализация карты" aria-label="Детализация карты" onClick={() => setDetailedMap(!detailedMap)} aria-pressed={detailedMap} className={iconBtnPlain} style={{ color: detailedMap ? NEON_BLUE : undefined, filter: iconGlow(detailedMap) }}>
           <DetailIcon />
         </button>
-        <button title="Границы стран" aria-label="Границы стран" onClick={() => setShowBorders(!showBorders)} aria-pressed={showBorders} className={iconBtnPlain} style={{ color: showBorders ? NEON_BLUE : undefined, filter: iconGlow(showBorders) }}>
+        <button type="button" title="Границы стран" aria-label="Границы стран" onClick={() => setShowBorders(!showBorders)} aria-pressed={showBorders} className={iconBtnPlain} style={{ color: showBorders ? NEON_BLUE : undefined, filter: iconGlow(showBorders) }}>
           <BorderIcon />
         </button>
         <button
+          type="button"
           title="Линии пересечения и линия разреза"
           aria-label="Линии пересечения и линия разреза"
           onClick={() => setShowIntersection(!showIntersection)}
@@ -323,10 +321,10 @@ export default function Map2D() {
         >
           <IntersectionIcon />
         </button>
-        <button title="Луч проекции по курсору (показывать при наведении на карту)" aria-label="Луч проекции по курсору (показывать при наведении на карту)" onClick={() => setShowHoverRay(!showHoverRay)} aria-pressed={showHoverRay} className={iconBtnPlain} style={{ color: showHoverRay ? NEON_BLUE : undefined, filter: iconGlow(showHoverRay) }}>
+        <button type="button" title="Луч проекции по курсору (показывать при наведении на карту)" aria-label="Луч проекции по курсору (показывать при наведении на карту)" onClick={() => setShowHoverRay(!showHoverRay)} aria-pressed={showHoverRay} className={iconBtnPlain} style={{ color: showHoverRay ? NEON_BLUE : undefined, filter: iconGlow(showHoverRay) }}>
           <HoverRayIcon />
         </button>
-        <button title="Точные параметры проекции" aria-label="Точные параметры проекции" onClick={() => setShowSummary(true)} className={iconBtnPlain}>
+        <button type="button" title="Точные параметры проекции" aria-label="Точные параметры проекции" onClick={() => setShowSummary(true)} className={iconBtnPlain}>
           <InfoIcon />
         </button>
       </div>

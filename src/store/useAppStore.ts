@@ -3,7 +3,7 @@ import type { FeatureCollection } from 'geojson';
 import { feature } from 'topojson-client';
 import type { Topology, GeometryCollection } from 'topojson-specification';
 import type { ProjectionVariant } from '../utils/projectionVariants';
-import { variantDef, defaultVariant } from '../utils/projectionVariants';
+import { canonicalParams, defaultVariant } from '../utils/projectionVariants';
 
 export type ProjectionFamily = 'cylindrical' | 'conic' | 'azimuthalPerspective';
 export type DistortionModel = 'conformal' | 'equalArea' | 'equidistant';
@@ -12,9 +12,6 @@ export type DistortionModel = 'conformal' | 'equalArea' | 'equidistant';
 // point light whose position defines it: `center` → gnomonic, `antipode` →
 // stereographic, `infinity` → orthographic (parallel beams).
 export type AzimuthalLight = 'center' | 'antipode' | 'infinity';
-
-// Graticule step in degrees.
-export type GraticuleStep = 1 | 5 | 10 | 15 | 30;
 
 export interface ProjectionParams {
   variant: ProjectionVariant;
@@ -28,26 +25,8 @@ export interface ProjectionParams {
   azLight: AzimuthalLight; // light-source mode for the azimuthal family
 }
 
-// The canonical parameter set of a variant: its own defaults, sliders zeroed.
-// Single source for setVariant / setFamily / resetParams — the three actions
-// differ only in WHICH variant they target and whether λ₀ survives.
-function paramsForVariant(variant: ProjectionVariant): ProjectionParams {
-  const def = variantDef(variant);
-  return {
-    variant,
-    family: def.family,
-    distortion: def.distortion,
-    lambda0: 0,
-    phiOrigin: 0,
-    scaleFactor: def.lockedScaleFactor ?? 1,
-    gamma: 0,
-    stdParallel2: null,
-    azLight: def.azLight,
-  };
-}
-
 export function defaultParamsForFamily(family: ProjectionFamily): ProjectionParams {
-  return paramsForVariant(defaultVariant(family));
+  return canonicalParams(defaultVariant(family));
 }
 
 interface AppState extends ProjectionParams {
@@ -90,7 +69,6 @@ interface AppState extends ProjectionParams {
   setShowHoverRay: (value: boolean) => void;
 
   // --- Non-parametric visualization / interaction state ---
-  graticuleStep: GraticuleStep;
   showGraticule: boolean;
 
   setParam: <K extends keyof ProjectionParams>(key: K, value: ProjectionParams[K]) => void;
@@ -103,7 +81,6 @@ interface AppState extends ProjectionParams {
   resetParams: () => void;
   loadGeoData: () => Promise<void>;
 
-  setGraticuleStep: (value: GraticuleStep) => void;
   setShowGraticule: (value: boolean) => void;
 }
 
@@ -132,7 +109,6 @@ export const useAppStore = create<AppState>((set) => ({
   hoverLonLat: null,
   hoverSource: null,
   showHoverRay: false,
-  graticuleStep: 15,
   showGraticule: true,
   setHoverLonLat: (v, source) => set({ hoverLonLat: v, hoverSource: source ?? null }),
   setShowHoverRay: (value) => set({ showHoverRay: value }),
@@ -161,7 +137,7 @@ export const useAppStore = create<AppState>((set) => ({
     }
     set({ [key]: value } as Pick<AppState, typeof key>);
   },
-  setVariant: (v) => set(paramsForVariant(v)),
+  setVariant: (v) => set(canonicalParams(v)),
   setShowTissot: (value) => set({ showTissot: value }),
   setShowBorders: (value) => set({ showBorders: value }),
   setShowIntersection: (value) => set({ showIntersection: value }),
@@ -172,7 +148,7 @@ export const useAppStore = create<AppState>((set) => ({
       // meridian survives a family switch, everything else takes the new
       // family's defaults so a switch always starts from a sane, upright
       // configuration.
-      ...paramsForVariant(defaultVariant(family)),
+      ...canonicalParams(defaultVariant(family)),
       lambda0: s.lambda0,
     })),
   resetParams: () =>
@@ -180,7 +156,7 @@ export const useAppStore = create<AppState>((set) => ({
       // Reset the params of the CURRENTLY selected projection: keep the
       // variant (the projection itself) and restore its default parameter
       // values — which is exactly the variant's canonical param set.
-      paramsForVariant(s.variant),
+      canonicalParams(s.variant),
     ),
   loadGeoData: async () => {
     // Skip while a fetch is already running (React StrictMode mounts effects
@@ -232,6 +208,5 @@ export const useAppStore = create<AppState>((set) => ({
     });
   },
 
-  setGraticuleStep: (value) => set({ graticuleStep: value }),
   setShowGraticule: (value) => set({ showGraticule: value }),
 }));

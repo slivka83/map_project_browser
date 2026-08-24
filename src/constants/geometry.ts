@@ -15,11 +15,6 @@ export const MAP_SCALE = 100;
 // helper (rays, aux surface) agrees on the pixel/world scale factor.
 export const worldPerPixel = (radius: number): number => radius / MAP_SCALE;
 
-// Length of a "parallel" light beam (azimuthal light from infinity / orthographic),
-// expressed relative to the sphere radius. Single source so the beam length is
-// identical across the ray builders.
-export const parallelBeamLength = (radius: number): number => AUX_LENGTH * radius;
-
 // View-centre translate applied by getD3Projection (spec §4). The 3D ray math
 // reuses VIEW_CENTER_Y to stay aligned with the 2D pixel space.
 export const VIEW_CENTER_X = 400;
@@ -31,14 +26,9 @@ export const VIEW_CENTER_Y = 300;
 // in the local frame) is off the tube and clipped out.
 export const CLIP_LAT = 85;
 
-// Safety clamp for the cylindrical raw projection: held just beyond the visible
-// tube rim (CLIP_LAT). It exists only to keep the Mercator height law finite at
-// the pole (y = ln(tan(π/4+φ/2)) → ∞ at φ = 90°) and to keep d3 robust against
-// non-finite coordinates. The off-tube cap content itself is removed by the rim
-// clip in fitProjectionToView — so cap geometry is never smeared onto the map
-// rows (the old "ram's horn" artefact). Nothing between CLIP_LAT and CLAMP_LAT
-// is ever drawn.
-export const CLAMP_LAT = 89.5;
+// Degree step of the 2D map's graticule (and of the Tissot indicatrix grid that
+// aligns with it). Fixed by design — there is deliberately no UI control for it.
+export const GRATICULE_STEP = 15;
 
 // Uniform margin (px) used when fitting the 2D map to its viewport.
 export const FIT_MARGIN = 16;
@@ -53,6 +43,11 @@ export const RAY_COUNT = 10;
 export const AUX_LENGTH = 2.6; // cylinder height / plane size factor
 export const CONE_Y_BASE = 0.35; // cone base offset from sphere centre
 export const AZIMUTHAL_POINT_DEG = 4; // angular radius (deg) of the point marker at the azimuthal tangency
+
+// Length of a "parallel" light beam (azimuthal light from infinity / orthographic),
+// expressed relative to the sphere radius. Single source so the beam length is
+// identical across the ray builders.
+export const parallelBeamLength = (radius: number): number => AUX_LENGTH * radius;
 
 // Globe render inflation: coastlines drawn slightly above the sphere surface.
 export const GLOBE_INFLATE = 1.002;

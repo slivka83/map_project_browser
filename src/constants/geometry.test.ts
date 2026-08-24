@@ -10,6 +10,7 @@ import {
   VIEW_CENTER_X,
   VIEW_CENTER_Y,
   CLIP_LAT,
+  GRATICULE_STEP,
 } from './geometry';
 
 describe('standardParallelDeg', () => {
@@ -74,6 +75,11 @@ describe('geometry constants are self-consistent', () => {
 
   it('keeps the fallback parallel above the fallback threshold', () => {
     expect(STD_PARALLEL_FALLBACK).toBeGreaterThan(STD_PARALLEL_MIN_ABS);
+  });
+
+  it('uses a sane fixed graticule step', () => {
+    expect(GRATICULE_STEP).toBeGreaterThan(0);
+    expect(GRATICULE_STEP).toBeLessThanOrEqual(30);
   });
 });
 

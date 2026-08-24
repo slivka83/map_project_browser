@@ -302,18 +302,21 @@ describe('Map2D', () => {
     expect(useAppStore.getState().hoverSource).toBe('globe');
   });
 
-  it('draws the graticule when graticuleStep is set', async () => {
+  it('draws the graticule when the toggle is on and drops it when off', async () => {
     act(() => {
-      useAppStore.getState().setGraticuleStep(5);
       useAppStore.getState().setShowGraticule(true);
     });
-    const { container } = render(<Map2D />);
+    const { container, unmount } = render(<Map2D />);
     await waitFor(() => {
       // GRATICULE_STROKE (#334155) identifies the graticule path.
       const grat = container.querySelector('path[stroke="#334155"]');
       expect(grat).not.toBeNull();
       expect((grat as SVGPathElement).getAttribute('d')?.length ?? 0).toBeGreaterThan(10);
     });
+    unmount();
+    useAppStore.getState().setShowGraticule(false);
+    const { container: c2 } = render(<Map2D />);
+    expect(c2.querySelector('path[stroke="#334155"]')).toBeNull();
   });
 
   // Regression: the graticule used to be drawn through a SECOND path generator
